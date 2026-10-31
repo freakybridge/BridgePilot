@@ -139,5 +139,5 @@ pub struct AssetContract {
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_lib.rs"]
+#[path = "../../../../scripts/tests/unit/core_lib.rs"]
 mod tests;

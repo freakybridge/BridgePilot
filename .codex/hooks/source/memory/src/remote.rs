@@ -394,7 +394,7 @@ fn restore_snapshot(
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_memory_remote.rs"]
+#[path = "../../../../scripts/tests/unit/core_memory_remote.rs"]
 mod tests;
 
 fn baseline_path(state_dir: &Path) -> PathBuf {

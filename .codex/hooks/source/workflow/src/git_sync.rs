@@ -1106,5 +1106,5 @@ fn sync_impl(
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_git_sync.rs"]
+#[path = "../../../../scripts/tests/unit/core_git_sync.rs"]
 mod tests;

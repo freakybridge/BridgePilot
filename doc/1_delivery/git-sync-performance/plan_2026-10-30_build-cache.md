@@ -32,9 +32,9 @@ validation_status: verified
 
 已核实的实现：
 
-- [git_sync_plan.rs](../../../source/factory/src/git_sync_plan.rs) 按公共、工厂两种源码投影建立临时构建上下文，最终清理。缓存未命中后，跨次构建无法保留这些上下文中的 Cargo 中间结果。
-- [generated_assets.rs](../../../source/core/src/generated_assets.rs) 中 Hook 与 CLI 共用一套 workspace/target，factory 使用另一套，产物按顺序构建；并非三个产物分别完整构建全部依赖。
-- 上述两种投影分别调用 [Cache::open](../../../source/core/src/artifact_cache.rs)，但使用同一个项目缓存目录及排他锁。公共缓存成功打开且对象仍存活时，factory 再次申请同一把锁会失败；错误被转为缓存不可用，相关 factory 缓存对象也不能保存构建结果。
+- [git_sync_plan.rs](../../../source/forge/factory/src/git_sync_plan.rs) 按公共、工厂两种源码投影建立临时构建上下文，最终清理。缓存未命中后，跨次构建无法保留这些上下文中的 Cargo 中间结果。
+- [generated_assets.rs](../../../source/forge/core/src/generated_assets.rs) 中 Hook 与 CLI 共用一套 workspace/target，factory 使用另一套，产物按顺序构建；并非三个产物分别完整构建全部依赖。
+- 上述两种投影分别调用 [Cache::open](../../../source/forge/core/src/artifact_cache.rs)，但使用同一个项目缓存目录及排他锁。公共缓存成功打开且对象仍存活时，factory 再次申请同一把锁会失败；错误被转为缓存不可用，相关 factory 缓存对象也不能保存构建结果。
 - 同进程第二次取锁失败符合现有 [file_lock 测试合同](../../../scripts/tests/unit/core_file_lock.rs)。当前最终产物缓存仅发现 CLI/Hook 条目，与源码判断相符，但本轮未运行复现测试，未测得该问题单独造成的历史耗时。
 
 ## 最短执行路径
@@ -89,14 +89,14 @@ factory：取得锁 → 查缓存 → 必要编译 → 保存缓存 → 释放�
 
 | 文件 | 必要改动 |
 |---|---|
-| [source/factory/src/git_sync_plan.rs](../../../source/factory/src/git_sync_plan.rs) | 按组查询、构建、保存并释放缓存，保留最终统一安装及输入核验 |
-| [source/core/src/build_inputs.rs](../../../source/core/src/build_inputs.rs) | 固定源码副本，差量写入、删除源码处理、归属及内容核验 |
-| [source/core/src/generated_assets.rs](../../../source/core/src/generated_assets.rs) | 接入可复用构建目录，保留中间产物及现有二进制校验 |
-| [source/core/src/artifact_cache.rs](../../../source/core/src/artifact_cache.rs) | 明确区分取锁失败与条目未命中，配合组内生命周期 |
+| [source/factory/src/git_sync_plan.rs](../../../source/forge/factory/src/git_sync_plan.rs) | 按组查询、构建、保存并释放缓存，保留最终统一安装及输入核验 |
+| [source/core/src/build_inputs.rs](../../../source/forge/core/src/build_inputs.rs) | 固定源码副本，差量写入、删除源码处理、归属及内容核验 |
+| [source/core/src/generated_assets.rs](../../../source/forge/core/src/generated_assets.rs) | 接入可复用构建目录，保留中间产物及现有二进制校验 |
+| [source/core/src/artifact_cache.rs](../../../source/forge/core/src/artifact_cache.rs) | 明确区分取锁失败与条目未命中，配合组内生命周期 |
 | [.gitignore](../../../.gitignore) | 忽略新增 `.build/` 产物，与三目录任务协调 |
 | [scripts/tests/unit/factory/git_sync.rs](../../../scripts/tests/unit/factory/git_sync.rs) 及既有构建、缓存测试 | 定向覆盖复用、失效、源码删除、并发及失败保护，不创建平行测试框架 |
 
-最小计时扩展复用 [git_sync_timing.rs](../../../source/workflow/src/git_sync_timing.rs) / [build_metrics.rs](../../../source/core/src/build_metrics.rs) 的现有能力，确有字段缺口时才修改相应消费者。公共函数还被安装与同步入口使用，实施时核对调用方；不因共用底层接口自动扩大为用户级安装或真实下游迁移。
+最小计时扩展复用 [git_sync_timing.rs](../../../source/forge/workflow/src/git_sync_timing.rs) / [build_metrics.rs](../../../source/forge/core/src/build_metrics.rs) 的现有能力，确有字段缺口时才修改相应消费者。公共函数还被安装与同步入口使用，实施时核对调用方；不因共用底层接口自动扩大为用户级安装或真实下游迁移。
 
 传播四问：本轮落盘属于元文档；后续实现属于产品层。通用构建能力进入 `source/core` 并同步公共投影与 dogfood，工厂编排只留 `source/factory`。实施验证通过后由受管流程收口实际受影响子包，根 VERSION 与正式 CHANGELOG 留给另行授权的 release；不手工预写版本。
 

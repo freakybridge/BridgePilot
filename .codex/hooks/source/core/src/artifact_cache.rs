@@ -1278,5 +1278,5 @@ impl Cache {
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_artifact_cache.rs"]
+#[path = "../../../../scripts/tests/unit/core_artifact_cache.rs"]
 mod tests;

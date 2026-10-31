@@ -6,7 +6,7 @@ use super::*;
 
 #[test]
 fn unified_manifest_emits_one_source_and_project_only_projection() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().nth(2).unwrap();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("bridgeforge-manifest.json").is_file()).expect("factory repository");
     let before = fs::read(root.join(bridgeforge_core::product_manifest::FILE)).unwrap();
     let writes = render_targets(root).unwrap();
     assert_eq!(writes.iter().filter(|(p, _)| p == &root.join(bridgeforge_core::product_manifest::FILE)).count(), 1);
@@ -27,18 +27,14 @@ fn unified_manifest_emits_one_source_and_project_only_projection() {
 
 #[test]
 fn manifest_projection_rejects_out_of_scope_retirement_before_io() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("bridgeforge-manifest.json").is_file()).expect("factory repository");
     let writes = render_targets(root).unwrap();
     let contract_path = root.join("bridgeforge-manifest.json");
     let bytes = &writes.iter().find(|(p, _)| p == &contract_path).unwrap().1;
-    let original = fs::read(root.join("source/memory/src/lib.rs")).unwrap();
+    let original = fs::read(root.join(crate::source_projection::physical_path(root, "source/memory/src/lib.rs"))).unwrap();
     for target in [
-        "source/memory/src/lib.rs",
-        ".codex/hooks/project_custom/lib.rs",
+        crate::source_projection::physical_path(root, "source/memory/src/lib.rs"),
+        ".codex/hooks/project_custom/lib.rs".to_owned(),
     ] {
         let mut contract: Value = serde_json::from_slice(bytes).unwrap();
         contract["project_skeleton"]["retired_assets"] =
@@ -50,7 +46,7 @@ fn manifest_projection_rejects_out_of_scope_retirement_before_io() {
         let error = projection_targets_from_writes(root, invalid).unwrap_err();
         assert!(error.contains("invalid retired source asset"), "{error}");
         assert_eq!(
-            fs::read(root.join("source/memory/src/lib.rs")).unwrap(),
+            fs::read(root.join(crate::source_projection::physical_path(root, "source/memory/src/lib.rs"))).unwrap(),
             original
         );
     }
@@ -120,13 +116,9 @@ fn canonical_hash_ignores_object_insertion_order() {
 
 #[test]
 fn factory_skill_mirrors_are_explicit_private_and_readonly() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("bridgeforge-manifest.json").is_file()).expect("factory repository");
     let contract: Value =
-        serde_json::from_slice(include_bytes!("../../../source/factory/src/dogfood.json")).unwrap();
+        serde_json::from_slice(include_bytes!("../../../source/forge/factory/src/dogfood.json")).unwrap();
     let before = contract["assets"]
         .as_array()
         .unwrap()
@@ -157,11 +149,7 @@ fn factory_skill_mirrors_are_explicit_private_and_readonly() {
 
 #[test]
 fn asset_history_preserves_asset_ids_and_public_boundary_without_writes() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("bridgeforge-manifest.json").is_file()).expect("factory repository");
     let before = fixture_product::read(root.join("bridgeforge-manifest.json")).unwrap();
     let rendered = render_managed_contract(root).unwrap();
     let contract: Value = serde_json::from_slice(&rendered).unwrap();
@@ -196,7 +184,7 @@ fn asset_history_preserves_asset_ids_and_public_boundary_without_writes() {
     {
         let item = assets
             .iter()
-            .find(|a| a["source"] == row["source"])
+            .find(|a| a["id"] == row["id"] && a["target"] == row["target"])
             .unwrap();
         assert_eq!(item["id"], row["id"]);
         assert_eq!(item["target"], row["target"]);
@@ -216,11 +204,7 @@ fn asset_history_preserves_asset_ids_and_public_boundary_without_writes() {
 
 #[test]
 fn consumer_lock_follows_candidate_native_versions_and_dependency_closure() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("bridgeforge-manifest.json").is_file()).expect("factory repository");
     let original = fs::read(root.join("Cargo.lock")).unwrap();
     let mut lock = String::from_utf8(original)
         .unwrap()

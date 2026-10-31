@@ -95,9 +95,9 @@
 
 ### 项目架构红线
 
-- bridgeforge-codex 同时是 Codex 协作骨架工厂与 dogfood 样板；公共 AGENTS 以 `templates/AGENTS.md` 为单一事实源，工厂专属约束只留在本节。
+- BridgePilot 同时包含跨项目总管、Forge 协作骨架工厂与 dogfood 样板；公共 AGENTS 以 `source/forge/templates/AGENTS.md` 为单一事实源，工厂专属约束只留在本节。
 - 任何改动落地前必须明确回答传播四问：属于产品层、自身配置层还是元文档；是通用能力还是工厂专属；是否需要版本与 CHANGELOG；是否需要同步自身 dogfood。
-- 通用 Rust 实现进入 `source/`，公共配置与内容进入 `templates/`，共享 Skill 进入 `templates/skills/`，并同步对应自身镜像；工厂专属事实禁止下沉污染 Template。
+- 通用 Rust 实现进入 `source/`，公共配置与内容进入 `source/forge/templates/`，共享 Skill 进入 `source/forge/templates/skills/`，并同步对应自身镜像；工厂专属事实禁止下沉污染 Template。
 - 上游到下游与下游反哺上游的边界分别以 `doc/0_architecture/design/sync-from-upstream-playbook.md` 和 `doc/0_architecture/design/reverse-sync-playbook.md` 为准。
 - 禁止对本仓库执行下游 `project_sync adopt/apply`，禁止写入 `.bridgeforge_codex_version`；工厂合规只能由 dogfood 一致性硬闸证明。
 - 本项目的模块职责、依赖方向、数据流和外部副作用边界必须与本文件“项目目录地图”一致。
@@ -112,14 +112,15 @@
 
 ### 项目业务与安全红线
 
-- 工厂不得把下游业务约束吸收到公共 Template；真实下游写入只允许发生在用户明确授权的测试 worktree。
+- 工厂不得把下游业务约束吸收到公共 Template；工厂同步与验证的真实下游写入只允许发生在用户明确授权的测试 worktree。BP 的业务任务另以该任务的用户授权、项目绑定及下游 AGENTS 为边界；登记项目不代表授权执行，不从工厂验证权限推导业务写入或发布权限。
 
 ### 项目目录地图
 
-- `templates/**`：下沉到项目的 Codex 公共骨架与公共 `AGENTS.md` 源。
-- `source/**`：工厂 Rust workspace 的唯一维护源，公共八包投影到 `.codex/hooks/source/`，factory 只用于本仓库。
-- `templates/skills/**`：由用户级分发器安装的通用 Skill 与 bridgeforge-codex 入口。
-- `scripts/**`：Windows 用户级安装与分发入口、独立辅助工具及 `scripts/tests/**` 自动测试；工厂 Rust 命令由 `source/factory/` 实现。
+- `source/forge/templates/**`：下沉到项目的 Codex 公共骨架与公共 `AGENTS.md` 源。
+- `source/forge/**`：工厂 Rust workspace 的唯一维护源，公共八包投影到 `.codex/hooks/source/`，factory 只用于本仓库。
+- `source/orchestrator/**`：BP 私有总管核心与本地交互 Skill；与 `source/forge/` 平行，无额外 `src/`。只依赖 Forge core，不进入公共源码投影或共享 Skill 分发。Forge 不依赖 orchestrator。
+- `source/forge/templates/skills/**`：由用户级分发器安装的通用 Skill 与 bridgeforge-codex 入口。
+- `scripts/**`：Windows 用户级安装与分发入口、独立辅助工具及 `scripts/tests/**` 自动测试；工厂 Rust 命令由 `source/forge/factory/` 实现。
 - `.codex/**`：本仓库 dogfood 镜像与本仓库配置；legacy 项目 Memory 仅在迁移完成前保留，不再作为运行时设施。
 - `doc/**`、`README.md`、`CHANGELOG.md`：架构、交付、Bug、参考资料与发布说明。
 
@@ -127,7 +128,9 @@
 
 ### 项目快速命令
 
-本工厂的 develop 本地 dogfood 优先读取 `templates/skills/develop/SKILL.md` 及其按需引用的 reference；用户级安装副本不同时，以仓库候选作为本工厂的执行依据，不把旧版全仓清零规则重新带入。本入口不分发到公共 Template 或其他项目。
+用户在本项目要求 BP 跨项目登记、分派、状态核对或明确范围的暂停时，先读取 [BridgePilot 本地入口](source/orchestrator/skills/bridgepilot/SKILL.md)。该入口只在本项目使用，不安装到共享 Skills。有限窗口调度由自有进程执行，窗口外接续依赖本控制对话已核验的原生 heartbeat；每次唤醒先核对机器、控制对话与实际原生配置，不接管 Unknown。任务回合结束先进入 Reviewing；只读报告须核对命令、文件及原生项目成员，写任务须另核验受管开发与发布证据，不能把 completed 当作 Released。工作区和恢复入口见 [INSTALL.md](INSTALL.md#bridgepilot-本地试用与档案恢复)，实际验证缺口见唯一开发计划。
+
+本工厂的 develop 本地 dogfood 优先读取 `source/forge/templates/skills/develop/SKILL.md` 及其按需引用的 reference；用户级安装副本不同时，以仓库候选作为本工厂的执行依据，不把旧版全仓清零规则重新带入。本入口不分发到公共 Template 或其他项目。
 
 实际命令使用受管准备后的 `.build/bridgeforge/bin/bridgeforge-factory.exe`，从本次包预览收据核验任务范围与直接 apply 能力；阶段间复用还需 `staged-development-validation-v1` 及完整实际环境合同，可选失败重试缓存仍按 `resumable-development-checks-v1`。能力缺失须报告，不能静默退回旧全仓入口。本地 dogfood 不等于正式版本收口或发布，也不更新用户级共享安装。
 

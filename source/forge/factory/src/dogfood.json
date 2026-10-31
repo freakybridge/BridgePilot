@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "assets": [
+    {
+      "id": "factory.skill.cleanup.entry",
+      "source": "source/forge/templates/skills/cleanup/SKILL.md",
+      "target": ".codex/skills/cleanup/SKILL.md",
+      "strategy": "whole"
+    },
+    {
+      "id": "factory.skill.git-sync.entry",
+      "source": "source/forge/templates/skills/git-sync/SKILL.md",
+      "target": ".codex/skills/git-sync/SKILL.md",
+      "strategy": "whole"
+    },
+    {
+      "id": "factory.skill.git-sync.schema4",
+      "source": "source/forge/templates/skills/git-sync/references/schema4.md",
+      "target": ".codex/skills/git-sync/references/schema4.md",
+      "strategy": "whole"
+    },
+    {
+      "id": "factory.skill.git-sync.runtime-context",
+      "source": "source/forge/templates/skills/git-sync/references/runtime-context.md",
+      "target": ".codex/skills/git-sync/references/runtime-context.md",
+      "strategy": "whole"
+    },
+    {
+      "id": "factory.skill.git-sync.first-use",
+      "source": "source/forge/templates/skills/git-sync/references/first-use.md",
+      "target": ".codex/skills/git-sync/references/first-use.md",
+      "strategy": "whole"
+    }
+  ]
+}

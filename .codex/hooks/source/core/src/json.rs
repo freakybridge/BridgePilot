@@ -85,5 +85,5 @@ pub fn parse_unique_json(payload: &[u8], label: &str) -> Result<Value, String> {
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_json.rs"]
+#[path = "../../../../scripts/tests/unit/core_json.rs"]
 mod tests;

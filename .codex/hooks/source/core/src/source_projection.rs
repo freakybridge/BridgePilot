@@ -8,14 +8,48 @@ pub const PUBLIC: &str = "public-runtime-v1";
 pub const FACTORY: &str = "factory-runtime-v1";
 
 pub fn available(root: &Path) -> bool {
-    root.join("source/core/Cargo.toml").is_file()
+    root.join("source/forge/core/Cargo.toml").is_file()
+        || root.join("source/core/Cargo.toml").is_file()
+}
+
+/// Installed runtimes retain their existing source/<package> layout.
+pub fn logical_path(relative: &str) -> String {
+    relative.strip_prefix("source/forge/")
+        .map(|tail| format!("source/{tail}"))
+        .unwrap_or_else(|| relative.to_owned())
+}
+
+/// Resolve a logical runtime source to its repository-owned maintenance source.
+pub fn physical_path(root: &Path, relative: &str) -> String {
+    if root.join("source/forge/core/Cargo.toml").is_file()
+        && !relative.starts_with("source/forge/")
+        && let Some(tail) = relative.strip_prefix("source/")
+    {
+        format!("source/forge/{tail}")
+    } else {
+        relative.to_owned()
+    }
+}
+
+pub fn template_relative(root: &Path, relative: &str) -> String {
+    if root.join("source/forge/templates").is_dir()
+        && let Some(tail) = relative.strip_prefix("templates/")
+    {
+        format!("source/forge/templates/{tail}")
+    } else {
+        relative.to_owned()
+    }
+}
+
+pub fn template_path(root: &Path, relative: &str) -> std::path::PathBuf {
+    root.join(template_relative(root, relative))
 }
 
 pub fn source_root(root: &Path) -> std::path::PathBuf {
     if available(root) {
         root.to_path_buf()
     } else {
-        root.join("templates/hooks")
+        template_path(root, "templates/hooks")
     }
 }
 
@@ -86,20 +120,32 @@ fn members(manifest: &DocumentMut, public: bool) -> Result<Vec<String>, String> 
                 .ok_or("public members missing")?,
             "public members",
         )?
+    } else if let Some(explicit) = workspace.get("metadata")
+        .and_then(|m| m.get("bridgeforge"))
+        .and_then(|m| m.get("factory-members"))
+    {
+        strings(explicit, "factory members")?
+    } else if all.iter().any(|p| p.starts_with("source/forge/")) {
+        return Err("factory members missing for nested source layout".into());
     } else {
         all.clone()
     };
     let mut seen = BTreeSet::new();
+    let mut logical_seen = BTreeSet::new();
     for member in &selected {
-        if !member.starts_with("source/")
-            || member.split('/').count() != 2
+        let logical = logical_path(member);
+        if !logical.starts_with("source/")
+            || logical.split('/').count() != 2
+            || (all.iter().any(|p| p.starts_with("source/forge/"))
+                && !member.starts_with("source/forge/"))
             || Path::new(member)
                 .components()
                 .any(|p| !matches!(p, Component::Normal(_)))
             || member.contains(['*', '?', '[', '\\'])
             || !all.contains(member)
             || !seen.insert(member)
-            || (public && member == "source/factory")
+            || !logical_seen.insert(logical.clone())
+            || (public && logical == "source/factory")
         {
             return Err(format!("invalid projection member: {member}"));
         }
@@ -357,9 +403,9 @@ pub fn render_with_overlay(
             return Err("projection has duplicate package names".into());
         }
     }
-    if public {
+    {
         manifest["workspace"]["members"] =
-            value(selected.iter().map(String::as_str).collect::<Array>());
+            value(selected.iter().map(|p| logical_path(p)).collect::<Array>());
         manifest["workspace"]
             .as_table_mut()
             .ok_or("workspace is not a table")?
@@ -385,11 +431,31 @@ pub fn render_with_overlay(
             for name in remove {
                 dependencies.remove(&name);
             }
+            for (_, dependency) in dependencies.iter_mut() {
+                if let Some(path) = dependency.get("path").and_then(Item::as_str) {
+                    let logical = logical_path(path);
+                    dependency["path"] = value(logical);
+                }
+            }
+        }
+        if let Some(metadata) = manifest.get_mut("workspace")
+            .and_then(|w| w.get_mut("metadata"))
+            .and_then(|m| m.get_mut("bridgeforge"))
+        {
+            for key in ["public-members", "factory-members"] {
+                if let Some(list) = metadata.get(key) {
+                    let selected_members = strings(list, key)?.into_iter()
+                        .filter(|p| selected.contains(p))
+                        .map(|p| logical_path(&p)).collect::<Array>();
+                    metadata[key] = value(selected_members);
+                }
+            }
         }
     }
     files.insert("Cargo.toml".into(), manifest.to_string().into_bytes());
-    let ignore = if root.join("templates/hooks/.gitignore").is_file() {
-        Some("templates/hooks/.gitignore")
+    let template_ignore = template_relative(root, "templates/hooks/.gitignore");
+    let ignore = if root.join(&template_ignore).is_file() {
+        Some(template_ignore.as_str())
     } else if root.join(".gitignore").is_file() {
         Some(".gitignore")
     } else {
@@ -405,13 +471,16 @@ pub fn render_with_overlay(
         .unwrap_or_else(|| read(root, "Cargo.lock"))?;
     files.insert(
         "Cargo.lock".into(),
-        if public {
-            lock_dependency_closure(&lock, &names)?
-        } else {
-            lock
-        },
+        lock_dependency_closure(&lock, &names)?,
     );
-    Ok(files)
+    let mut logical_files = BTreeMap::new();
+    for (path, bytes) in files {
+        let logical = logical_path(&path);
+        if logical_files.insert(logical.clone(), bytes).is_some() {
+            return Err(format!("projection path collision: {logical}"));
+        }
+    }
+    Ok(logical_files)
 }
 
 pub fn projected(root: &Path, mode: &str) -> Result<BTreeMap<String, Vec<u8>>, String> {
@@ -423,5 +492,5 @@ pub fn projected(root: &Path, mode: &str) -> Result<BTreeMap<String, Vec<u8>>, S
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_source_projection.rs"]
+#[path = "../../../../scripts/tests/unit/core_source_projection.rs"]
 mod tests;

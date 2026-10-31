@@ -1,6 +1,6 @@
-param([Parameter(Mandatory)][string]$Cli, [string]$Sample='D:\Quant\BridgeForgeCodex\.runtime\git-sync-perf\replay', [string]$Variant='baseline', [ValidateSet('plan','preview','ordinary','release-chain','publish','invalidation')][string]$Scenario='plan')
+param([Parameter(Mandatory)][string]$Cli, [string]$Sample='D:\Quant\BridgePilot\.runtime\git-sync-perf\replay', [string]$Variant='baseline', [ValidateSet('plan','preview','ordinary','release-chain','publish','invalidation')][string]$Scenario='plan')
 $ErrorActionPreference='Stop'
-$root='D:\Quant\BridgeForgeCodex\.runtime\git-sync-perf'
+$root='D:\Quant\BridgePilot\.runtime\git-sync-perf'
 if (-not ([IO.Path]::GetFullPath($Sample)).StartsWith($root + '\',[StringComparison]::OrdinalIgnoreCase)) { throw 'Only isolated samples are allowed' }
 $output=Join-Path $root "results/$Variant"
 New-Item -ItemType Directory -Force -Path $output | Out-Null

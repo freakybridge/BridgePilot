@@ -48,7 +48,7 @@ fn gpt6_behavior_cases_have_unique_ids_and_resolvable_inputs() {
                         path.components()
                             .all(|part| matches!(part, std::path::Component::Normal(_)))
                     );
-                    assert!(root.join(path).is_file(), "{id}: {text}");
+                    assert!(bridgeforge_core::source_projection::template_path(&root, text).is_file(), "{id}: {text}");
                 }
             }
         }
@@ -131,7 +131,7 @@ fn distributed_roles_match_skill_references_and_dogfood() {
         .collect()
     );
     for directory in ["templates/agents", ".codex/agents"] {
-        let actual = fs::read_dir(root.join(directory))
+        let actual = fs::read_dir(bridgeforge_core::source_projection::template_path(&root, directory))
             .unwrap()
             .map(|entry| {
                 entry
@@ -146,7 +146,7 @@ fn distributed_roles_match_skill_references_and_dogfood() {
             .collect::<std::collections::BTreeSet<_>>();
         assert_eq!(actual, roles);
     }
-    let mut pending = vec![root.join("templates/skills"), root.join(".codex/skills")];
+    let mut pending = vec![bridgeforge_core::source_projection::template_path(&root, "templates/skills"), root.join(".codex/skills")];
     let mut referenced = std::collections::BTreeSet::new();
     while let Some(directory) = pending.pop() {
         for entry in fs::read_dir(directory).unwrap() {
@@ -193,7 +193,7 @@ fn public_instruction_region_matches_template_and_dogfood() {
             .0
             .replace("\r\n", "\n")
     };
-    let template = fs::read_to_string(root.join("templates/AGENTS.md")).unwrap();
+    let template = fs::read_to_string(bridgeforge_core::source_projection::template_path(&root, "templates/AGENTS.md")).unwrap();
     let dogfood = fs::read_to_string(root.join("AGENTS.md")).unwrap();
     let shared = public(&template);
     // Text matching cannot prove authorization behavior; exercise that in the
@@ -230,8 +230,7 @@ fn project_maps_are_not_fixed_managed_payloads() {
         );
     }
     assert!(
-        !root
-            .join("templates/skills/find-doc/references/map-reminder-sop.md")
+        !bridgeforge_core::source_projection::template_path(&root, "templates/skills/find-doc/references/map-reminder-sop.md")
             .exists(),
         "manual map reminder SOP must be retired"
     );
@@ -417,7 +416,7 @@ fn minimal(f: &Fixture) -> (PathBuf, PathBuf) {
     let factory = f.0.join("factory");
     let project = f.0.join("project");
     fs::create_dir_all(&project).unwrap();
-    write(&factory.join("templates/example.txt"), b"managed\n");
+    write(&bridgeforge_core::source_projection::template_path(&factory, "templates/example.txt"), b"managed\n");
     fixture_product::install(
         &factory.join("bridgeforge-manifest.json"),
         serde_json::to_vec_pretty(&contract()).unwrap(),

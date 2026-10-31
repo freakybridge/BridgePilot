@@ -185,7 +185,7 @@ impl Drop for Fixture {
 fn registration_covers_every_supported_tool_without_post_route_overlap() {
     for path in ["templates/hooks.json", ".codex/hooks.json"] {
         let document: Value =
-            serde_json::from_slice(&fs::read(repository().join(path)).unwrap()).unwrap();
+            serde_json::from_slice(&fs::read(bridgeforge_core::source_projection::template_path(&repository(), path)).unwrap()).unwrap();
         let matcher = |event: &str, suffix: &str| -> BTreeSet<String> {
             let groups = document["hooks"][event].as_array().unwrap();
             let group = groups

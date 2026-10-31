@@ -7,7 +7,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 #[path = "process_tree.rs"]
-mod process_tree;
+pub mod process_tree;
 
 #[derive(Clone, Debug)]
 pub struct ProcessRequest {

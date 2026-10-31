@@ -1,0 +1,42 @@
+[package]
+name = "bridgepilot-orchestrator"
+version = "0.5.0"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+path = "lib.rs"
+
+[[bin]]
+name = "bp"
+path = "main.rs"
+
+[[bin]]
+name = "bp-launcher"
+path = "launcher.rs"
+test = false
+
+[dependencies]
+bridgeforge-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+toml_edit.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_System_Diagnostics_ToolHelp"] }
+
+[features]
+test-fixtures = []
+
+[[bin]]
+name = "bp-rpc-fixture"
+path = "../../scripts/tests/orchestrator/rpc_fixture.rs"
+required-features = ["test-fixtures"]
+test = false
+
+[[test]]
+name = "orchestration"
+path = "../../scripts/tests/orchestrator/execute.rs"
+required-features = ["test-fixtures"]

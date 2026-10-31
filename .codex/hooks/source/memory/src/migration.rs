@@ -401,5 +401,5 @@ fn add_fingerprint_input(
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_memory_migration.rs"]
+#[path = "../../../../scripts/tests/unit/core_memory_migration.rs"]
 mod tests;

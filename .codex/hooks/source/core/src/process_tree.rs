@@ -1,7 +1,9 @@
 use std::io;
 use std::process::{Child, Command};
 
-pub(super) struct ProcessTree {
+/// An owned process and its descendants. Dropping it terminates only that tree.
+/// Windows children start suspended and enter a kill-on-close job before resuming.
+pub struct ProcessTree {
     pub child: Child,
     #[cfg(windows)]
     job: windows::Job,

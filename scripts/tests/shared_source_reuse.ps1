@@ -7,7 +7,7 @@ if ($errors.Count) { throw ($errors | Out-String) }
 foreach ($f in $ast.FindAll({param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst]},$true)) {
     if ($f.Name -ne 'Invoke-Main') { . ([scriptblock]::Create($f.Extent.Text)) }
 }
-$CanonicalRemote='https://github.com/freakybridge/BridgeForgeCodex.git'
+$CanonicalRemote='https://github.com/freakybridge/BridgePilot.git'
 $CanonicalBranch='main'
 $CommandHomeName='.bridgeforge-codex'
 $script:BuildCounts=[ordered]@{source_reused=0;source_clones=0}

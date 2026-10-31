@@ -438,6 +438,6 @@ pub fn skill_sync() -> StepResult {
 
 pub fn build_identity() -> Value {
     let mut hasher = Sha256::new();
-    hasher.update(include_bytes!("../../../Cargo.lock"));
+    hasher.update(include_bytes!(env!("BRIDGEFORGE_WORKSPACE_LOCK")));
     json!({"schema":1,"name":"bridgeforge-hook","status":"ok","platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"lock_sha256":format!("{:x}",hasher.finalize())})
 }

@@ -743,5 +743,5 @@ fn memory_hook_notice(
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/cli_memory.rs"]
+#[path = "../../../../scripts/tests/unit/cli_memory.rs"]
 mod tests;

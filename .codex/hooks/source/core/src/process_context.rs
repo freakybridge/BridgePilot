@@ -533,5 +533,5 @@ fn inspect_records(root: &Path, records: BTreeMap<u32, (u32, String)>) -> Result
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_process_context.rs"]
+#[path = "../../../../scripts/tests/unit/core_process_context.rs"]
 mod tests;

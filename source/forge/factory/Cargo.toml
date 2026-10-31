@@ -1,0 +1,26 @@
+[package]
+name = "bridgeforge-factory"
+version = "0.10.1"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(bridgeforge_factory_tests)'] }
+
+[dependencies]
+bridgeforge-core.workspace = true
+bridgeforge-skeleton.workspace = true
+bridgeforge-lifecycle.workspace = true
+bridgeforge-workflow.workspace = true
+bridgeforge-checks.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+walkdir.workspace = true
+toml_edit.workspace = true
+
+[[bin]]
+name = "bridgeforge-factory"
+path = "src/main.rs"

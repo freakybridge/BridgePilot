@@ -1112,7 +1112,9 @@ fn project_prefixed_file_retirement_removes_only_its_hook_registration_atomicall
         .clone();
     let source_path = asset["source"].as_str().unwrap();
     let source = fs::read(repository.join(source_path)).unwrap();
-    fs::write(factory.join(source_path), &source).unwrap();
+    let fixture_source = factory.join(source_path);
+    fs::create_dir_all(fixture_source.parent().unwrap()).unwrap();
+    fs::write(fixture_source, &source).unwrap();
     let document: Value = serde_json::from_slice(&source).unwrap();
     let handlers = crate::baseline::hook_handlers(&document).unwrap();
     for required in asset["merge_validation"]["required_handlers"]

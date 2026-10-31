@@ -220,5 +220,5 @@ pub fn scan(root: &Path) -> Result<Vec<ArchiveCandidate>, String> {
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_archive_scan.rs"]
+#[path = "../../../../scripts/tests/unit/core_archive_scan.rs"]
 mod tests;

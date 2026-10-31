@@ -90,7 +90,7 @@ fn benchmark_fixture(fixture: Factory, reference: bool, label: &str) -> Vec<Valu
             candidate.insert(root.join("Cargo.lock"), lock.to_string().into_bytes());
         }
         if phase == "module" {
-            let path = root.join("source/core/src/lib.rs");
+            let path = root.join(crate::source_projection::physical_path(root, "source/core/src/lib.rs"));
             let mut bytes = fs::read(&path).unwrap();
             bytes.extend_from_slice(b"\n// Isolated performance candidate: one module changes.\n");
             candidate.insert(path, bytes);
@@ -362,7 +362,8 @@ impl Factory {
             "templates/hooks/.gitignore",
             crate::user_agents::SOURCE,
         ] {
-            copy(path, path);
+            let source = crate::source_projection::template_relative(repository, path);
+            copy(&source, &source);
         }
         let contract: Value = serde_json::from_slice(
             &fixture_product::read(repository.join("bridgeforge-manifest.json")).unwrap(),
@@ -389,7 +390,8 @@ impl Factory {
             .keys()
         {
             if relative.starts_with("source/") {
-                copy(relative, relative);
+                let source = crate::source_projection::physical_path(repository, relative);
+                copy(&source, &source);
             }
         }
         for (relative, bytes) in crate::source_projection::render(&root, true).unwrap() {
@@ -483,7 +485,7 @@ impl ProcessRunner for Runner {
             fs::write(target, format!("verified-fixture-{name}"))?;
             if self.failure == "source" {
                 fs::write(
-                    self.root.join("source/hook/src/main.rs"),
+                    self.root.join(crate::source_projection::physical_path(&self.root, "source/hook/src/main.rs")),
                     b"concurrent change",
                 )?;
             }
@@ -676,7 +678,7 @@ fn legacy_factory_tools_retire_only_after_verified_install() {
     let old = root.join(".codex/bin");
     fs::create_dir_all(&old).unwrap();
     let profiles: Vec<Value> = serde_json::from_str(include_str!(
-        "../../../source/core/src/legacy_artifact_receipts.json"
+        "../../../source/forge/core/src/legacy_artifact_receipts.json"
     ))
     .unwrap();
     let profile = profiles

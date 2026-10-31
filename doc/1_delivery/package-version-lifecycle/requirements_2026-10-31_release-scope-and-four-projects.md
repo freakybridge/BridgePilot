@@ -1,6 +1,6 @@
 ---
 lifecycle: active
-validation_status: in_progress
+validation_status: awaiting_user_acceptance
 ---
 
 # 发布范围判定修复与四个下游骨架升级工作计划
@@ -203,3 +203,48 @@ validation_status: in_progress
 在上游修复、验证及最终工具核验完成后，用户对“是否授权执行 `$git-sync release`，发布后继续按原顺序升级四个下游”明确回复“授权”。本次授权覆盖当前修复及其文档、生成资产和版本记录的受管提交、推送和正式发布；发布成功后继承原有四项目安装授权，不包含下游业务提交、推送或发布。
 
 发布复用第 8 节证据，不重跑 develop 或业务回归。具体正式版本、提交和各项目安装结果，以后续实际受管收据为准，不将授权记录当作操作成功。
+
+## 10. 正式发布与四项目安装结果（2026-10-31）
+
+### 发布与用户级准备
+
+受管 `git-sync release` 已成功提交并推送 `origin/main`：`475b04f691e6789e1c5169ae2a4f3e2f795cd621`，提交消息为“fix: 修复共享输入配置变更误扩发布范围”。主程序 **13.0.2 → 13.0.3**，理由为兼容修复；累计子包版本变化只有 **lifecycle 0.8.1 → 0.8.2**。workflow 0.9.1、factory 0.10.0 仅刷新依赖覆盖，其余子包版本保持原值，无新增或退役包。
+
+发布实际重建 3 项受管产物，未补做 develop 或业务测试；工具内部 sync_elapsed_ms=280383，其中 artifact_preparation=249782、commit_and_hooks=10527、push=2553，嵌套阶段不相加。发布后一次独立核对为 HEAD=origin/main=475b04f、ahead/behind=0/0、工作树干净、stash 数为 0。
+
+官方 updater 随后取得同一正式提交，返回 completed；用户级 AGENTS 状态为 noop，没有覆盖或备份动作。公共 CLI/Hook 的 13.0.3 准备收据为：
+
+`C:\Users\bridg\.codex\.cache\bridgeforge\public-ready\b26bcf824a6f584049dcf716b72e77df210c7b910614aba6a3c9d73011954a29.json`
+
+该次 updater 总内部耗时 185117.3 ms；四项目复用这一份不可变公共产物，不在项目端重编公共程序。用户级维护成功后重新读取了正式产品 home 中的 Skill 与 update/transaction 合同。
+
+### 逐项目执行结果
+
+| 顺序 | 项目 | 实际安装前版本 | 当前版本 | 受管结论 | 本轮变更项 |
+|---|---|---|---|---|---:|
+| 1 | StratusAgent | 13.0.1 | 13.0.3 | 已完成 | 13 |
+| 2 | HoldemTrainer | 13.0.2 | 13.0.3 | 已完成 | 11 |
+| 3 | causis_risk_suite | 13.0.2 | 13.0.3 | 已完成 | 11 |
+| 4 | BridgeLibrary | 9.0.0 | 13.0.3 | 已完成 | 72 |
+
+变更项来自各自 human.changed_count，包含公共工具产物，不等于 Git 新增变更文件数，也不包含安装前已有改动。四项 human.pending 均为空，human.next_step 均为“需要保存到 GitHub 时运行 $git-sync”；实际执行均 succeeded、stamp_written_last=true、无回滚。原始安装收据及汇总保存在工厂 `.runtime/tests/release-scope/{Stratus,Holdem,Causis,BridgeLibrary}-apply-result.json` 和 `installation-final.json`。
+
+HoldemTrainer、CausisRiskSuite 的实际现场已是 13.0.2，安装遵守现场版本，没有依照旧计划中的 9.0.0/13.0.1 戳回退。替换的风险项均为既有 whole-owned 公共资产，已继承用户“安装最新骨架”的明确决定；Stratus 的 7 项及 BridgeLibrary 的全部 47 项已与原安装合同 current_sha256 对照一致，没有自定义覆盖。各项目自身配置、业务改动和 Hook 不因此变成工厂资产。
+
+BridgeLibrary 已按授权先补齐根 `INSTALL.md`，并在自身 `doc/README.md` 中新增一行导航。其第一轮安装因缺少 `--confirmed-preservation-manifest` 在骨架写入前停止；源码核对表明这是确认既有清单的布尔开关，无需另造清单。清单只有两项已被历史摘要证明归属的旧公共运行时代码退役，不是项目 vault Hook。用户随后明确将本任务总时间预算由 45 分钟延长至 60 分钟，实施范围与验证上限不变；补上该确认开关后，原计划指纹仍有效，安装成功。
+
+### 保护核验与验证边界
+
+四项目安装前后核对结果均为：业务 `VERSION`、所核对的项目 settings、版本管理配置、既有 package-closures 账本及 AGENTS 项目专区摘要一致，Git HEAD 不变。原有 INSTALL.md 的三个项目内容也保持一致；BridgeLibrary 的 INSTALL.md 为本轮明确计划的新建文件。证据在 `.runtime/tests/release-scope/downstream-before.json`、`downstream-after.json`、`downstream-protection-checks.json`。
+
+安装使用受管事务的项目完整验证与产物身份核验，没有额外重复 doctor、baseline 全量检查或业务构建。未提交、推送或发布任何下游项目，未恢复业务环境，未维护项目自有 Hook，未修改活库或 vault-mirror。项目 Hook 的真实生命周期、业务启动和业务回归仍未验证，不因骨架安装成功宣称通过。
+
+### StratusAgent 剩余发布缺口
+
+安装后执行了一次零写入 `git-sync --release-preview`，仍被 **41 项缺版本覆盖记录、10 项内容变化**阻断，原始输出在 `.runtime/tests/release-scope/Stratus-release-preview.log`。本轮没有补测、补做 develop、改项目登记或重写账本。
+
+当前项目仍将三个测试工作区锁文件作为全局 build_inputs，其中 `scripts/tests/market_loader/Cargo.lock`、`scripts/tests/pms/Cargo.lock` 相对 HEAD 有实际变化；`stratus/Cargo.toml` 仍登记给 36 个包。全局输入变化独立于本次修复的局部 shared_inputs 配置判定，仍会按合同扩大检查范围。因此，升级安装完成不等于 Stratus 业务发布已解除阻断，也不能把上述 51 项自动当作全量重测清单。
+
+### 本任务终态
+
+TODO-051/TODO-052 的本次工程与安装条件均已满足，记录保持 active / awaiting_user_acceptance，未代替用户验收或自动结算 TODO。预算扩展后完成剩余工作，累计主动执行粗估约 55 分钟（等待用户回复不计，未作逐阶段实测），未启用子 Agent，token 未实测。发布已经同步；本节及索引是安装后新增的本地记录，没有另行提交或再次发布。

@@ -69,7 +69,7 @@ fn paired_hook_release_benchmark() {
     ] {
         let target = root.join(relative);
         fs::create_dir_all(target.parent().unwrap()).unwrap();
-        fs::copy(repository.join(relative), target).unwrap();
+        fs::copy(bridgeforge_core::source_projection::template_path(&repository, relative), target).unwrap();
     }
     let body = "normal fixture text\n".repeat(800);
     for i in 0..300 {

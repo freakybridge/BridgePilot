@@ -28,7 +28,7 @@ mod python_dependencies;
 mod python_lock;
 mod python_metadata;
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_release_python_native.rs"]
+#[path = "../../../../scripts/tests/unit/core_release_python_native.rs"]
 mod python_native_tests;
 mod rust;
 pub mod schema4;
@@ -1108,11 +1108,11 @@ pub fn verify_release_inputs(inputs: &BTreeMap<PathBuf, Option<Vec<u8>>>) -> Res
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_release.rs"]
+#[path = "../../../../scripts/tests/unit/core_release.rs"]
 mod tests;
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/support/release_plan.rs"]
+#[path = "../../../../scripts/tests/support/release_plan.rs"]
 mod test_plan;
 #[cfg(all(test, bridgeforge_factory_tests))]
 pub(crate) use test_plan::apply_file_release_plan;

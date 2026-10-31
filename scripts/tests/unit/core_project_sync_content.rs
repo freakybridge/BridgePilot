@@ -122,7 +122,7 @@ fn real_template_upgrades_legacy_markdown_without_old_contract_or_losing_index()
         .iter()
         .find(|item| item["id"] == "codex.doc.readme")
         .unwrap();
-    let source = fs::read(factory.join("templates/doc/README.md")).unwrap();
+    let source = fs::read(bridgeforge_core::source_projection::template_path(&factory, "templates/doc/README.md")).unwrap();
     let mut old = String::from_utf8(source.clone()).unwrap();
     for heading in ["## 文档生命周期"] {
         let (start, end) = markdown_section(&old, heading).unwrap();

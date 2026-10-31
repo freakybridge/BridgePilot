@@ -3,12 +3,13 @@ members = ["source/core", "source/skeleton", "source/checks", "source/workflow",
 resolver = "3"
 
 [workspace.package]
-version = "13.0.3"
+version = "13.1.0"
 edition = "2024"
 rust-version = "1.88"
 publish = false
 
 [workspace.metadata.bridgeforge]
+factory-members = ["source/core", "source/skeleton", "source/checks", "source/workflow", "source/lifecycle", "source/memory", "source/cli", "source/hook"]
 public-members = ["source/core", "source/skeleton", "source/checks", "source/workflow", "source/lifecycle", "source/memory", "source/cli", "source/hook"]
 
 [workspace.dependencies]

@@ -52,11 +52,11 @@ fn baseline_uses_installed_contract_for_factory_and_downstream() {
                 .as_nanos()
         ));
         fs::create_dir_all(root.join(".codex")).unwrap();
-        let prefix = if factory { ".codex" } else { "templates" };
-        let mut contract: Value = serde_json::from_slice(
-            &fs::read(repository.join(prefix).join("managed-skeleton.json")).unwrap(),
-        )
-        .unwrap();
+        let mut contract: Value = if factory {
+            serde_json::from_slice(&fs::read(repository.join(".codex/managed-skeleton.json")).unwrap()).unwrap()
+        } else {
+            bridgeforge_core::product_manifest::project(repository).unwrap()
+        };
         contract["assets"]
             .as_array_mut()
             .unwrap()
@@ -65,7 +65,9 @@ fn baseline_uses_installed_contract_for_factory_and_downstream() {
         let contract_path = root.join(".codex/managed-skeleton.json");
         fs::write(&contract_path, serde_json::to_vec(&contract).unwrap()).unwrap();
         let hooks_path = root.join(".codex/hooks.json");
-        fs::copy(repository.join(prefix).join("hooks.json"), &hooks_path).unwrap();
+        let hooks_source = if factory { repository.join(".codex/hooks.json") }
+            else { bridgeforge_core::source_projection::template_path(repository, "templates/hooks.json") };
+        fs::copy(hooks_source, &hooks_path).unwrap();
         let version = contract["release_version"].as_str().unwrap();
         if factory {
             fs::create_dir_all(root.join("templates")).unwrap();
@@ -656,3 +658,16 @@ fn ordinary_sync_does_not_require_release_choice_but_release_does() {
 #[allow(dead_code)]
 #[path = "../support/artifact_paths.rs"]
 mod test_artifacts;
+
+#[test]
+fn factory_skill_metadata_checks_nested_template_sources() {
+    let root = test_artifacts::root(env!("CARGO_MANIFEST_DIR"), "cli")
+        .join(format!("nested-skill-metadata-{}", std::process::id()));
+    fs::create_dir_all(root.join("source/forge/templates/skills/broken")).unwrap();
+    fs::write(root.join("bridgeforge-manifest.json"), b"{}").unwrap();
+    fs::write(root.join("source/forge/templates/skills/broken/SKILL.md"), b"invalid skill metadata\n").unwrap();
+    let result = run(&["check".into(), "skill-metadata".into(), "--root".into(), root.to_string_lossy().into_owned()]);
+    assert_ne!(result.code, 0, "invalid source skill must not silently disappear after regrouping");
+    assert!(result.receipt.unwrap().to_string().contains("broken"));
+    fs::remove_dir_all(root).unwrap();
+}

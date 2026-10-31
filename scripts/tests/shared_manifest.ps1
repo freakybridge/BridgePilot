@@ -9,7 +9,7 @@ foreach ($function in $ast.FindAll({param($node) $node -is [System.Management.Au
     if ($function.Name -ne 'Invoke-Main') { . ([scriptblock]::Create($function.Extent.Text)) }
 }
 $ManifestName = 'bridgeforge-manifest.json'
-$CanonicalRemote = 'https://github.com/freakybridge/BridgeForgeCodex.git'
+$CanonicalRemote = 'https://github.com/freakybridge/BridgePilot.git'
 $CanonicalBranch = 'main'
 $CommandHomeName = '.bridgeforge-codex'
 $CommandHomeLogName = '.bridgeforge-codex-home-update.json'

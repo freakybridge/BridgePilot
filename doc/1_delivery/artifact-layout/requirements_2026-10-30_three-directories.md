@@ -117,19 +117,19 @@ validation_status: verified
 
 | 入口或文件 | 已核实事实 | 修改目的 |
 |---|---|---|
-| [公共 AGENTS](../../../templates/AGENTS.md) | 仅要求产物按项目配置存放 | 明确三目录的职责、严格约束及持久数据保护 |
+| [公共 AGENTS](../../../source/forge/templates/AGENTS.md) | 仅要求产物按项目配置存放 | 明确三目录的职责、严格约束及持久数据保护 |
 | [根 .gitignore](../../../.gitignore) | 当前已忽略 `.runtime/`，尚未添加 `.deps/`、`.build/` | 将三根完整忽略要求写入公共红线并同步工厂及下游受管安装配置，保留项目其他忽略规则 |
-| [artifact_layout.rs](../../../source/checks/src/artifact_layout.rs) | Python 产物检查默认关闭；工作区遍历会跳过 `.venv`、`node_modules`、`target` 和根 `.runtime` 内部 | 默认检查分类位置；先检查目录自身，再按边界剪枝；保留暂存影响分析 |
-| [manifest.rs](../../../source/factory/src/manifest.rs) | 公共产物目标与工厂私有工具均生成到 `.codex/bin/` | 按工厂与消费项目身份生成正确目标和收据路径 |
-| [runtime.rs](../../../source/core/src/runtime.rs) | 工具定位及 Windows 运行镜像替换保护使用 `.codex/bin/` | 统一路径解析，维持身份检查、无窗口运行与文件占用处理 |
-| [Hook util.rs](../../../source/hook/src/util.rs) | Hook 从 EXE 向上三层推导项目根 | 迁移后可靠定位项目根，保留显式根路径支持，避免依赖新的固定层数 |
-| [CLI lib.rs](../../../source/cli/src/lib.rs) | 公共 CLI 转发工厂工具时使用旧 EXE 和收据路径 | 同步工厂调用入口和构建身份核验 |
-| [generated_assets.rs](../../../source/core/src/generated_assets.rs)、[artifact_cache.rs](../../../source/core/src/artifact_cache.rs) | 隔离编译使用系统临时树；编译产物缓存位于 `.runtime/bridgeforge-codex/build-artifact-cache` | 将项目拥有的构建工作树与编译缓存归入 `.build/`，保留输入身份和缓存复用条件 |
-| [project_sync.rs](../../../source/workflow/src/project_sync.rs)、[factory_runtime.rs](../../../source/factory/src/factory_runtime.rs) | 已有安装事务、目标快照、外部修改检测及失败回滚；不能仅改新目标就视为旧文件已退役 | 复用事务，补旧工具与收据的归属核验、旧路径退役、失败恢复 |
-| [project_hooks.rs](../../../source/skeleton/src/project_hooks.rs)、[project_hook_migration.rs](../../../source/workflow/src/project_hook_migration.rs) | 项目 Hook 有自身二进制路径、注册与迁移合同 | 区分公共工具依赖和项目自有 Hook 构建产物，同步注册与来源证明 |
-| [hooks.json](../../../templates/hooks.json)、[pre-commit](../../../templates/.githooks/pre-commit) | 编辑、生命周期及提交入口均引用旧工具路径 | 按目标身份渲染入口；变更入口和可用工具必须成套落地 |
-| [public_artifacts.rs](../../../source/workflow/src/public_artifacts.rs)、[共享更新器](../../../scripts/bridgeforge_codex_shared_update.ps1) | 存在共享构建缓存、用户级 bootstrap 和安装作用域校验 | 核对项目级迁移与共享安装边界，保留引导身份及事务协议 |
-| [发布包发现](../../../source/lifecycle/src/release/polyglot.rs)、[Python 包发现](../../../source/lifecycle/src/release/python.rs) | 排除规则仍识别旧产物目录 | 防止 `.deps/` 和 `.build/` 内的包、源码快照被计入业务包或发布输入 |
+| [artifact_layout.rs](../../../source/forge/checks/src/artifact_layout.rs) | Python 产物检查默认关闭；工作区遍历会跳过 `.venv`、`node_modules`、`target` 和根 `.runtime` 内部 | 默认检查分类位置；先检查目录自身，再按边界剪枝；保留暂存影响分析 |
+| [manifest.rs](../../../source/forge/factory/src/manifest.rs) | 公共产物目标与工厂私有工具均生成到 `.codex/bin/` | 按工厂与消费项目身份生成正确目标和收据路径 |
+| [runtime.rs](../../../source/forge/core/src/runtime.rs) | 工具定位及 Windows 运行镜像替换保护使用 `.codex/bin/` | 统一路径解析，维持身份检查、无窗口运行与文件占用处理 |
+| [Hook util.rs](../../../source/forge/hook/src/util.rs) | Hook 从 EXE 向上三层推导项目根 | 迁移后可靠定位项目根，保留显式根路径支持，避免依赖新的固定层数 |
+| [CLI lib.rs](../../../source/forge/cli/src/lib.rs) | 公共 CLI 转发工厂工具时使用旧 EXE 和收据路径 | 同步工厂调用入口和构建身份核验 |
+| [generated_assets.rs](../../../source/forge/core/src/generated_assets.rs)、[artifact_cache.rs](../../../source/forge/core/src/artifact_cache.rs) | 隔离编译使用系统临时树；编译产物缓存位于 `.runtime/bridgeforge-codex/build-artifact-cache` | 将项目拥有的构建工作树与编译缓存归入 `.build/`，保留输入身份和缓存复用条件 |
+| [project_sync.rs](../../../source/forge/workflow/src/project_sync.rs)、[factory_runtime.rs](../../../source/forge/factory/src/factory_runtime.rs) | 已有安装事务、目标快照、外部修改检测及失败回滚；不能仅改新目标就视为旧文件已退役 | 复用事务，补旧工具与收据的归属核验、旧路径退役、失败恢复 |
+| [project_hooks.rs](../../../source/forge/skeleton/src/project_hooks.rs)、[project_hook_migration.rs](../../../source/workflow/src/project_hook_migration.rs) | 项目 Hook 有自身二进制路径、注册与迁移合同 | 区分公共工具依赖和项目自有 Hook 构建产物，同步注册与来源证明 |
+| [hooks.json](../../../source/forge/templates/hooks.json)、[pre-commit](../../../source/forge/templates/.githooks/pre-commit) | 编辑、生命周期及提交入口均引用旧工具路径 | 按目标身份渲染入口；变更入口和可用工具必须成套落地 |
+| [public_artifacts.rs](../../../source/forge/workflow/src/public_artifacts.rs)、[共享更新器](../../../scripts/bridgeforge_codex_shared_update.ps1) | 存在共享构建缓存、用户级 bootstrap 和安装作用域校验 | 核对项目级迁移与共享安装边界，保留引导身份及事务协议 |
+| [发布包发现](../../../source/forge/lifecycle/src/release/polyglot.rs)、[Python 包发现](../../../source/forge/lifecycle/src/release/python.rs) | 排除规则仍识别旧产物目录 | 防止 `.deps/` 和 `.build/` 内的包、源码快照被计入业务包或发布输入 |
 | [工厂测试配置](../../../scripts/tests/factory-cargo.toml)、根 Cargo workspace 与独立测试 workspace | 当前测试配置未统一声明新的构建目标根 | 同步普通构建、测试和受管构建的输出位置及相关实际环境合同 |
 
 用户级 Codex home 与项目根是不同作用域。本次严格目录规则针对项目；共享安装代码须验证兼容性，但不据此自动迁移系统 Rust/Cargo 安装、用户全局缓存、原生 Codex 数据或真实用户级安装。若发现必须改变这些范围才能实现目标，先报告依赖和影响，不暗中扩大。

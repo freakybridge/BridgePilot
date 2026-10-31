@@ -285,7 +285,7 @@ pub fn inspect(root: &Path) -> InstructionReport {
             if claims_positive_autoload(&text) {
                 issues.push("AGENTS.md claims unsupported Markdown paths auto-loading".into());
             }
-            if let Ok(template) = fs::read_to_string(root.join("templates/AGENTS.md"))
+            if let Ok(template) = fs::read_to_string(bridgeforge_core::source_projection::template_path(&root, "templates/AGENTS.md"))
                 && let Ok((template_public, _)) = zone_parts(&template)
             {
                 let rendered = template_public.replace("{{PROJECT_NAME}}", "BridgeForgeCodex");
@@ -348,7 +348,7 @@ pub fn inspect(root: &Path) -> InstructionReport {
         }
         issues.extend(instruction_text_issues(entry.path(), &root, true));
     }
-    for directory in [root.join("templates/rules"), root.join(".codex/rules")] {
+    for directory in [bridgeforge_core::source_projection::template_path(&root, "templates/rules"), root.join(".codex/rules")] {
         if directory.is_dir()
             && WalkDir::new(&directory)
                 .max_depth(1)

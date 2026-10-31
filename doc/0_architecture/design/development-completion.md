@@ -40,7 +40,7 @@
 3. `develop` 退出后，如本轮写入了新子包版本或改变了该测试的其他实际输入，独立测试必须对最终内容再运行一次。两部分都通过才可交付；独立结果单独报告，不冒充受管检查收据。最终独立检查失败时不得宣称开发完成或发布就绪，保留已有受管记录并报告缺口，不手工回改版本账本。
 
 ```powershell
-cargo test --locked --offline --config scripts/tests/factory-cargo.toml --manifest-path Cargo.toml --target-dir .build/bridgeforge/test-target -p bridgeforge-factory --lib factory_runtime::tests::legacy_factory_tools_retire_only_after_verified_install -- --exact --test-threads=1 --nocapture --logfile ../../.runtime/tests/development/factory-legacy-retirement.log
+cargo test --locked --offline --config scripts/tests/factory-cargo.toml --manifest-path Cargo.toml --target-dir .build/bridgeforge/test-target -p bridgeforge-factory --lib factory_runtime::tests::legacy_factory_tools_retire_only_after_verified_install -- --exact --test-threads=1 --nocapture --logfile ../../../.runtime/tests/development/factory-legacy-retirement.log
 ```
 
 分离原因：退役保护会拒绝测试目录之外仍在运行的 BridgeForge 程序；受管 `develop` 父进程也在此范围内。独立执行保留真实进程保护，不能在测试内绕过它。原有独立 workspace 全量测试仍包含这一项，只有受管 `factory-unit` 排除它。

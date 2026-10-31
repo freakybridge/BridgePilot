@@ -47,11 +47,11 @@ fn ordinary_path(path: &Path) -> Result<(), String> {
 }
 
 pub fn render_manifest(root: &Path) -> Result<Vec<u8>, String> {
-    let bytes = fs::read(root.join(SOURCE)).map_err(|e| e.to_string())?;
+    let bytes = fs::read(crate::source_projection::template_path(root, SOURCE)).map_err(|e| e.to_string())?;
     let value = json!({
         "schema_version": 1,
         "asset_id": "codex.user-agents",
-        "source": SOURCE,
+        "source": crate::source_projection::template_relative(root, SOURCE),
         "target": "~/.codex/AGENTS.md",
         "ownership_strategy": "backup_then_replace",
         "sha256": format!("sha256:{}", hash(&normalized(&bytes)?))
@@ -78,7 +78,7 @@ pub fn stage(root: &Path, profile: &Path, operation: &str) -> Result<Value, Stri
     let backup = home.join(format!(".AGENTS.bridgeforge-backup-{operation}.md"));
     for path in [
         root.join(MANIFEST),
-        root.join(SOURCE),
+        crate::source_projection::template_path(root, SOURCE),
         target.clone(),
         staged.clone(),
         backup.clone(),
@@ -97,7 +97,7 @@ pub fn stage(root: &Path, profile: &Path, operation: &str) -> Result<Value, Stri
     if declared != expected {
         return Err("user instruction manifest identity or source hash differs".into());
     }
-    let desired = normalized(&fs::read(root.join(SOURCE)).map_err(|e| e.to_string())?)?;
+    let desired = normalized(&fs::read(crate::source_projection::template_path(root, SOURCE)).map_err(|e| e.to_string())?)?;
     if declared["sha256"] != format!("sha256:{}", hash(&desired)) {
         return Err("user instruction source changed during planning".into());
     }
@@ -134,5 +134,5 @@ pub fn stage(root: &Path, profile: &Path, operation: &str) -> Result<Value, Stri
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_user_agents.rs"]
+#[path = "../../../../scripts/tests/unit/core_user_agents.rs"]
 mod tests;

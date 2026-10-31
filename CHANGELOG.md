@@ -15,6 +15,24 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [13.1.0] - 2026-11-01
+
+### Added
+
+- [product][repo][meta] 发布 BridgePilot 跨项目总管并完成产品更名
+
+### Release analysis
+
+- Product: 在保持 Forge 工程入口与既有档案读取能力的基础上，新增 BridgePilot 个人跨项目总管、受控调度、原生归类、开发发布核验、私有档案同步、明确换机交接及可恢复安装升级；Forge 与 orchestrator 分层维护，完成用户明确选择的产品、仓库和源码目录更名。既有 Forge 工具和资产标识保持，GitHub 仓库身份不变，历史任务与 Run 保留；下游适配及物理双机、自然唤醒未验证边界已记录，不据此宣称全部业务验收完成。
+- `checks`: 0.2.1 -> 0.2.2 (Preserve package identity while moving maintenance sources under source/forge and adapting owned paths without changing installed interfaces.; Refresh dependency and build coverage for the compatible core process ownership API; no package source behavior changed.)
+- `core`: 10.0.2 -> 10.2.0 (Add explicit physical-to-logical Forge source projection and isolated factory membership while retaining installed paths.; Expose the existing owned no-window process-tree API for the private BridgePilot executor without changing its lifecycle behavior.)
+- `factory`: 0.10.0 -> 0.10.1 (Preserve package identity while moving maintenance sources under source/forge and adapting owned paths without changing installed interfaces.; Refresh dependency and build coverage for the compatible core process ownership API; no package source behavior changed.)
+- `lifecycle`: 0.8.2 -> 0.8.3 (Preserve package identity while moving maintenance sources under source/forge and adapting owned paths without changing installed interfaces.; Refresh dependency and build coverage for the compatible core process ownership API; no package source behavior changed.)
+- `memory`: 0.1.0 -> 0.1.1 (Preserve package identity while moving maintenance sources under source/forge and adapting owned paths without changing installed interfaces.; Refresh dependency and build coverage for the compatible core process ownership API; no package source behavior changed.)
+- `orchestrator`: unreleased -> 0.5.0 (Introduce private project/task archives, confirmation gates, native-client outbox, owned stdio execution, explicit pause and strict unknown-result reconciliation.; Enforce one execution wall-time budget across handshake, task start and stop acknowledgement; terminate only the owned job at the limit and preserve late or missing results as unknown.; Add bounded resident scheduling, owned worker launch identities, deliberate native writer handoff and evidence-bound read-only report review. Preserve explicit project scope, unknown-state blocking and publication authority.; Add native project membership reconciliation, observed thread heartbeat registration and task-bound managed development/publication evidence verification.; Fix completed-run native client display handoff, retry only pre-RPC local grouping intents under unrelated project contention, and avoid unchanged archive writes while waiting for existing client handoff.; Correct the inline concurrency regression fixture to use the repository-root runtime test directory regardless of Cargo package working directory.; Add opt-in private archive transport, explicit single-controller machine handoff and verified portable installation with recovery. Existing archives remain readable; enrolling custody requires a reader supporting custody-v1.; Separate backup enrolment from controller release and verify early terminal server PID reuse with original launch, supervisor, native-history and OS image evidence; preserve process identities during reconciliation.; Support verified same-identity GitHub repository rename while preserving project history and active-run gates.)
+- `skeleton`: 0.5.1 -> 0.5.2 (Preserve package identity while moving maintenance sources under source/forge and adapting owned paths without changing installed interfaces.; Refresh dependency and build coverage for the compatible core process ownership API; no package source behavior changed.)
+- `workflow`: 0.9.1 -> 0.9.2 (Preserve package identity while moving maintenance sources under source/forge and adapting owned paths without changing installed interfaces.; Refresh dependency and build coverage for the compatible core process ownership API; no package source behavior changed.)
+
 ## [13.0.3] - 2026-10-31
 
 ### Fixed

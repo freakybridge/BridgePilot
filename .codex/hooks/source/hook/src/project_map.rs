@@ -131,6 +131,7 @@ fn find_doc_map(root: &Path, files: &[PathBuf]) -> Result<String, String> {
         }
         let relative = relative_display(root, path);
         if relative.starts_with("templates/")
+            || relative.starts_with("source/forge/templates/")
             || (relative.starts_with("doc/") && relative != "doc/AGENTS.md")
         {
             continue;

@@ -65,7 +65,7 @@
             "--test-threads=1",
             "--nocapture",
             "--logfile",
-            "../../.runtime/tests/development/checks-unit-tests.log"
+            "../../../.runtime/tests/development/checks-unit-tests.log"
           ],
           "id": "checks-unit",
           "inputs": [
@@ -102,7 +102,7 @@
             "--test-threads=1",
             "--nocapture",
             "--logfile",
-            "../../.runtime/tests/development/core-unit-tests.log"
+            "../../../.runtime/tests/development/core-unit-tests.log"
           ],
           "id": "core-unit",
           "inputs": [
@@ -118,92 +118,92 @@
             "scripts/tests/unit/core_runtime.rs",
             "scripts/tests/unit/core_source_projection.rs",
             "scripts/tests/unit/core_user_agents.rs",
-            "source/checks/Cargo.toml",
-            "source/checks/src/archive_scan.rs",
-            "source/checks/src/artifact_layout.rs",
-            "source/checks/src/audit_user_allow.rs",
-            "source/checks/src/document_metadata.rs",
-            "source/checks/src/encoding.rs",
-            "source/checks/src/instructions.rs",
-            "source/checks/src/lib.rs",
-            "source/checks/src/project_structure.rs",
-            "source/checks/src/skill_metadata.rs",
-            "source/checks/src/todo.rs",
-            "source/cli/Cargo.toml",
-            "source/cli/src/lib.rs",
-            "source/cli/src/main.rs",
-            "source/cli/src/memory_commands.rs",
-            "source/hook/Cargo.toml",
-            "source/hook/src/guards.rs",
-            "source/hook/src/lib.rs",
-            "source/hook/src/main.rs",
-            "source/hook/src/post.rs",
-            "source/hook/src/project_map.rs",
-            "source/hook/src/session.rs",
-            "source/hook/src/shell.rs",
-            "source/hook/src/util.rs",
-            "source/lifecycle/Cargo.toml",
-            "source/lifecycle/src/lib.rs",
-            "source/lifecycle/src/release.rs",
-            "source/lifecycle/src/release/config.rs",
-            "source/lifecycle/src/release/independent.rs",
-            "source/lifecycle/src/release/lifecycle.rs",
-            "source/lifecycle/src/release/model.rs",
-            "source/lifecycle/src/release/polyglot.rs",
-            "source/lifecycle/src/release/python.rs",
-            "source/lifecycle/src/release/python_dependencies.rs",
-            "source/lifecycle/src/release/python_lock.rs",
-            "source/lifecycle/src/release/python_metadata.rs",
-            "source/lifecycle/src/release/rust.rs",
-            "source/lifecycle/src/release/rust_discovery.rs",
-            "source/lifecycle/src/release/rust_sources.rs",
-            "source/lifecycle/src/release/schema4.rs",
-            "source/lifecycle/src/release/schema4/content_identity.rs",
-            "source/lifecycle/src/release/schema4/adoption.rs",
-            "source/lifecycle/src/release/schema4/analysis.rs",
-            "source/lifecycle/src/release/schema4/configuration.rs",
-            "source/lifecycle/src/release/schema4/development.rs",
-            "source/lifecycle/src/release/schema4/development_inputs.rs",
-            "source/lifecycle/src/release/schema4/environment.rs",
-            "source/lifecycle/src/release/schema4/inputs.rs",
-            "source/lifecycle/src/release/schema4/lineage.rs",
-            "source/lifecycle/src/release/schema4/migration.rs",
-            "source/lifecycle/src/release/schema4/plan.rs",
-            "source/lifecycle/src/release/setup.rs",
-            "source/lifecycle/src/release_history.rs",
-            "source/lifecycle/src/release_history_cache.rs",
-            "source/memory/Cargo.toml",
-            "source/memory/src/background.rs",
-            "source/memory/src/lib.rs",
-            "source/memory/src/migration.rs",
-            "source/memory/src/ownership.rs",
-            "source/memory/src/remote.rs",
-            "source/memory/src/user_config.rs",
-            "source/memory/src/worker.rs",
-            "source/skeleton/Cargo.toml",
-            "source/skeleton/src/baseline.rs",
-            "source/skeleton/src/content.rs",
-            "source/skeleton/src/lib.rs",
-            "source/skeleton/src/project_hooks.rs",
-            "source/workflow/Cargo.toml",
-            "source/workflow/src/git_command.rs",
-            "source/workflow/src/git_sync.rs",
-            "source/workflow/src/git_sync_plan.rs",
-            "source/workflow/src/git_sync_preflight.rs",
-            "source/workflow/src/git_sync_timing.rs",
-            "source/workflow/src/lib.rs",
-            "source/workflow/src/project_sync.rs",
-            "source/workflow/src/public_artifacts.rs",
-            "source/workflow/src/source_retirement.rs",
-            "templates/hooks/.gitignore",
-            "source/lifecycle/src/release/schema4/portable_environment.rs",
+            "source/forge/checks/Cargo.toml",
+            "source/forge/checks/src/archive_scan.rs",
+            "source/forge/checks/src/artifact_layout.rs",
+            "source/forge/checks/src/audit_user_allow.rs",
+            "source/forge/checks/src/document_metadata.rs",
+            "source/forge/checks/src/encoding.rs",
+            "source/forge/checks/src/instructions.rs",
+            "source/forge/checks/src/lib.rs",
+            "source/forge/checks/src/project_structure.rs",
+            "source/forge/checks/src/skill_metadata.rs",
+            "source/forge/checks/src/todo.rs",
+            "source/forge/cli/Cargo.toml",
+            "source/forge/cli/src/lib.rs",
+            "source/forge/cli/src/main.rs",
+            "source/forge/cli/src/memory_commands.rs",
+            "source/forge/hook/Cargo.toml",
+            "source/forge/hook/src/guards.rs",
+            "source/forge/hook/src/lib.rs",
+            "source/forge/hook/src/main.rs",
+            "source/forge/hook/src/post.rs",
+            "source/forge/hook/src/project_map.rs",
+            "source/forge/hook/src/session.rs",
+            "source/forge/hook/src/shell.rs",
+            "source/forge/hook/src/util.rs",
+            "source/forge/lifecycle/Cargo.toml",
+            "source/forge/lifecycle/src/lib.rs",
+            "source/forge/lifecycle/src/release.rs",
+            "source/forge/lifecycle/src/release/config.rs",
+            "source/forge/lifecycle/src/release/independent.rs",
+            "source/forge/lifecycle/src/release/lifecycle.rs",
+            "source/forge/lifecycle/src/release/model.rs",
+            "source/forge/lifecycle/src/release/polyglot.rs",
+            "source/forge/lifecycle/src/release/python.rs",
+            "source/forge/lifecycle/src/release/python_dependencies.rs",
+            "source/forge/lifecycle/src/release/python_lock.rs",
+            "source/forge/lifecycle/src/release/python_metadata.rs",
+            "source/forge/lifecycle/src/release/rust.rs",
+            "source/forge/lifecycle/src/release/rust_discovery.rs",
+            "source/forge/lifecycle/src/release/rust_sources.rs",
+            "source/forge/lifecycle/src/release/schema4.rs",
+            "source/forge/lifecycle/src/release/schema4/content_identity.rs",
+            "source/forge/lifecycle/src/release/schema4/adoption.rs",
+            "source/forge/lifecycle/src/release/schema4/analysis.rs",
+            "source/forge/lifecycle/src/release/schema4/configuration.rs",
+            "source/forge/lifecycle/src/release/schema4/development.rs",
+            "source/forge/lifecycle/src/release/schema4/development_inputs.rs",
+            "source/forge/lifecycle/src/release/schema4/environment.rs",
+            "source/forge/lifecycle/src/release/schema4/inputs.rs",
+            "source/forge/lifecycle/src/release/schema4/lineage.rs",
+            "source/forge/lifecycle/src/release/schema4/migration.rs",
+            "source/forge/lifecycle/src/release/schema4/plan.rs",
+            "source/forge/lifecycle/src/release/setup.rs",
+            "source/forge/lifecycle/src/release_history.rs",
+            "source/forge/lifecycle/src/release_history_cache.rs",
+            "source/forge/memory/Cargo.toml",
+            "source/forge/memory/src/background.rs",
+            "source/forge/memory/src/lib.rs",
+            "source/forge/memory/src/migration.rs",
+            "source/forge/memory/src/ownership.rs",
+            "source/forge/memory/src/remote.rs",
+            "source/forge/memory/src/user_config.rs",
+            "source/forge/memory/src/worker.rs",
+            "source/forge/skeleton/Cargo.toml",
+            "source/forge/skeleton/src/baseline.rs",
+            "source/forge/skeleton/src/content.rs",
+            "source/forge/skeleton/src/lib.rs",
+            "source/forge/skeleton/src/project_hooks.rs",
+            "source/forge/workflow/Cargo.toml",
+            "source/forge/workflow/src/git_command.rs",
+            "source/forge/workflow/src/git_sync.rs",
+            "source/forge/workflow/src/git_sync_plan.rs",
+            "source/forge/workflow/src/git_sync_preflight.rs",
+            "source/forge/workflow/src/git_sync_timing.rs",
+            "source/forge/workflow/src/lib.rs",
+            "source/forge/workflow/src/project_sync.rs",
+            "source/forge/workflow/src/public_artifacts.rs",
+            "source/forge/workflow/src/source_retirement.rs",
+            "source/forge/templates/hooks/.gitignore",
+            "source/forge/lifecycle/src/release/schema4/portable_environment.rs",
             "scripts/tests/support/artifact_paths.rs",
             "scripts/tests/unit/core_artifact_cleanup.rs",
             "scripts/tests/unit/core_artifact_migration.rs",
             "scripts/tests/unit/core_build_inputs.rs",
             "scripts/tests/unit/core_process_activity.rs",
             "scripts/tests/unit/core_process_context.rs",
-            "source/workflow/src/artifact_cleanup.rs",
+            "source/forge/workflow/src/artifact_cleanup.rs",
             "scripts/tests/support/product_manifest.rs"
           ],
           "program": "cargo",
@@ -231,7 +231,7 @@
             "--",
             "--test-threads=1",
             "--logfile",
-            "../../.runtime/tests/development/factory-unit-tests.log",
+            "../../../.runtime/tests/development/factory-unit-tests.log",
             "--skip",
             "factory_runtime::tests::legacy_factory_tools_retire_only_after_verified_install"
           ],
@@ -262,85 +262,85 @@
             "scripts/tests/unit/core_manifest.rs",
             "scripts/tests/unit/factory/git_sync.rs",
             "scripts/tests/unit/factory/public_artifact_cache.rs",
-            "source/cli/Cargo.toml",
-            "source/cli/src/lib.rs",
-            "source/cli/src/main.rs",
-            "source/cli/src/memory_commands.rs",
-            "source/hook/Cargo.toml",
-            "source/hook/src/guards.rs",
-            "source/hook/src/lib.rs",
-            "source/hook/src/main.rs",
-            "source/hook/src/post.rs",
-            "source/hook/src/project_map.rs",
-            "source/hook/src/session.rs",
-            "source/hook/src/shell.rs",
-            "source/hook/src/util.rs",
-            "source/memory/Cargo.toml",
-            "source/memory/src/background.rs",
-            "source/memory/src/lib.rs",
-            "source/memory/src/migration.rs",
-            "source/memory/src/ownership.rs",
-            "source/memory/src/remote.rs",
-            "source/memory/src/user_config.rs",
-            "source/memory/src/worker.rs",
-            "templates/.gitattributes",
-            "templates/.githooks/pre-commit",
-            "templates/AGENTS.md",
-            "templates/agents/implementation-worker.toml",
-            "templates/agents/light-explorer.toml",
-            "templates/agents/review-auditor.toml",
-            "templates/agents/xhigh-auditor.toml",
-            "templates/config.toml",
-            "templates/doc/3_reference/codex-hook-signals.md",
-            "templates/doc/3_reference/project-rust-hooks.md",
-            "templates/doc/5_project_knowledgebase/.gitkeep",
-            "templates/doc/README.md",
-            "templates/hooks.json",
-            "templates/hooks/.gitignore",
-            "templates/skills/archive-scan/SKILL.md",
-            "templates/skills/autopilot/references/runtime.md",
-            "templates/skills/autopilot/SKILL.md",
-            "templates/skills/bridgeforge-codex/agents/openai.yaml",
-            "templates/skills/bridgeforge-codex/references/adopt.md",
-            "templates/skills/bridgeforge-codex/references/init.md",
-            "templates/skills/bridgeforge-codex/references/native-memory.md",
-            "templates/skills/bridgeforge-codex/references/project-hook-independence.md",
-            "templates/skills/bridgeforge-codex/references/runtime-preflight.md",
-            "templates/skills/bridgeforge-codex/references/technical-receipts.md",
-            "templates/skills/bridgeforge-codex/references/transaction.md",
-            "templates/skills/bridgeforge-codex/references/update.md",
-            "templates/skills/bridgeforge-codex/references/user-skill-maintenance.md",
-            "templates/skills/bridgeforge-codex/SKILL.md",
-            "templates/skills/collab/SKILL.md",
-            "templates/skills/confirm/references/weekly-quota.md",
-            "templates/skills/confirm/SKILL.md",
-            "templates/skills/create-worktree/agents/openai.yaml",
-            "templates/skills/create-worktree/scripts/create_worktree.ps1",
-            "templates/skills/create-worktree/SKILL.md",
-            "templates/skills/debate/SKILL.md",
-            "templates/skills/develop/references/agent-execution.md",
-            "templates/skills/develop/references/completion-release.md",
-            "templates/skills/develop/references/ml-delivery.md",
-            "templates/skills/develop/SKILL.md",
-            "templates/skills/escalate/SKILL.md",
-            "templates/skills/explain/SKILL.md",
-            "templates/skills/find-doc/SKILL.md",
-            "templates/skills/focus/SKILL.md",
-            "templates/skills/git-sync/references/first-use.md",
-            "templates/skills/git-sync/references/runtime-context.md",
-            "templates/skills/git-sync/references/schema4.md",
-            "templates/skills/git-sync/SKILL.md",
-            "templates/skills/plan/SKILL.md",
-            "templates/skills/refactor-scan/references/report-contract.md",
-            "templates/skills/refactor-scan/SKILL.md",
-            "templates/skills/spinoff/SKILL.md",
-            "templates/skills/summary/references/acceptance-mode.md",
-            "templates/skills/summary/references/ordinary-mode.md",
-            "templates/skills/summary/references/switch-mode.md",
-            "templates/skills/summary/SKILL.md",
-            "templates/skills/sync-docs/SKILL.md",
-            "templates/skills/todo/SKILL.md",
-            "templates/user/AGENTS.md",
+            "source/forge/cli/Cargo.toml",
+            "source/forge/cli/src/lib.rs",
+            "source/forge/cli/src/main.rs",
+            "source/forge/cli/src/memory_commands.rs",
+            "source/forge/hook/Cargo.toml",
+            "source/forge/hook/src/guards.rs",
+            "source/forge/hook/src/lib.rs",
+            "source/forge/hook/src/main.rs",
+            "source/forge/hook/src/post.rs",
+            "source/forge/hook/src/project_map.rs",
+            "source/forge/hook/src/session.rs",
+            "source/forge/hook/src/shell.rs",
+            "source/forge/hook/src/util.rs",
+            "source/forge/memory/Cargo.toml",
+            "source/forge/memory/src/background.rs",
+            "source/forge/memory/src/lib.rs",
+            "source/forge/memory/src/migration.rs",
+            "source/forge/memory/src/ownership.rs",
+            "source/forge/memory/src/remote.rs",
+            "source/forge/memory/src/user_config.rs",
+            "source/forge/memory/src/worker.rs",
+            "source/forge/templates/.gitattributes",
+            "source/forge/templates/.githooks/pre-commit",
+            "source/forge/templates/AGENTS.md",
+            "source/forge/templates/agents/implementation-worker.toml",
+            "source/forge/templates/agents/light-explorer.toml",
+            "source/forge/templates/agents/review-auditor.toml",
+            "source/forge/templates/agents/xhigh-auditor.toml",
+            "source/forge/templates/config.toml",
+            "source/forge/templates/doc/3_reference/codex-hook-signals.md",
+            "source/forge/templates/doc/3_reference/project-rust-hooks.md",
+            "source/forge/templates/doc/5_project_knowledgebase/.gitkeep",
+            "source/forge/templates/doc/README.md",
+            "source/forge/templates/hooks.json",
+            "source/forge/templates/hooks/.gitignore",
+            "source/forge/templates/skills/archive-scan/SKILL.md",
+            "source/forge/templates/skills/autopilot/references/runtime.md",
+            "source/forge/templates/skills/autopilot/SKILL.md",
+            "source/forge/templates/skills/bridgeforge-codex/agents/openai.yaml",
+            "source/forge/templates/skills/bridgeforge-codex/references/adopt.md",
+            "source/forge/templates/skills/bridgeforge-codex/references/init.md",
+            "source/forge/templates/skills/bridgeforge-codex/references/native-memory.md",
+            "source/forge/templates/skills/bridgeforge-codex/references/project-hook-independence.md",
+            "source/forge/templates/skills/bridgeforge-codex/references/runtime-preflight.md",
+            "source/forge/templates/skills/bridgeforge-codex/references/technical-receipts.md",
+            "source/forge/templates/skills/bridgeforge-codex/references/transaction.md",
+            "source/forge/templates/skills/bridgeforge-codex/references/update.md",
+            "source/forge/templates/skills/bridgeforge-codex/references/user-skill-maintenance.md",
+            "source/forge/templates/skills/bridgeforge-codex/SKILL.md",
+            "source/forge/templates/skills/collab/SKILL.md",
+            "source/forge/templates/skills/confirm/references/weekly-quota.md",
+            "source/forge/templates/skills/confirm/SKILL.md",
+            "source/forge/templates/skills/create-worktree/agents/openai.yaml",
+            "source/forge/templates/skills/create-worktree/scripts/create_worktree.ps1",
+            "source/forge/templates/skills/create-worktree/SKILL.md",
+            "source/forge/templates/skills/debate/SKILL.md",
+            "source/forge/templates/skills/develop/references/agent-execution.md",
+            "source/forge/templates/skills/develop/references/completion-release.md",
+            "source/forge/templates/skills/develop/references/ml-delivery.md",
+            "source/forge/templates/skills/develop/SKILL.md",
+            "source/forge/templates/skills/escalate/SKILL.md",
+            "source/forge/templates/skills/explain/SKILL.md",
+            "source/forge/templates/skills/find-doc/SKILL.md",
+            "source/forge/templates/skills/focus/SKILL.md",
+            "source/forge/templates/skills/git-sync/references/first-use.md",
+            "source/forge/templates/skills/git-sync/references/runtime-context.md",
+            "source/forge/templates/skills/git-sync/references/schema4.md",
+            "source/forge/templates/skills/git-sync/SKILL.md",
+            "source/forge/templates/skills/plan/SKILL.md",
+            "source/forge/templates/skills/refactor-scan/references/report-contract.md",
+            "source/forge/templates/skills/refactor-scan/SKILL.md",
+            "source/forge/templates/skills/spinoff/SKILL.md",
+            "source/forge/templates/skills/summary/references/acceptance-mode.md",
+            "source/forge/templates/skills/summary/references/ordinary-mode.md",
+            "source/forge/templates/skills/summary/references/switch-mode.md",
+            "source/forge/templates/skills/summary/SKILL.md",
+            "source/forge/templates/skills/sync-docs/SKILL.md",
+            "source/forge/templates/skills/todo/SKILL.md",
+            "source/forge/templates/user/AGENTS.md",
             "VERSION",
             "scripts/tests/support/current_fixture.rs",
             "scripts/tests/support/release_plan.rs",
@@ -408,7 +408,7 @@
             "--test-threads=1",
             "--nocapture",
             "--logfile",
-            "../../.runtime/tests/development/lifecycle-unit-tests.log"
+            "../../../.runtime/tests/development/lifecycle-unit-tests.log"
           ],
           "id": "lifecycle-unit",
           "inputs": [
@@ -460,7 +460,7 @@
             "--test-threads=1",
             "--nocapture",
             "--logfile",
-            "../../.runtime/tests/development/memory-unit-tests.log"
+            "../../../.runtime/tests/development/memory-unit-tests.log"
           ],
           "id": "memory-unit",
           "inputs": [
@@ -503,7 +503,7 @@
             "--test-threads=1",
             "--nocapture",
             "--logfile",
-            "../../.runtime/tests/development/skeleton-unit-tests.log"
+            "../../../.runtime/tests/development/skeleton-unit-tests.log"
           ],
           "id": "skeleton-unit",
           "inputs": [
@@ -512,9 +512,9 @@
             "scripts/tests/unit/core_baseline.rs",
             "scripts/tests/unit/core_project_hooks.rs",
             "scripts/tests/unit/core_project_sync_content.rs",
-            "templates/AGENTS.md",
-            "templates/doc/README.md",
-            "templates/hooks.json",
+            "source/forge/templates/AGENTS.md",
+            "source/forge/templates/doc/README.md",
+            "source/forge/templates/hooks.json",
             "bridgeforge-manifest.json",
             "scripts/tests/support/artifact_paths.rs",
             "scripts/tests/support/product_manifest.rs"
@@ -545,7 +545,7 @@
             "--test-threads=1",
             "--nocapture",
             "--logfile",
-            "../../.runtime/tests/development/workflow-unit-tests.log"
+            "../../../.runtime/tests/development/workflow-unit-tests.log"
           ],
           "id": "workflow-unit",
           "inputs": [
@@ -556,7 +556,7 @@
             "scripts/tests/unit/core_git_sync.rs",
             "scripts/tests/unit/core_project_sync.rs",
             "scripts/tests/unit/source_retirement.rs",
-            "templates/hooks.json",
+            "source/forge/templates/hooks.json",
             "bridgeforge-manifest.json",
             "scripts/tests/support/current_fixture.rs",
             "scripts/tests/support/release_plan.rs",
@@ -591,7 +591,7 @@
             "scripts/tests/src/runtime_flows.rs",
             "scripts/tests/support/artifact_paths.rs",
             "bridgeforge-manifest.json",
-            "templates/config.toml",
+            "source/forge/templates/config.toml",
             "scripts/tests/support/product_manifest.rs"
           ],
           "timeout_seconds": 600
@@ -621,11 +621,49 @@
             "scripts/tests/src/runtime_flows.rs",
             "scripts/tests/support/artifact_paths.rs",
             "bridgeforge-manifest.json",
-            "templates/config.toml",
-            "templates/hooks.json",
+            "source/forge/templates/config.toml",
+            "source/forge/templates/hooks.json",
             "scripts/tests/support/product_manifest.rs"
           ],
           "timeout_seconds": 900
+        }
+      ]
+    },
+    "orchestrator": {
+      "checks": [
+        {
+          "timeout_seconds": 600,
+          "inputs": [
+            "scripts/tests/orchestrator/domain.rs",
+            "scripts/tests/orchestrator/store.rs",
+            "scripts/tests/orchestrator/protocol.rs",
+            "scripts/tests/orchestrator/execute.rs",
+            "scripts/tests/orchestrator/rpc_fixture.rs",
+            "scripts/tests/orchestrator/scheduler.rs",
+            "scripts/tests/orchestrator/grouping.rs",
+            "scripts/tests/orchestrator/wakeup.rs",
+            "scripts/tests/orchestrator/delivery.rs",
+            "scripts/tests/orchestrator/portable.rs",
+            "source/orchestrator/skills/bridgepilot/SKILL.md"
+          ],
+          "args": [
+            "test",
+            "--quiet",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "Cargo.toml",
+            "--target-dir",
+            ".build/bridgepilot/test-target",
+            "-p",
+            "bridgepilot-orchestrator",
+            "--features",
+            "test-fixtures",
+            "--",
+            "--test-threads=1"
+          ],
+          "id": "orchestrator-unit-integration",
+          "program": "cargo"
         }
       ]
     }
@@ -653,57 +691,64 @@
     {
       "id": "core",
       "language": "rust",
-      "manifest": "source/core/Cargo.toml",
+      "manifest": "source/forge/core/Cargo.toml",
       "name": "bridgeforge-core",
       "workspace": "Cargo.toml"
     },
     {
       "id": "skeleton",
       "language": "rust",
-      "manifest": "source/skeleton/Cargo.toml",
+      "manifest": "source/forge/skeleton/Cargo.toml",
       "name": "bridgeforge-skeleton",
       "workspace": "Cargo.toml"
     },
     {
       "id": "lifecycle",
       "language": "rust",
-      "manifest": "source/lifecycle/Cargo.toml",
+      "manifest": "source/forge/lifecycle/Cargo.toml",
       "name": "bridgeforge-lifecycle",
       "workspace": "Cargo.toml"
     },
     {
       "id": "workflow",
       "language": "rust",
-      "manifest": "source/workflow/Cargo.toml",
+      "manifest": "source/forge/workflow/Cargo.toml",
       "name": "bridgeforge-workflow",
       "workspace": "Cargo.toml"
     },
     {
       "id": "memory",
       "language": "rust",
-      "manifest": "source/memory/Cargo.toml",
+      "manifest": "source/forge/memory/Cargo.toml",
       "name": "bridgeforge-memory",
       "workspace": "Cargo.toml"
     },
     {
       "id": "checks",
       "language": "rust",
-      "manifest": "source/checks/Cargo.toml",
+      "manifest": "source/forge/checks/Cargo.toml",
       "name": "bridgeforge-checks",
       "workspace": "Cargo.toml"
     },
     {
       "id": "factory",
       "language": "rust",
-      "manifest": "source/factory/Cargo.toml",
+      "manifest": "source/forge/factory/Cargo.toml",
       "name": "bridgeforge-factory",
       "workspace": "Cargo.toml"
+    },
+    {
+      "name": "bridgepilot-orchestrator",
+      "workspace": "Cargo.toml",
+      "language": "rust",
+      "id": "orchestrator",
+      "manifest": "source/orchestrator/Cargo.toml"
     }
   ],
   "product_inputs": [
     "Cargo.toml",
-    "source/cli/",
-    "source/hook/",
+    "source/forge/cli/",
+    "source/forge/hook/",
     ".codex/hooks/"
   ],
   "product_manifests": [],
@@ -711,14 +756,14 @@
     {
       "id": "cli",
       "language": "rust",
-      "manifest": "source/cli/Cargo.toml",
+      "manifest": "source/forge/cli/Cargo.toml",
       "name": "bridgeforge-cli",
       "workspace": "Cargo.toml"
     },
     {
       "id": "hook",
       "language": "rust",
-      "manifest": "source/hook/Cargo.toml",
+      "manifest": "source/forge/hook/Cargo.toml",
       "name": "bridgeforge-hook",
       "workspace": "Cargo.toml"
     }
@@ -739,6 +784,176 @@
       "restored_release": "31d1451ca5f32a6c4ed129e439e9fb5f9f210070",
       "reason": "User explicitly approved verified withdrawal recognition and managed package development closure on 2026-10-30; no commit, push or release.",
       "withdrawn_release": "35b5ad7ad1829ceae8805d78abdb759065c6b645"
+    }
+  ],
+  "lifecycle": [
+    {
+      "from": [
+        {
+          "id": "core",
+          "workspace": "Cargo.toml",
+          "language": "rust",
+          "manifest": "source/core/Cargo.toml",
+          "name": "bridgeforge-core"
+        }
+      ],
+      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
+      "compatibility": "compatible",
+      "to": [
+        {
+          "name": "bridgeforge-core",
+          "language": "rust",
+          "manifest": "source/forge/core/Cargo.toml",
+          "id": "core",
+          "workspace": "Cargo.toml"
+        }
+      ],
+      "operation": "move",
+      "id": "bp-forge-layout-core"
+    },
+    {
+      "from": [
+        {
+          "id": "skeleton",
+          "workspace": "Cargo.toml",
+          "language": "rust",
+          "manifest": "source/skeleton/Cargo.toml",
+          "name": "bridgeforge-skeleton"
+        }
+      ],
+      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
+      "compatibility": "compatible",
+      "to": [
+        {
+          "name": "bridgeforge-skeleton",
+          "language": "rust",
+          "manifest": "source/forge/skeleton/Cargo.toml",
+          "id": "skeleton",
+          "workspace": "Cargo.toml"
+        }
+      ],
+      "operation": "move",
+      "id": "bp-forge-layout-skeleton"
+    },
+    {
+      "from": [
+        {
+          "id": "lifecycle",
+          "workspace": "Cargo.toml",
+          "language": "rust",
+          "manifest": "source/lifecycle/Cargo.toml",
+          "name": "bridgeforge-lifecycle"
+        }
+      ],
+      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
+      "compatibility": "compatible",
+      "to": [
+        {
+          "name": "bridgeforge-lifecycle",
+          "language": "rust",
+          "manifest": "source/forge/lifecycle/Cargo.toml",
+          "id": "lifecycle",
+          "workspace": "Cargo.toml"
+        }
+      ],
+      "operation": "move",
+      "id": "bp-forge-layout-lifecycle"
+    },
+    {
+      "from": [
+        {
+          "id": "workflow",
+          "workspace": "Cargo.toml",
+          "language": "rust",
+          "manifest": "source/workflow/Cargo.toml",
+          "name": "bridgeforge-workflow"
+        }
+      ],
+      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
+      "compatibility": "compatible",
+      "to": [
+        {
+          "name": "bridgeforge-workflow",
+          "language": "rust",
+          "manifest": "source/forge/workflow/Cargo.toml",
+          "id": "workflow",
+          "workspace": "Cargo.toml"
+        }
+      ],
+      "operation": "move",
+      "id": "bp-forge-layout-workflow"
+    },
+    {
+      "from": [
+        {
+          "id": "memory",
+          "workspace": "Cargo.toml",
+          "language": "rust",
+          "manifest": "source/memory/Cargo.toml",
+          "name": "bridgeforge-memory"
+        }
+      ],
+      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
+      "compatibility": "compatible",
+      "to": [
+        {
+          "name": "bridgeforge-memory",
+          "language": "rust",
+          "manifest": "source/forge/memory/Cargo.toml",
+          "id": "memory",
+          "workspace": "Cargo.toml"
+        }
+      ],
+      "operation": "move",
+      "id": "bp-forge-layout-memory"
+    },
+    {
+      "from": [
+        {
+          "id": "checks",
+          "workspace": "Cargo.toml",
+          "language": "rust",
+          "manifest": "source/checks/Cargo.toml",
+          "name": "bridgeforge-checks"
+        }
+      ],
+      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
+      "compatibility": "compatible",
+      "to": [
+        {
+          "name": "bridgeforge-checks",
+          "language": "rust",
+          "manifest": "source/forge/checks/Cargo.toml",
+          "id": "checks",
+          "workspace": "Cargo.toml"
+        }
+      ],
+      "operation": "move",
+      "id": "bp-forge-layout-checks"
+    },
+    {
+      "from": [
+        {
+          "id": "factory",
+          "workspace": "Cargo.toml",
+          "language": "rust",
+          "manifest": "source/factory/Cargo.toml",
+          "name": "bridgeforge-factory"
+        }
+      ],
+      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
+      "compatibility": "compatible",
+      "to": [
+        {
+          "name": "bridgeforge-factory",
+          "language": "rust",
+          "manifest": "source/forge/factory/Cargo.toml",
+          "id": "factory",
+          "workspace": "Cargo.toml"
+        }
+      ],
+      "operation": "move",
+      "id": "bp-forge-layout-factory"
     }
   ]
 }

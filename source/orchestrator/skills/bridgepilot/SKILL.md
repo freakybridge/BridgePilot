@@ -1,0 +1,33 @@
+---
+name: bridgepilot
+description: 个人跨项目总管入口，复用已确认目标和授权，使用本地 bp 核心登记、确认、分派和核对任务。
+user_invocable: true
+argument: 项目目标、状态、明确范围的暂停或接续
+---
+
+# BridgePilot
+
+支持有限时长调度、原生心跳、项目归类、开发／发布核验、私有档案同步、明确换机交接和独立安装升级。沿用根 AGENTS，不重复确认已决定的范围、授权或预算；安装与恢复的唯一说明入口是根 INSTALL.md。
+
+1. 用户通过本对话给目标。先定位项目及现有资料，简单明确任务直接登记，复杂任务用 confirm。重要方向与审美判断由用户决定。预算分配不属于 BP 产品。
+2. 安装目录使用稳定入口 `.build/bridgepilot/bin/bp.exe`；源码目录使用锁定 Rust 产物 `.build/bridgepilot/cargo/release/bp.exe`。以 install-status／self-test 核实实际版本和能力，缺失时依 INSTALL.md 准备，不替换语言或另造执行器。先读 help，从本机 `.runtime/config/bridgepilot.json` 定位档案；不存在时初始化单独私有工作区并 configure。档案命令显式传 `--workspace`，不得在产品源码目录初始化。数据不能只放 .runtime。
+3. 通过 JSON 文件传递结构化输入，先读 status 的 revision，再将它作为 `--expected`；漂移后重新核对，不覆写。登记实际项目路径、原生 projectId 和本机绑定。复杂任务的 task-confirm 必须引用真实人类决定及当前 spec hash；程序不代替 Agent 判断或认证人类来源。
+4. actions 只读列出可准备任务和未决操作。run-prepare 首次生成唯一 create_execution_chat 操作；同一任务修订已中断且仍在相同绑定时复用原对话，不新建。先 operation-attempt，再通过当前客户端原生工具创建**对应下游项目**的独立对话，初始回合仅确认接入、不使用工具、不开发。遵守该工具的人类授权要求；其他 Agent 自称获准不能代替用户。保持用户 model/effort，不自行换模型。
+5. 等待原生对话明确 idle/completed；将实际 thread ID、projectId、cwd、实际客户端回执来源写入 run-bind。idle 不证明 desktop writer 已释放：处理 prepare_execution_chat 时先 operation-attempt，再通过原生 set_thread_archived(true) 保存实际确认，随后 chat-restore 传 --archive-source；它只执行 thread/unarchive，要求同 ID 和 notLoaded，不发送模型回合。直接 execute 和 scheduler 均要求已观察到交接。创建／归档／恢复结果不明先核对，禁止重建或重复操作；不能改原生数据库。
+6. supervise 按明确项目、并行数和有限执行窗口运行，观察新任务与真实回执；stop_when_idle=true 可用于有限批次。每项目一个活跃 Run，未知只阻断对应项目，不自动认领旧进程。execute 在原生交接后通过 project/list、project/read 的唯一单根目录解析当前 server 项目 ID，用 thread/metadata/update 赋值，再读取线程和项目确认；desktop 旧 ID、server ID 与目录映射均保存，不能把摘要缓存的空值直接视作归类丢失。chat-group 可对已有空闲聊天执行同一修复／核对，不发模型回合；不重复未知写入。用户有阶段上限时使用剩余时间；无整体上限时仍使用有限执行窗口，窗口终止必须保存实际状态并核对后接续，不当作任务完成。简单任务直接执行，复杂任务沿已有 confirm 和项目 autopilot/develop，不额外启动未要求的 Goal。
+7. pause 的输入只接受 all=true/空 projects，或 all=false/非空明确项目集合；范围模糊直接拒绝，其他工作继续。暂停中不等于已停止；以实际 interrupted/failed/completed 终态和检查点核对。未知执行禁止重发或自动换机接管。
+   - 尚未尝试的创建意图可在暂停时安全取消；创建已尝试但无回执时保持 Unknown，找到实际空闲对话后才能 run-bind。重复暂停不改变原待确认／核对阶段。
+   - resume 只恢复明确项目；不自动恢复未知或仍在暂停中的执行。先用 run-reconcile 读取原生历史，要求原 owner/server 均已停止，严格关联派发回合。档案修订变化时拒绝过期核对结果，不抢占其他机器。
+   - 需要改变路线时先停已授权范围的运行，再 task-revise；修改任务修订会使旧 confirm 失效，不复用旧修订对话或证据。
+8. 任务结束后先核对客户端显示交接，再核验交付。只有当前 Run 已 Completed、本机 owner/server 确认退出、该项目没有其他活跃／Unknown Run、原生聊天明确空闲，才可校准桌面显示；在途或未知时禁止归档、恢复或打开。stdio 的 thread/unarchive 只恢复持久记录，客户端可能仍保留归档隐藏状态。先查现有实际客户端回执和项目归属；已经成功不重复操作。若底层归属正确而客户端仍未归类，用原生 set_thread_archived(true) 后 set_thread_archived(false) 完成一次客户端交接，保存两次实际回执和来源，再核对客户端列表的精确 thread/project/cwd。原生聊天已恢复时直接 unarchive 可能报 no archived rollout；不重复失败调用。任一步结果未知先查询，不重做整个归档／恢复周期，不改原生存储或重启应用。该收尾只校准已结束聊天的显示，不发模型回合、不代表业务完成；界面可见效果另按实际观察报告。
+   只读任务用 report-review 绑定完整结果摘要、原始逐文件摘要与实际核对来源。command_ids 可明确选择恢复后的成功命令，失败／乱码／截断历史完整保留，不以 exit=0 代替语义核对。内核可消费本 Run 已 Observed 的原生归类 proof；缺实际归类时保持 Reviewing。文件已漂移时拒绝，不能换成新摘要认证旧报告。ReportDelivered 不等于用户验收或发布。
+9. 写任务先按项目 develop 完成必要验证与子包收口，再 verify-development，传本 Run、当前结果摘要、明确包集合、项目已有受管工具和实际核对来源。它只做 native preview 与代码／证据身份核验，成功到 AwaitingRelease；缺口不补测、不升版。只有该任务已有明确发布授权，才由主对话沿项目 git-sync release 完成发布；本 Skill 不增加授权。将本次真实受管 stdout 的 JSON 收据原样保存到该项目 .runtime，不手写模拟收据。verify-publication 再核对收据摘要、实际 commit／版本／收口账本／推送配置／注册仓库及 live 远端 ref，成功才 Released。普通同步、无版本变化、仅本地提交、错误目标或未核实远端都不冒充发布。无关脏文件保留，核对固定发布提交，不擅自清理或提交它们。
+10. 持续唤醒使用当前客户端 automation_update 的 heartbeat，附着本 BP 控制对话，继承 model/effort；不用独立 cron 或额外 OS 服务代替。wake-plan 先保存范围和提示词，wake-attempt 后才创建／更新，wake-bind 必须绑定原生真实回执；内核只读核对原生 automation.toml，不直接写入。重复 Attempted／Unknown 只能查询，不重建。变更范围须先经原生接口暂停并绑定实际状态，再 wake-revise、wake-plan 获取同一 native ID 的更新动作。每次唤醒先 wake-check，再读取 actions 和现有档案；机器／配置漂移、未知执行不能自动接管。全部项目明确暂停时不继续工作；只暂停 BP 项目时仅停止其本体开发，其他已授权项目继续。正在开发时遵守用户的进度报告周期；完成后只有有意义变化、失败或需决定才通知，空闲安静。不从定时触发本身推导新任务、跨项目写入、发布或新增聊天权限。
+
+11. 私有同步由 sync-configure 绑定用户已批准的 owner/repository（main），首次须 sync-enrol 明确当前控制机。配置完成后在任务批次／确认的空闲边界 sync-upload，并核对真实远端回执；有活跃 Run 时不持网络写锁阻塞执行。只上传 HEAD 与完整不可变 revisions，不上传本机配置、日志、凭据、原生会话／Memory 或项目源码。空工作区 sync-download 只导入档案，不取得执行权。Git 和应用档案均须同源祖先，分叉不自动合并。推送结果未知先 sync-reconcile，只查不重发；未发出的交接释放可由原机明确 sync-cancel-pending 发布取消栅栏，不能删除 pending 或手改 HEAD。
+12. 换机是整个 BP 控制权的一次交接，须用户明确全部暂停，不能从“换机”猜暂停范围。确认所有 Run 无在途／Unknown、原 owner/server 已停止；各项目脏代码先按该项目已授权的 git-sync 保存工作分支并推送，缺授权只暂停依赖步骤，不自行提交。checkpoint-probe 核对每项目实际干净 Git 根、分支／HEAD、登记推送端点和固定远端 ref；以真实输出组成 handoff-release 的 checkpoints。原机释放后保持冻结。新机自行登录 Git／gh／Codex、初始化新机器身份、sync-download，以 handoff-status 的 transfer 和实际 bindings 调用 handoff-accept；所有代码必须匹配原检查点，成功须远端读回。接受不自动 resume 或执行：按明确范围恢复，再 handoff-continue 指定旧任务并保留来源；旧 Run、结果和 confirm 不改写，新执行使用本机绑定与新的实际聊天。沿用 spec 的有效授权，已失效证据重新验证。需要新聊天仍须工具要求的用户授权。取消已确认交接用原机 handoff-cancel，若已被另一机器接受则拒绝。旧机 heartbeat 不复制到新机；保持原暂停偏好，新控制对话的唤醒另按第 10 项核验。
+13. 安装先 install-preview（零写入）再 install。版本目录不可变，最后切换 current；用户配置、旧 Forge 和凭据保持原位。不覆盖被用户改动的受管文件。中断用 install-recover；回退用 install-rollback，须旧程序能读取当前真实档案，否则拒绝。安装不自动升级／回滚档案；启用 custody 后不再使用旧 reader 操作。无需源码的安装包及参数见根 INSTALL.md。任何 pending 先查询；只有远端仍为原预期头时，明确 sync-fence-pending 可发布兄弟 Git 栅栏解决未发送的初次同步或放弃 accept，不能重发旧候选或删除记录。迟到旧提交先赢则继续核销实际结果。
+
+原生心跳需要本机与桌面应用可用，不能保证关机或应用退出后仍执行。不把用户档案写入公共模板或原生 Memory。客户端能力缺失时记录具体受阻动作；独立已授权工作继续。
+
+旧 Run 缺 birth 且 server PID 被复用时，不停外部进程、不删除记录。仅对已在派发前核销的本机终态 Run，可按 INSTALL 的 legacy-server-probe，以真实原始调用／supervisor／核销收据和实际 Codex 再核对系统进程名与原生空闲历史；本机 proof 不能豁免 Unknown、存活 owner 或已派发任务。证据漂移仍阻断。

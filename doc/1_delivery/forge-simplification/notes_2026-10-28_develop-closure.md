@@ -52,7 +52,7 @@ validation_status: not_started
 - 开发验证证据如何关联最终候选、升版前后等价性如何判断、出现真实影响时如何补验，尚未设计或验证；不预设新增证书系统或完整缓存框架。
 - S/M/L 分级、预算、需求卡、Agent 路由及收口入口合并仍待讨论。本文件不将建议视为已获实施授权。
 
-现行依据：[develop](../../../templates/skills/develop/SKILL.md)、[收口 reference](../../../templates/skills/develop/references/completion-release.md)、[版本合同](../../../templates/skills/git-sync/references/schema4.md)、[工厂开发收口设计](../../0_architecture/design/development-completion.md)。
+现行依据：[develop](../../../source/forge/templates/skills/develop/SKILL.md)、[收口 reference](../../../source/forge/templates/skills/develop/references/completion-release.md)、[版本合同](../../../source/forge/templates/skills/git-sync/references/schema4.md)、[工厂开发收口设计](../../0_architecture/design/development-completion.md)。
 
 ## 5. 本轮结果
 

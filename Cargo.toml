@@ -1,17 +1,18 @@
 [workspace]
-members = ["source/core", "source/skeleton", "source/checks", "source/workflow", "source/factory", "source/lifecycle", "source/memory", "source/cli", "source/hook"]
+members = ["source/forge/core", "source/forge/skeleton", "source/forge/checks", "source/forge/workflow", "source/forge/factory", "source/forge/lifecycle", "source/forge/memory", "source/forge/cli", "source/forge/hook", "source/orchestrator"]
 exclude = [".codex/hooks", "scripts/tests"]
-default-members = ["source/cli", "source/hook", "source/factory"]
+default-members = ["source/forge/cli", "source/forge/hook", "source/forge/factory"]
 resolver = "3"
 
 [workspace.package]
-version = "13.0.3"
+version = "13.1.0"
 edition = "2024"
 rust-version = "1.88"
 publish = false
 
 [workspace.metadata.bridgeforge]
-public-members = ["source/core", "source/skeleton", "source/checks", "source/workflow", "source/lifecycle", "source/memory", "source/cli", "source/hook"]
+factory-members = ["source/forge/core", "source/forge/skeleton", "source/forge/checks", "source/forge/workflow", "source/forge/lifecycle", "source/forge/memory", "source/forge/factory", "source/forge/cli", "source/forge/hook"]
+public-members = ["source/forge/core", "source/forge/skeleton", "source/forge/checks", "source/forge/workflow", "source/forge/lifecycle", "source/forge/memory", "source/forge/cli", "source/forge/hook"]
 
 [workspace.dependencies]
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
@@ -22,15 +23,15 @@ sha1 = "0.10"
 sha2 = "0.10"
 walkdir = "2"
 
-bridgeforge-core = { path = "source/core" }
-bridgeforge-skeleton = { path = "source/skeleton" }
-bridgeforge-checks = { path = "source/checks" }
-bridgeforge-workflow = { path = "source/workflow" }
-bridgeforge-factory = { path = "source/factory" }
-bridgeforge-lifecycle = { path = "source/lifecycle" }
-bridgeforge-memory = { path = "source/memory" }
-bridgeforge-cli = { path = "source/cli" }
-bridgeforge-hook = { path = "source/hook" }
+bridgeforge-core = { path = "source/forge/core" }
+bridgeforge-skeleton = { path = "source/forge/skeleton" }
+bridgeforge-checks = { path = "source/forge/checks" }
+bridgeforge-workflow = { path = "source/forge/workflow" }
+bridgeforge-factory = { path = "source/forge/factory" }
+bridgeforge-lifecycle = { path = "source/forge/lifecycle" }
+bridgeforge-memory = { path = "source/forge/memory" }
+bridgeforge-cli = { path = "source/forge/cli" }
+bridgeforge-hook = { path = "source/forge/hook" }
 toml_edit = "=0.23.7"
 pep440_rs = "=0.7.3"
 pep508_rs = "=0.9.2"

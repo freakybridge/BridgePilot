@@ -172,7 +172,7 @@ fn runtime_fixture(label: &str) -> PathBuf {
     let directory = root.join(".codex/bin");
     fs::create_dir_all(&directory).unwrap();
     let profiles: Vec<Value> = serde_json::from_str(include_str!(
-        "../../../source/core/src/legacy_artifact_receipts.json"
+        "../../../source/forge/core/src/legacy_artifact_receipts.json"
     ))
     .unwrap();
     let mut receipt = profiles

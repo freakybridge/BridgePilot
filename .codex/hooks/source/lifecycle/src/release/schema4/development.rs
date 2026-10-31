@@ -6,7 +6,7 @@ pub(super) const RECORD: &str = ".codex/package-closures.json";
 const JOURNAL: &str = ".runtime/bridgeforge-codex/develop-transaction.json";
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../../scripts/tests/unit/core_task_check_selection.rs"]
+#[path = "../../../../../../scripts/tests/unit/core_task_check_selection.rs"]
 mod task_selection_tests;
 
 /// A trusted application-layer renderer. It must return candidate bytes without

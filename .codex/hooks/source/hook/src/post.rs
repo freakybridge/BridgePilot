@@ -313,6 +313,7 @@ pub fn edit_requires_instruction_check(payloads: &[Value]) -> bool {
                     | "bridgeforge-manifest.json"
                     | ".codex/hooks.json"
                     | "templates/hooks.json"
+                    | "source/forge/templates/hooks.json"
                     | ".codex/config.toml"
                     | ".codex/settings.json"
                     | "doc/readme.md"
@@ -320,6 +321,7 @@ pub fn edit_requires_instruction_check(payloads: &[Value]) -> bool {
             )
             || relative.starts_with(".codex/rules/")
             || relative.starts_with("templates/rules/")
+            || relative.starts_with("source/forge/templates/rules/")
     })
 }
 

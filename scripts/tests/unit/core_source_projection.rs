@@ -148,22 +148,17 @@ fn source_projection_is_idempotent_and_ignores_factory_only_changes() {
 
 #[test]
 fn actual_public_projection_builds_locked_without_factory_or_factory_test_sources() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap();
-    if !root.join("source/factory/Cargo.toml").is_file() {
-        return;
-    }
-    let before = render(root, true).unwrap();
-    let output = root.join(".runtime/source-workspace-refactor/public-build");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("bridgeforge-manifest.json").is_file()).expect("factory repository");
+    assert!(root.join(physical_path(root, "source/factory/Cargo.toml")).is_file());
+    for public in [true, false] {
+    let before = render(root, public).unwrap();
+    let output = root.join(".runtime/tests/bridgepilot-stage1").join(if public {"public-build"} else {"factory-build"});
     for (relative, payload) in &before {
         let path = output.join(relative);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(path, payload).unwrap();
     }
-    assert!(!before.keys().any(|p| p.starts_with("source/factory/")));
+    assert_eq!(before.keys().any(|p| p.starts_with("source/factory/")), !public);
     let mut request = crate::ProcessRequest::new("cargo", &output);
     request.args = vec![
         "check".into(),
@@ -183,15 +178,60 @@ fn actual_public_projection_builds_locked_without_factory_or_factory_test_source
     );
     assert_eq!(
         before,
-        render(root, true).unwrap(),
+        render(root, public).unwrap(),
         "building must not alter canonical inputs"
     );
     assert_eq!(
         fs::read(output.join("Cargo.lock")).unwrap(),
         before["Cargo.lock"]
     );
+    }
 }
 
 #[allow(dead_code)]
 #[path = "../support/artifact_paths.rs"]
 mod test_artifacts;
+
+#[test]
+fn nested_sources_keep_logical_targets_and_isolate_orchestrator_in_both_projections() {
+    let f = fixture();
+    fs::create_dir_all(f.0.join("source/forge")).unwrap();
+    for package in ["core", "factory"] {
+        fs::rename(f.0.join(format!("source/{package}")), f.0.join(format!("source/forge/{package}"))).unwrap();
+    }
+    fs::create_dir_all(f.0.join("source/orchestrator")).unwrap();
+    fs::write(f.0.join("source/orchestrator/Cargo.toml"), "[package]\nname='bridgepilot-orchestrator'\nversion='0.1.0'\n").unwrap();
+    fs::write(f.0.join("Cargo.toml"), "[workspace]\nmembers=['source/forge/core','source/forge/factory','source/orchestrator']\nresolver='3'\n[workspace.metadata.bridgeforge]\npublic-members=['source/forge/core']\nfactory-members=['source/forge/core','source/forge/factory']\n[workspace.dependencies]\nbridgeforge-core={path='source/forge/core'}\nbridgepilot-orchestrator={path='source/orchestrator'}\n").unwrap();
+    let mut lock = fs::read_to_string(f.0.join("Cargo.lock")).unwrap();
+    lock.push_str("[[package]]\nname='bridgepilot-orchestrator'\nversion='0.1.0'\ndependencies=['pilot-only']\n[[package]]\nname='pilot-only'\nversion='1.0.0'\nsource='registry+https://example.invalid/index'\n");
+    fs::write(f.0.join("Cargo.lock"), lock).unwrap();
+    for public in [true, false] {
+        let projected = render(&f.0, public).unwrap();
+        assert!(projected.contains_key("source/core/src/lib.rs"));
+        assert!(!projected.keys().any(|path| path.contains("forge/") || path.contains("orchestrator")));
+        let manifest = std::str::from_utf8(&projected["Cargo.toml"]).unwrap();
+        assert!(!manifest.contains("source/forge/"));
+        assert!(!manifest.contains("orchestrator"));
+        let lock = std::str::from_utf8(&projected["Cargo.lock"]).unwrap();
+        assert!(!lock.contains("pilot-only") && !lock.contains("orchestrator"));
+        let snapshot = f.0.join(if public {"public"} else {"factory"});
+        for (relative, bytes) in &projected {
+            let path = snapshot.join(relative);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, bytes).unwrap();
+        }
+        assert_eq!(projected, render(&snapshot, public).unwrap());
+    }
+    let overlay = BTreeMap::from([("source/forge/core/src/lib.rs".into(), b"pub fn updated() {}\n".to_vec())]);
+    assert_eq!(render_with_overlay(&f.0, true, &overlay).unwrap()["source/core/src/lib.rs"], b"pub fn updated() {}\n");
+    let config = fs::read_to_string(f.0.join("Cargo.toml")).unwrap();
+    fs::write(f.0.join("Cargo.toml"), config.replace("factory-members=['source/forge/core','source/forge/factory']\n", "")).unwrap();
+    assert!(render(&f.0, false).unwrap_err().contains("factory members missing"));
+}
+
+#[test]
+fn projection_rejects_duplicate_logical_sources() {
+    let f = fixture();
+    fs::write(f.0.join("Cargo.toml"), "[workspace]\nmembers=['source/core','source/forge/core']\n[workspace.metadata.bridgeforge]\npublic-members=['source/core','source/forge/core']\n").unwrap();
+    assert!(render(&f.0, true).unwrap_err().contains("invalid projection member"));
+}

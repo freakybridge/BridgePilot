@@ -423,5 +423,5 @@ pub fn observe(root: &Path, home: &Path, payload: &Value) -> Result<Option<Strin
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_high_cost.rs"]
+#[path = "../../../../scripts/tests/unit/core_high_cost.rs"]
 mod tests;

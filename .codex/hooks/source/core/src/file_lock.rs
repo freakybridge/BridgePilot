@@ -80,5 +80,5 @@ fn lock_file(file: &File) -> std::io::Result<()> {
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_file_lock.rs"]
+#[path = "../../../../scripts/tests/unit/core_file_lock.rs"]
 mod tests;

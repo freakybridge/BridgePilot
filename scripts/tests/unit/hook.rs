@@ -309,6 +309,11 @@ fn seed_project_map_inputs(fixture: &Fixture) {
 fn project_maps_replace_legacy_content_use_only_proven_links_and_are_idempotent() {
     let fixture = Fixture::new();
     seed_project_map_inputs(&fixture);
+    fs::create_dir_all(fixture.root.join("source/forge/templates")).unwrap();
+    fs::write(fixture.root.join("source/forge/templates/AGENTS.md"), "# TemplateOnlyDoNotIndex\n").unwrap();
+    for path in ["templates/hooks.json", "source/forge/templates/hooks.json", "source/forge/templates/rules/example.md"] {
+        assert!(post::edit_requires_instruction_check(&[json!({"tool_input":{"file_path":path}})]));
+    }
     let find_path = fixture
         .root
         .join(".runtime/bridgeforge-codex/find-doc.map.md");
@@ -333,6 +338,7 @@ fn project_maps_replace_legacy_content_use_only_proven_links_and_are_idempotent(
     assert!(find.contains("`orderbook`"));
     assert!(!find.contains("retired draft instruction"));
     assert!(!find.contains("donotindexthis"));
+    assert!(!find.contains("templateonlydonotindex"));
     assert!(!find.contains("legacy topic_to_rules"));
     assert!(sync.starts_with("<!-- bridgeforge-project-map schema=1 kind=sync-docs input=sha256:"));
     assert!(sync.contains("`src/domain/mod.rs`"));
@@ -611,6 +617,8 @@ fn session_git_observation_distinguishes_failure_clean_unborn_and_detached() {
 #[test]
 fn session_failed_git_query_is_unknown_not_clean() {
     let fixture = Fixture::new();
+    // Make Git fail at this fixture, rather than discover the enclosing real repository.
+    fs::write(fixture.root.join(".git"), "gitdir: missing-fixture-git-directory\n").unwrap();
     let state = session::show_state();
     assert!(state.stdout.contains("dirty=unknown"));
     assert!(!fixture.root.join(".runtime/session_state").exists());
@@ -754,8 +762,8 @@ fn atomic_write_replaces_existing_file_and_cleans_failed_temporary() {
 fn registered_hook_routes_have_lifecycle_and_tool_coverage() {
     let document: Value = serde_json::from_slice(
         &fs::read(
-            factory_repository::from_manifest_dir(env!("CARGO_MANIFEST_DIR"))
-                .join("templates/hooks.json"),
+            bridgeforge_core::source_projection::template_path(
+                factory_repository::from_manifest_dir(env!("CARGO_MANIFEST_DIR")), "templates/hooks.json"),
         )
         .unwrap(),
     )

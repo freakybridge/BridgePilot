@@ -1248,5 +1248,5 @@ pub fn verify_index(root: &Path, runner: &dyn ProcessRunner) -> Result<BaselineR
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_baseline.rs"]
+#[path = "../../../../scripts/tests/unit/core_baseline.rs"]
 mod tests;

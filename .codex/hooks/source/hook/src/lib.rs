@@ -436,5 +436,5 @@ pub fn run(args: Vec<String>) -> i32 {
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/hook.rs"]
+#[path = "../../../../scripts/tests/unit/hook.rs"]
 mod tests;

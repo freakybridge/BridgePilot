@@ -1,6 +1,6 @@
-param([string]$Sample='D:\Quant\BridgeForgeCodex\.runtime\git-sync-perf\replay')
+param([string]$Sample='D:\Quant\BridgePilot\.runtime\git-sync-perf\replay')
 $ErrorActionPreference='Stop'
-$root='D:\Quant\BridgeForgeCodex\.runtime\git-sync-perf'
+$root='D:\Quant\BridgePilot\.runtime\git-sync-perf'
 $samplePath=[IO.Path]::GetFullPath($Sample)
 $seed=[IO.Path]::GetFullPath((Join-Path $root 'seed.git'))
 foreach($path in @($samplePath,$seed)) { if(-not $path.StartsWith($root+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Outside isolated workspace'} }

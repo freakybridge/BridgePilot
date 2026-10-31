@@ -128,7 +128,7 @@ foreach ($scenario in @('create', 'noop', 'failure', 'interrupted', 'drift', 'ba
     New-Item -ItemType Directory -Path (Join-Path $fixtureProfile '.codex') -Force | Out-Null
     $userTarget = Join-Path $fixtureProfile '.codex/AGENTS.md'
     if ($scenario -ne 'create') { [IO.File]::WriteAllText($userTarget, 'local preference') }
-    if ($scenario -eq 'noop') { Copy-Item -LiteralPath (Join-Path $RepositoryRoot 'templates/user/AGENTS.md') -Destination $userTarget }
+    if ($scenario -eq 'noop') { Copy-Item -LiteralPath (Join-Path $RepositoryRoot 'source/forge/templates/user/AGENTS.md') -Destination $userTarget }
     $op = [Guid]::NewGuid().ToString('N')
     $originalEncoding = [Console]::OutputEncoding
     try {

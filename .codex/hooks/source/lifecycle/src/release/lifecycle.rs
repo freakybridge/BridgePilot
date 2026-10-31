@@ -215,5 +215,5 @@ pub(super) fn validate_step(
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_release_lifecycle.rs"]
+#[path = "../../../../../scripts/tests/unit/core_release_lifecycle.rs"]
 mod tests;

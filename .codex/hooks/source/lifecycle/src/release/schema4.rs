@@ -263,9 +263,9 @@ pub(super) fn verify_historical(
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_release_schema4.rs"]
+#[path = "../../../../../scripts/tests/unit/core_release_schema4.rs"]
 mod tests;
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/support/schema4_agent.rs"]
+#[path = "../../../../../scripts/tests/support/schema4_agent.rs"]
 pub mod fixture;

@@ -789,8 +789,8 @@ fn native_semantics(bytes: &[u8]) -> Result<Value, String> {
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_release_polyglot_scenarios.rs"]
+#[path = "../../../../../scripts/tests/unit/core_release_polyglot_scenarios.rs"]
 mod scenario_tests;
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_release_polyglot.rs"]
+#[path = "../../../../../scripts/tests/unit/core_release_polyglot.rs"]
 mod tests;

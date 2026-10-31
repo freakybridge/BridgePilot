@@ -274,5 +274,5 @@ pub fn legacy_runtime_with_owned(
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_artifact_migration.rs"]
+#[path = "../../../../scripts/tests/unit/core_artifact_migration.rs"]
 mod tests;

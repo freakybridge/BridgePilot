@@ -57,13 +57,13 @@
 
 | 范围 | 保留方向 | 本地依据 |
 |---|---|---|
-| 指令分层 | 用户偏好、项目公共约束、项目自有内容分开；公共区和项目区归属明确 | [原生指令架构](../0_architecture/design/codex-native-instruction-architecture.md)、[用户模板](../../templates/user/AGENTS.md)、[项目模板](../../templates/AGENTS.md) |
-| Skills | 按需读取、小任务直接执行、复杂任务分支处理；复用已有授权和证据 | [develop](../../templates/skills/develop/SKILL.md) |
-| Hooks | 机器可判检查程序化，公共与项目 Hook 分开，事前检查和事后反馈分开 | [注册](../../templates/hooks.json)、[调度器](../../templates/hooks/src/lib.rs) |
+| 指令分层 | 用户偏好、项目公共约束、项目自有内容分开；公共区和项目区归属明确 | [原生指令架构](../0_architecture/design/codex-native-instruction-architecture.md)、[用户模板](../../source/forge/templates/user/AGENTS.md)、[项目模板](../../source/forge/templates/AGENTS.md) |
+| Skills | 按需读取、小任务直接执行、复杂任务分支处理；复用已有授权和证据 | [develop](../../source/forge/templates/skills/develop/SKILL.md) |
+| Hooks | 机器可判检查程序化，公共与项目 Hook 分开，事前检查和事后反馈分开 | [注册](../../source/forge/templates/hooks.json)、[调度器](../../templates/hooks/src/lib.rs) |
 | 安装升级 | 显式归属、哈希、应用前指纹复核、定制保留、失败恢复 | [设计](../0_architecture/design/codex-project-sync.md)、[源码](../../templates/hooks/crates/bridgeforge-core/src/project_sync.rs) |
-| 验证发布 | 区分实现、工程验证、用户验收和 Git 发布；区分主程序、子包与骨架版本 | [develop](../../templates/skills/develop/SKILL.md)、[项目模板](../../templates/AGENTS.md) |
-| 资料和 Memory | 项目资料归项目所有；原生 Memory 不作语义改写 | [原生指令架构](../0_architecture/design/codex-native-instruction-architecture.md)、[项目模板](../../templates/AGENTS.md) |
-| 平台与 Agent | 保持 Windows/Codex 定位，默认主对话执行；无需求不扩展多平台或更多 Agent | [README](../../README.md)、[项目模板](../../templates/AGENTS.md) |
+| 验证发布 | 区分实现、工程验证、用户验收和 Git 发布；区分主程序、子包与骨架版本 | [develop](../../source/forge/templates/skills/develop/SKILL.md)、[项目模板](../../source/forge/templates/AGENTS.md) |
+| 资料和 Memory | 项目资料归项目所有；原生 Memory 不作语义改写 | [原生指令架构](../0_architecture/design/codex-native-instruction-architecture.md)、[项目模板](../../source/forge/templates/AGENTS.md) |
+| 平台与 Agent | 保持 Windows/Codex 定位，默认主对话执行；无需求不扩展多平台或更多 Agent | [README](../../README.md)、[项目模板](../../source/forge/templates/AGENTS.md) |
 
 ## 问题总览
 
@@ -92,7 +92,7 @@
 
 ## TODO-027 公共 AGENTS 有界精简
 
-- 事实：[项目模板](../../templates/AGENTS.md) 调研时约 12 KB，覆盖授权、调查、验证、工具、文档、版本和 Memory。长度本身不能证明过重或导致性能问题。
+- 事实：[项目模板](../../source/forge/templates/AGENTS.md) 调研时约 12 KB，覆盖授权、调查、验证、工具、文档、版本和 Memory。长度本身不能证明过重或导致性能问题。
 - 建议承载边界：常驻 AGENTS 保留授权、行为保留、证据和项目定制保护等原则；具体发布能力检查、版本公告和操作步骤交对应 Skill/机器合同；安装恢复步骤交 INSTALL；可机判要求由配置和检查器拥有。
 - 外部依据：官方精简指导及 Trail of Bits 的跨任务原则与专业流程分离做法。
 - 风险：删减可能丢失必要边界，或造成 Skill 未触发时无规则可用；仅将内容搬到 reference 不保证成本降低。
@@ -101,7 +101,7 @@
 
 ## TODO-028 用户级统一覆盖与个人定制
 
-- 事实：[用户模板](../../templates/user/AGENTS.md) 调研时约 1.6 KB，主要为语言和沟通偏好；[资产合同源码](../../templates/hooks/crates/bridgeforge-core/src/user_agents.rs) 使用 `backup_then_replace`；[INSTALL](../../INSTALL.md) 明示个人编辑会在后续维护中恢复为标准版。
+- 事实：[用户模板](../../source/forge/templates/user/AGENTS.md) 调研时约 1.6 KB，主要为语言和沟通偏好；[资产合同源码](../../templates/hooks/crates/bridgeforge-core/src/user_agents.rs) 使用 `backup_then_replace`；[INSTALL](../../INSTALL.md) 明示个人编辑会在后续维护中恢复为标准版。
 - 判断：若主要服务用户本人跨电脑统一配置，当前设计可以保留。若面向其他用户或团队，应评估保留个人偏好或明确选择统一管理；备份只能支持恢复，不能让定制持续生效。
 - 参照：[Trail of Bits 安装 Skill](https://github.com/trailofbits/codex-config/blob/main/.agents/skills/install-codex-config/SKILL.md) 对已有 AGENTS 提供覆盖、跳过或人工合并的选择。
 - 未决：产品受众及希望采用的所有权策略；不得把社区差异直接定义为本地 Bug。
@@ -110,7 +110,7 @@
 
 ## TODO-029 confirm 预算流程的非必要依赖
 
-- 事实：[confirm](../../templates/skills/confirm/SKILL.md) 与[周额度估算](../../templates/skills/confirm/references/weekly-quota.md) 将预算输出关联到账户、模型、速度、计量口径和系数；无适用依据时要求补问参考。本轮缺少本机系数记录，未编造百分比，也没有实际阻断调研。
+- 事实：[confirm](../../source/forge/templates/skills/confirm/SKILL.md) 与[周额度估算](../../source/forge/templates/skills/confirm/references/weekly-quota.md) 将预算输出关联到账户、模型、速度、计量口径和系数；无适用依据时要求补问参考。本轮缺少本机系数记录，未编造百分比，也没有实际阻断调研。
 - 风险判断：估算前置可能将用户任务转为额度校准访谈；本轮证明依赖缺失，不证明所有任务都会被阻断。
 - 建议：保留范围、时间、Agent 和验证预算；有可靠计量时报告实测，其他情况标记估算；周额度占比仅在可靠依据可用或用户确有需要时提供，缺少系数不阻断原任务。
 - 参照：Spec Kit 的独立任务入口、OpenSpec 的探索/提案入口支持按任务选择流程，但并未提供适用于本账户的额度换算方案。

@@ -400,5 +400,5 @@ pub fn blockers(report: &TodoReport, path: &Path) -> Result<Vec<String>, String>
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_todo.rs"]
+#[path = "../../../../scripts/tests/unit/core_todo.rs"]
 mod tests;

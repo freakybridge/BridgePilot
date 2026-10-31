@@ -350,5 +350,5 @@ fn sync_slot_with(
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_build_inputs.rs"]
+#[path = "../../../../scripts/tests/unit/core_build_inputs.rs"]
 mod tests;

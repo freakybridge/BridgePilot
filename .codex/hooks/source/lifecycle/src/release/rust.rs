@@ -1943,5 +1943,5 @@ fn updated_requirement(raw: &str, version: SemVer) -> Result<String, String> {
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_release_rust.rs"]
+#[path = "../../../../../scripts/tests/unit/core_release_rust.rs"]
 mod tests;

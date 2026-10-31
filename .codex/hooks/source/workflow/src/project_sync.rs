@@ -2300,5 +2300,5 @@ fn verify_written_payloads(
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_project_sync.rs"]
+#[path = "../../../../scripts/tests/unit/core_project_sync.rs"]
 mod tests;

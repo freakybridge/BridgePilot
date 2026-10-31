@@ -20,7 +20,7 @@ fn factory_command(args: &[String]) -> CommandOutcome {
 }
 
 fn is_factory_repository(root: &Path) -> bool {
-    root.join("source/factory/Cargo.toml").is_file()
+    root.join(bridgeforge_core::source_projection::physical_path(root, "source/factory/Cargo.toml")).is_file()
         && root.join("bridgeforge-manifest.json").is_file()
 }
 
@@ -305,7 +305,7 @@ fn check(command: &str, args: &[String]) -> CommandOutcome {
                     .join("bridgeforge-manifest.json")
                     .is_file()
                 {
-                    roots.push(context.root().join("templates/skills"));
+                    roots.push(bridgeforge_core::source_projection::template_path(context.root(), "templates/skills"));
                 }
                 roots
             };
@@ -737,7 +737,7 @@ pub fn run(args: &[String]) -> CommandOutcome {
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/cli.rs"]
+#[path = "../../../../scripts/tests/unit/cli.rs"]
 mod tests;
 
 pub fn main() {

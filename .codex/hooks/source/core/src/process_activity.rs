@@ -138,5 +138,5 @@ pub fn images() -> Result<Vec<(u32, std::path::PathBuf)>, String> {
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_process_activity.rs"]
+#[path = "../../../../scripts/tests/unit/core_process_activity.rs"]
 mod tests;

@@ -467,5 +467,5 @@ pub fn configure(
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_memory_user_config.rs"]
+#[path = "../../../../scripts/tests/unit/core_memory_user_config.rs"]
 mod tests;

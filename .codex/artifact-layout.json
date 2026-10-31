@@ -2,6 +2,24 @@
   "schema": 1,
   "outputs": [
     {
+      "path": ".build/bridgepilot/cargo/release/bp.exe",
+      "kind": "build",
+      "directory": false,
+      "cleanup": "keep"
+    },
+    {
+      "path": ".build/bridgepilot/cargo/release/bp-launcher.exe",
+      "kind": "build",
+      "directory": false,
+      "cleanup": "keep"
+    },
+    {
+      "path": ".build/bridgepilot/portable/current",
+      "kind": "build",
+      "directory": true,
+      "cleanup": "keep"
+    },
+    {
       "path": ".build/bridgeforge/legacy/build-artifact-cache",
       "kind": "build",
       "directory": true,

@@ -43,7 +43,7 @@ checksum = "36f64beae40a84da1b4b26ff2761a5b895c12adc41dc25aaee1c4f2bbfe97a6e"
 
 [[package]]
 name = "bridgeforge-checks"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "bridgeforge-core",
  "bridgeforge-skeleton",
@@ -58,7 +58,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-cli"
-version = "13.0.3"
+version = "13.1.0"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
@@ -72,7 +72,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-core"
-version = "10.0.2"
+version = "10.2.0"
 dependencies = [
  "chrono",
  "libc",
@@ -87,7 +87,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-factory"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
@@ -104,7 +104,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-hook"
-version = "13.0.3"
+version = "13.1.0"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
@@ -122,7 +122,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-lifecycle"
-version = "0.8.2"
+version = "0.8.3"
 dependencies = [
  "bridgeforge-core",
  "bridgeforge-skeleton",
@@ -140,7 +140,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-memory"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bridgeforge-core",
  "chrono",
@@ -155,7 +155,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-skeleton"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "bridgeforge-core",
  "regex",
@@ -167,7 +167,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-workflow"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
@@ -177,6 +177,18 @@ dependencies = [
  "serde_json",
  "sha2",
  "walkdir",
+]
+
+[[package]]
+name = "bridgepilot-orchestrator"
+version = "0.5.0"
+dependencies = [
+ "bridgeforge-core",
+ "serde",
+ "serde_json",
+ "sha2",
+ "toml_edit",
+ "windows-sys",
 ]
 
 [[package]]

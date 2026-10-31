@@ -129,7 +129,7 @@ fn project_sync_plan_apply_and_fingerprint_gate_are_transactional() {
     fs::create_dir_all(factory.join("templates")).unwrap();
     fs::create_dir_all(&project).unwrap();
     write(&factory.join("VERSION"), b"8.0.1\n");
-    write(&factory.join("templates/example.txt"), b"managed\n");
+    write(&bridgeforge_core::source_projection::template_path(&factory, "templates/example.txt"), b"managed\n");
     let contract = json!({
         "schema_version": 4,
         "release_version": "8.0.1",
@@ -501,7 +501,7 @@ fn project_sync_retired_assets_require_exact_preservation_decisions() {
     let factory = temp.0.join("factory");
     fs::create_dir_all(factory.join("templates")).unwrap();
     write(&factory.join("VERSION"), b"8.0.1\n");
-    write(&factory.join("templates/example.txt"), b"managed\n");
+    write(&bridgeforge_core::source_projection::template_path(&factory, "templates/example.txt"), b"managed\n");
     let current_contract = json!({
         "schema_version": 4,
         "release_version": "8.0.1",
@@ -620,7 +620,7 @@ fn destructive_rebuild_requires_unknown_file_decisions_and_retires_old_project_m
     fs::create_dir_all(factory.join("templates")).unwrap();
     fs::create_dir_all(&project).unwrap();
     write(&factory.join("VERSION"), b"8.0.1\n");
-    write(&factory.join("templates/example.txt"), b"managed\n");
+    write(&bridgeforge_core::source_projection::template_path(&factory, "templates/example.txt"), b"managed\n");
     let contract = json!({
         "schema_version": 4,
         "release_version": "8.0.1",
@@ -711,7 +711,7 @@ fn project_sync_combined_upgrade_preserves_project_assets_and_is_idempotent() {
         .canonicalize()
         .unwrap();
 
-    let canonical_agents = fs::read_to_string(factory.join("templates/AGENTS.md")).unwrap();
+    let canonical_agents = fs::read_to_string(bridgeforge_core::source_projection::template_path(&factory, "templates/AGENTS.md")).unwrap();
     let project_begin = "<!-- BRIDGEFORGE:PROJECT:BEGIN -->";
     let project_end = "<!-- BRIDGEFORGE:PROJECT:END -->";
     let start = canonical_agents.find(project_begin).unwrap();
@@ -761,7 +761,7 @@ fn project_sync_combined_upgrade_preserves_project_assets_and_is_idempotent() {
         b"---\nname: local\ndescription: Project-owned notes\n---\nKeep local workflow.\n";
     write(&project.join(local_skill), local_content);
 
-    let canonical_doc = fs::read_to_string(factory.join("templates/doc/README.md"))
+    let canonical_doc = fs::read_to_string(bridgeforge_core::source_projection::template_path(&factory, "templates/doc/README.md"))
         .unwrap()
         .replace("{{PROJECT_NAME}}", "ExampleProject");
     let doc = canonical_doc.replace(
@@ -771,7 +771,7 @@ fn project_sync_combined_upgrade_preserves_project_assets_and_is_idempotent() {
     write(&project.join("doc/README.md"), doc.as_bytes());
 
     let mut hooks: serde_json::Value =
-        serde_json::from_slice(&fs::read(factory.join("templates/hooks.json")).unwrap()).unwrap();
+        serde_json::from_slice(&fs::read(bridgeforge_core::source_projection::template_path(&factory, "templates/hooks.json")).unwrap()).unwrap();
     hooks["hooks"]["SessionStart"]
         .as_array_mut()
         .unwrap()
@@ -841,7 +841,7 @@ fn project_sync_combined_upgrade_preserves_project_assets_and_is_idempotent() {
     for role in roles {
         assert_eq!(
             fs::read(project.join(format!(".codex/agents/{role}.toml"))).unwrap(),
-            fs::read(factory.join(format!("templates/agents/{role}.toml"))).unwrap()
+            fs::read(bridgeforge_core::source_projection::template_path(&factory, &format!("templates/agents/{role}.toml"))).unwrap()
         );
     }
     let doc = fs::read_to_string(project.join("doc/README.md")).unwrap();

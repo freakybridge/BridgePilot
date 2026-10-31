@@ -133,8 +133,8 @@ mod tests {
     #[test]
     fn windows_subsystem_is_split_between_cli_and_hook() {
         let repository = root();
-        let cli = fs::read_to_string(repository.join("source/cli/src/main.rs")).unwrap();
-        let hook = fs::read_to_string(repository.join("source/hook/src/main.rs")).unwrap();
+        let cli = fs::read_to_string(repository.join(bridgeforge_core::source_projection::physical_path(&repository, "source/cli/src/main.rs"))).unwrap();
+        let hook = fs::read_to_string(repository.join(bridgeforge_core::source_projection::physical_path(&repository, "source/hook/src/main.rs"))).unwrap();
         assert!(
             !cli.contains("windows_subsystem"),
             "bridgeforge CLI must remain a console application"
@@ -357,7 +357,7 @@ mod tests {
                     .unwrap()
                     .iter()
                     .any(
-                        |f| f["source"] == "templates/skills/git-sync/references/first-use.md"
+                        |f| f["source"] == bridgeforge_core::source_projection::template_relative(&repository, "templates/skills/git-sync/references/first-use.md")
                             && f["target"] == "references/first-use.md"
                     ),
                 "first-use reference must be shipped with git-sync"
@@ -373,7 +373,7 @@ mod tests {
             "templates/.githooks/pre-commit",
             "scripts/bridgeforge_codex_shared_update.ps1",
         ] {
-            let text = fs::read_to_string(repository.join(relative))
+            let text = fs::read_to_string(bridgeforge_core::source_projection::template_path(&repository, relative))
                 .unwrap()
                 .to_lowercase();
             assert!(
@@ -390,7 +390,7 @@ mod tests {
             assert!(!repository.join(retired).exists(), "{retired}");
         }
         let precommit =
-            fs::read_to_string(repository.join("templates/.githooks/pre-commit")).unwrap();
+            fs::read_to_string(bridgeforge_core::source_projection::template_path(&repository, "templates/.githooks/pre-commit")).unwrap();
         assert!(precommit.contains("for CLI in .deps/bridgeforge/bin"));
         assert!(precommit.contains("build-receipt-cli.json"));
         assert!(precommit.contains("schema_version"));
@@ -415,7 +415,7 @@ mod tests {
     fn active_skills_do_not_invoke_retired_python_entries() {
         let repository = root();
         for base in [
-            repository.join("templates/skills"),
+            bridgeforge_core::source_projection::template_path(&repository, "templates/skills"),
             repository.join(".codex/skills"),
         ] {
             for (path, payload) in files(&base) {

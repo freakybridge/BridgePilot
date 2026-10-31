@@ -122,5 +122,5 @@ pub fn apply(
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_release_setup.rs"]
+#[path = "../../../../../scripts/tests/unit/core_release_setup.rs"]
 mod tests;

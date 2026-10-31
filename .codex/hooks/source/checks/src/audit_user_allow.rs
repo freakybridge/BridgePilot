@@ -97,5 +97,5 @@ pub fn audit(path: &Path) -> Result<Vec<AllowFinding>, String> {
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/core_audit_user_allow.rs"]
+#[path = "../../../../scripts/tests/unit/core_audit_user_allow.rs"]
 mod tests;

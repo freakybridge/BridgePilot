@@ -2,19 +2,19 @@
 delivery_layout: flat
 ---
 
-# bridgeforge-codex Documents
+# BridgePilot Documents
 
-本仓库采用 bridgeforge-codex 六层文档体系。`1_delivery/` 采用扁平布局：每个 topic 直接位于该目录下；若未来交付规模需要里程碑，可改为 `milestone` 并迁入 `M1/<topic>/`。
+本仓库采用 Forge 六层文档体系。`1_delivery/` 采用扁平布局：每个 topic 直接位于该目录下；若未来交付规模需要里程碑，可改为 `milestone` 并迁入 `M1/<topic>/`。
 
 ## 从这里开始
 
-- 实施中：[发布范围判定修复与四个下游骨架升级工作计划](1_delivery/package-version-lifecycle/requirements_2026-10-31_release-scope-and-four-projects.md#8-bridgeforge-实施与验证记录2026-10-31)（TODO-051、TODO-052；上游范围修复、最终候选 12 项检查、受管收口及最终工具核验通过，lifecycle 0.8.1→0.8.2，workflow/factory 只刷新依赖覆盖。尚未提交推送发布；StratusAgent、HoldemTrainer、causis_risk_suite、BridgeLibrary 等待包含修复的正式版本后逐一安装）。
+- 待用户验收：[发布范围判定修复与四个下游骨架升级结果](1_delivery/package-version-lifecycle/requirements_2026-10-31_release-scope-and-four-projects.md#10-正式发布与四项目安装结果2026-10-31)（TODO-051、TODO-052；13.0.3 已由 475b04f 发布推送，lifecycle 0.8.1→0.8.2，12 项最终候选检查与最终工具核验通过；四个下游已逐一安装 13.0.3，保护摘要一致、未提交下游。Stratus 业务发布仍有独立的全局输入与证据缺口；安装后记录尚未另行提交）。
 
 - 已验收：[旧测试目录项目报告保留](0_architecture/design/codex-project-sync.md#用户验收旧测试目录项目报告保留2026-10-31)（core 10.0.2；7 项检查 80 个用例及独立退役 1 项通过，独立复核与最终工具核验通过。HoldemTrainer 只读升级预览已解除原报告阻塞，8 个记录文件摘要不变，未执行下游升级；已授权 Forge release）。
 
 - 已验收：[旧工具目录保留与 StratusAgent 骨架升级](0_architecture/design/codex-project-sync.md#用户验收旧工具目录保留与-stratusagent-升级2026-10-31)（core 10.0.1、workflow 0.9.1；8 项检查 184 个用例及独立退役 1 项通过，真实 StratusAgent 9.0.0→13.0.0，151 项现有改动、15 个保护文件和项目专区原样保留；公共工具自检及独立复核通过，已授权 Forge release。项目自有 Hook 业务运行未验证）。
 
-- 待执行：[BridgePilot 产品演进与跨项目总管开发计划](1_delivery/bridgepilot-evolution/plan_2026-10-30_bridgepilot-evolution.md)（TODO-050；现有 BridgeForgeCodex 演进为 BP，工程能力归入 `source/forge/`，与无 `src/` 层的 `source/orchestrator/` 平行；覆盖需求、Codex 工作流、持久化、暂停换机、迁移任务及首版验收。仅获准计划落盘，尚未实施、验证或发布）。
+- 进行中：[BridgePilot 产品演进与跨项目总管开发计划](1_delivery/bridgepilot-evolution/plan_2026-10-30_bridgepilot-evolution.md)（TODO-050；第六阶段更名已完成仓库、源码、Codex源目录和BP档案绑定，orchestrator **0.5.0** 已收口并安装，登记总管检查及4项分发回归通过。档案 revision=85 已同步 BridgePilotData，当前机器保留控制权；五分钟 heartbeat 仍暂停。旧空根因进程占用保留；下游更名适配另行处理。真实业务发布与物理双机尚未验证；主程序13.0.3，产品源码未提交、推送或发布）。
 
 - 已验收：[统一产品清单与安装管理边界](0_architecture/design/codex-project-sync.md#用户验收与发布授权2026-10-30)（三个旧源清单合并至根 bridgeforge-manifest.json；资产历史、忽略内容和退役测试拆分一并验收；受管收口、143 项最终候选测试及最终工具核验通过，已授权 release；真实下游和用户级安装未执行）。
 
@@ -135,6 +135,8 @@ delivery_layout: flat
 
 ## 架构
 
+- [BridgePilot 运行协议](0_architecture/design/bridgepilot-runtime-protocol.md)：Rust 核心、私有档案、有限窗口调度、原生交接与项目成员归类、heartbeat、开发发布证据核验及暂停／未知恢复；明确桌面渲染、真实发布和跨机未验收边界。
+
 - [子包开发版本与主程序发布](0_architecture/design/package-version-lifecycle.md)：开发与正式发布的两个基线、规则事实源及新旧衔接。
 
 - [artifact-layout 布局检查合同](0_architecture/design/artifact-layout.md)：公共默认规则、项目差异配置、A 模式、pre-commit 与 git-sync/release 的分工及性能验收；本批实施见公共默认规则增量卡。
@@ -143,7 +145,7 @@ delivery_layout: flat
 - 工厂[独立构建产物缓存](0_architecture/design/factory-artifact-cache.md)：编译身份、缓存所有权、有限清理和中断恢复；当前 R04 的结果见交付卡。
 - 设计资料：[`0_architecture/design/`](0_architecture/design/)，包括 [`codex-project-sync.md`](0_architecture/design/codex-project-sync.md)、[`codex-native-instruction-architecture.md`](0_architecture/design/codex-native-instruction-architecture.md)、[`codex-native-memory-sync.md`](0_architecture/design/codex-native-memory-sync.md)、[`user-facing-result-contract.md`](0_architecture/design/user-facing-result-contract.md)、`design-rationale.md` 与上游同步 playbook。
 - 操作参考：[`codex-project-operating-guide.md`](3_reference/codex-project-operating-guide.md)、[项目自有 Rust Hook](3_reference/project-rust-hooks.md) 与主动澄清参考 [`codex-hook-signals.md`](3_reference/codex-hook-signals.md)；自动 Clarify / Focus Hook 已退役。
-- `$bridgeforge-codex` 的运行手册属于产品源码，位于 [`skills/bridgeforge-codex/references/`](../templates/skills/bridgeforge-codex/references/)，不纳入 `doc/`。
+- `$bridgeforge-codex` 的运行手册属于产品源码，位于 [`skills/bridgeforge-codex/references/`](../source/forge/templates/skills/bridgeforge-codex/references/)，不纳入 `doc/`。
 
 ## Delivery topic
 

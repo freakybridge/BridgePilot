@@ -5,7 +5,7 @@ validation_status: verified
 
 # 子包开发收口与累计版本公告
 
-关联 TODO：TODO-025（原需求）。布局：flat。设计原因见[架构说明](../../0_architecture/design/package-version-lifecycle.md)，详细判级与证据规则以[版本生命周期合同](../../../templates/skills/git-sync/references/schema4.md)为唯一事实源。
+关联 TODO：TODO-025（原需求）。布局：flat。设计原因见[架构说明](../../0_architecture/design/package-version-lifecycle.md)，详细判级与证据规则以[版本生命周期合同](../../../source/forge/templates/skills/git-sync/references/schema4.md)为唯一事实源。
 
 ## 原始需求与文档阶段授权
 
@@ -56,7 +56,7 @@ validation_status: verified
 | 最后正式发布、当前已收口包版本 | 主程序累计判级与全部变化包的旧新版本公告 |
 | 收口后新改动或失效证据 | release 停止并说明需完成的验证和升版 |
 
-机器入口和数据格式现由[版本生命周期合同](../../../templates/skills/git-sync/references/schema4.md)维护。复用 Rust/Python 适配边界；特殊原生版本不强制转换。版本、相关依赖/锁、收口记录及最终产物须一致。
+机器入口和数据格式现由[版本生命周期合同](../../../source/forge/templates/skills/git-sync/references/schema4.md)维护。复用 Rust/Python 适配边界；特殊原生版本不强制转换。版本、相关依赖/锁、收口记录及最终产物须一致。
 
 ## 拟修改与顺序
 
@@ -132,7 +132,7 @@ Windows 定向测试重链接曾因上一测试 EXE 仍在运行出现 LNK1104�
 
 ## 交接
 
-工程验证完成，等待用户验收；TODO-025 保持进行中，未提交、推送、发布或修改真实下游。试用入口与配置示例见[版本生命周期合同](../../../templates/skills/git-sync/references/schema4.md#6-机器入口与配置)。本仓库实际 `develop --preview --root .` 为无子包变化；逐包升版、稳定转换与发布公告已在隔离夹具验证，真实项目接入不在本次授权内。
+工程验证完成，等待用户验收；TODO-025 保持进行中，未提交、推送、发布或修改真实下游。试用入口与配置示例见[版本生命周期合同](../../../source/forge/templates/skills/git-sync/references/schema4.md#6-机器入口与配置)。本仓库实际 `develop --preview --root .` 为无子包变化；逐包升版、稳定转换与发布公告已在隔离夹具验证，真实项目接入不在本次授权内。
 
 ## 用户验收与发布授权（2026-10-24）
 

@@ -2203,5 +2203,5 @@ fn python_json(value: &Json) -> Result<String, String> {
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_release_python_lock.rs"]
+#[path = "../../../../../scripts/tests/unit/core_release_python_lock.rs"]
 mod tests;

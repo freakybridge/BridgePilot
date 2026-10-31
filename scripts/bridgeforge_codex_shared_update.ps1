@@ -23,7 +23,7 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version 2.0
 
-$CanonicalRemote = "https://github.com/freakybridge/BridgeForgeCodex.git"
+$CanonicalRemote = "https://github.com/freakybridge/BridgePilot.git"
 $CanonicalBranch = "main"
 $ManifestName = "bridgeforge-manifest.json"
 $OperationLogName = ".bridgeforge-codex-shared-update.json"

@@ -6,7 +6,7 @@
 
 ## 职责与事实源
 
-公共红线在 `templates/AGENTS.md`；版本判级、稳定条件和证据规则只维护在[版本生命周期合同](../../../templates/skills/git-sync/references/schema4.md)。develop 和 git-sync 分别编排开发收口与正式发布，本文件解释设计原因，不重复维护规则表。
+公共红线在 `templates/AGENTS.md`；版本判级、稳定条件和证据规则只维护在[版本生命周期合同](../../../source/forge/templates/skills/git-sync/references/schema4.md)。develop 和 git-sync 分别编排开发收口与正式发布，本文件解释设计原因，不重复维护规则表。
 
 ```mermaid
 flowchart LR

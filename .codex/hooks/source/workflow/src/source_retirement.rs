@@ -53,5 +53,5 @@ pub(super) fn plan(
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../scripts/tests/unit/source_retirement.rs"]
+#[path = "../../../../scripts/tests/unit/source_retirement.rs"]
 mod tests;

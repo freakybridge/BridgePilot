@@ -1,27 +1,28 @@
-# bridgeforge-codex
+# BridgePilot
 
-> 为长期维护的 Codex 项目安装一套可升级、可检查、可回滚的协作骨架。
+> 通过 Codex 管理个人多个项目，持续推进已确认的目标；Forge 子系统提供统一工程约束。
 
-bridgeforge-codex 让 Codex 在不同项目中使用一致的基础规则、工作流程和安全检查，
-同时保留每个项目自己的约束与定制。日常使用只需要记住一个入口：在目标项目根目录运行
-`$bridgeforge-codex`。
+BridgePilot（BP）接收项目目标，保存确认、任务与执行历史，协调不同项目的开发和交付。
+日常直接在 Codex 的 BP 对话中指定项目和目标；复杂任务先 confirm，重要方向再由你判断。
+`source/forge/` 提供工程骨架与受管工具，`source/orchestrator/` 提供总管能力。
+Forge 维护入口仍为 `$bridgeforge-codex`，现有下游入口的迁移另行处理。
 
-它主要完成三件事：
+Forge 工程子系统负责：
 
 - 为项目安装或更新 `AGENTS.md`、`.codex/`、文档结构和提交前检查等协作设施。
 - 为用户安装 `confirm`、`develop`、`summary`、`git-sync` 等通用 Skills。
 - 每次以最新正式版为完整基线；项目自有资产按明确归属保留或确认处理，无法安全判断时停止，验证失败则不写入或回滚并报告未恢复项。
 
-bridgeforge-codex 只支持 Windows、Rust/Cargo 1.88+ 和 Codex。安装、同步、校验、Git、
+BridgePilot 当前支持 Windows 和 Codex；源码开发需要 Rust/Cargo 1.88+。Forge 的安装、同步、校验、Git、
 Native Memory 与受管项目 Hook 全部由 Rust 承载，不要求 Python 或项目 `.venv`。
 
 ## 快速开始
 
-先安装 bridgeforge-codex：
+BP 的独立安装和私有档案恢复见 [INSTALL.md](INSTALL.md#bridgepilot-本地试用与档案恢复)。从源码维护工程子系统时：
 
 ```powershell
-git clone https://github.com/freakybridge/BridgeForgeCodex.git "$env:USERPROFILE\tools\bridgeforge-codex"
-Set-Location "$env:USERPROFILE\tools\bridgeforge-codex"
+git clone https://github.com/freakybridge/BridgePilot.git "$env:USERPROFILE\tools\BridgePilot"
+Set-Location "$env:USERPROFILE\tools\BridgePilot"
 cargo build --locked --release --manifest-path .\Cargo.toml --target-dir .build/bridgeforge/cargo/local --bin bridgeforge
 & powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-shared-skills.ps1
 ```
@@ -38,7 +39,7 @@ $bridgeforge-codex
 
 普通 `$git-sync` 只提交和同步，不主动升版。develop 按本次改动选择必要的已登记检查，在最终候选验证后处理子包版本；自动进入 `1.0.0` 仍须完整稳定检查。`$git-sync release` 核验累计版本覆盖和声明交付物，只升主程序并公告全部累计子包变化，不补做开发或业务回归。版本记录不承担长期环境证书，换会话或调整检查策略本身不触发重复收口。
 
-从实际入口收据核验所需能力。develop 共用 D1–D5，默认一次 `--apply` 完成最终候选必要检查与子包记账；确需分开时使用 `--validate` 后 `--apply`，完整环境合同下复用有效证据。`--preview` 保持零写入，`git-sync --release` 管主程序。规则与验证状态见[版本生命周期设计](doc/0_architecture/design/package-version-lifecycle.md)，配置和实际入口见[版本生命周期合同](templates/skills/git-sync/references/schema4.md)；[旧 schema4 接入合同](doc/1_delivery/git-sync-release-rewrite/schema4-contract.md)仅保留历史参考。
+从实际入口收据核验所需能力。develop 共用 D1–D5，默认一次 `--apply` 完成最终候选必要检查与子包记账；确需分开时使用 `--validate` 后 `--apply`，完整环境合同下复用有效证据。`--preview` 保持零写入，`git-sync --release` 管主程序。规则与验证状态见[版本生命周期设计](doc/0_architecture/design/package-version-lifecycle.md)，配置和实际入口见[版本生命周期合同](source/forge/templates/skills/git-sync/references/schema4.md)；[旧 schema4 接入合同](doc/1_delivery/git-sync-release-rewrite/schema4-contract.md)仅保留历史参考。
 
 单项目长任务或多个已讨论任务需要托管时，在该项目的新对话中输入：
 
@@ -51,9 +52,9 @@ $autopilot
 也可在 `autopilot` 后直接描述需求。Agent 汇总已有决定、预检权限与环境，与你一次确认任务包和
 整体 token 预算后，在新对话统一实施和验收。时间只作估算；原生预算达到阈值后停止，在途调用
 可能超额。默认交付本地未提交改动。需要当前客户端的对话读取与 Goal 能力；详细流程见
-[autopilot Skill](templates/skills/autopilot/SKILL.md)。
+[autopilot Skill](source/forge/templates/skills/autopilot/SKILL.md)。
 
-重构已有项目时，使用 [refactor-scan Skill](templates/skills/refactor-scan/SKILL.md)：
+重构已有项目时，使用 [refactor-scan Skill](source/forge/templates/skills/refactor-scan/SKILL.md)：
 
 ```text
 $refactor-scan 扫描当前项目，允许现有定向测试和离线性能基准，先给重构清单。
@@ -100,12 +101,17 @@ $refactor-scan 扫描当前项目，允许现有定向测试和离线性能基�
 ## 仓库结构
 
 ```text
-BridgeForgeCodex/
-├── Cargo.toml / Cargo.lock  # 九个包的受管 Rust workspace
-├── source/                  # 唯一维护源码；core/skeleton/lifecycle/workflow/memory/checks/factory/cli/hook
+BridgePilot/
+├── Cargo.toml / Cargo.lock  # Forge 九包与 BP orchestrator 的受管 Rust workspace
+├── source/
+│   ├── forge/               # 九个工程包的唯一维护源
+│   │   ├── core/skeleton/lifecycle/workflow/memory/checks/factory/cli/hook
+│   │   └── templates/       # 分发资产与通用 Skills
+│   └── orchestrator/        # 总管，与 forge 平行，无 src 中间层
+│       ├── lib.rs / main.rs / cli.rs
+│       ├── domain.rs / store.rs / codex.rs
+│       └── skills/bridgepilot/SKILL.md  # 本项目入口，不下发
 ├── .codex/                  # 本仓库 dogfood 配置、公共源码投影与生成资产
-├── templates/               # 分发资产与通用 Skills
-│   └── skills/bridgeforge-codex/ # $bridgeforge-codex 产品入口
 ├── scripts/                 # PowerShell 用户级安装入口
 ├── doc/                     # 架构、交付、Bug、参考与归档
 ├── bridgeforge-manifest.json       # 用户指令、共享 Skills 与项目骨架的唯一源清单
@@ -113,8 +119,23 @@ BridgeForgeCodex/
 └── CHANGELOG.md
 ```
 
-`source/`、`templates/` 属于产品层；`.codex/` 是本仓库的自用镜像；`doc/` 和 README
+`source/`、`source/forge/templates/` 属于产品层；`.codex/` 是本仓库的自用镜像；`doc/` 和 README
 属于元文档。产品层变化需要同步版本、CHANGELOG、分发清单与自用镜像。
+
+`source/forge/` 承载工程基础，`source/orchestrator/`
+承载跨项目总管，二者平行。当前实现项目登记、任务确认、持久档案、客户端动作、有限时长调度、受控 stdio 执行、原生心跳、开发发布核验、私有档案同步、明确换机交接和独立安装升级。安装与恢复从 [INSTALL.md](INSTALL.md#bridgepilot-本地试用与档案恢复) 进入；真实物理双机及业务发布的验收范围以开发计划为准。
+公共安装仍使用原来的 `.codex/hooks/source/<包>/` 源码目标及工具入口。
+范围与进展见[BridgePilot 开发计划](doc/1_delivery/bridgepilot-evolution/plan_2026-10-30_bridgepilot-evolution.md)。
+
+## 通过 Codex 使用 BP
+
+在本项目对话中直接给出目标，例如：“让 StratusAgent 校对 BlackSwan 交易信号，先调查信号产生、落库和消费是否一致，发现需要改变交易语义时找我确认。”这是使用示例，不代表已启动该任务。BP 读取[本地入口](source/orchestrator/skills/bridgepilot/SKILL.md)，将需求登记为任务；简单明确任务直接推进，复杂任务先 confirm。你不需要自己操作 JSON 或 CLI。
+
+独立执行对话由原生客户端在对应下游项目创建。桌面空闲仍可能持有写锁，BP 通过有记录的原生归档和仅恢复持久记录完成交接，再由自管 Codex stdio 进程执行。任务结束且执行进程退出后，再完成客户端显示交接。StratusAgent、HoldemTrainer 各一项真实只读任务已执行，两项聊天的原生成员、客户端列表与各自项目侧栏显示均已核验。Stratus 报告已交付；Holdem 的原始文件证据随后发生变化，保留核对状态。
+
+持续接续使用本 BP 对话的原生 heartbeat，每次触发核对实际配置和当前任务；开发与发布核验消费真实受管证据，发布还核对固定提交及实际推送端点。不会把模型 completed 当作 Released。心跳激活／首个触发、真实业务发布及双机交接的验证状态见开发计划；不保证应用关闭后执行。
+
+试用准备与档案恢复只在 [INSTALL.md](INSTALL.md#bridgepilot-本地试用与档案恢复) 维护；架构、状态与失败语义见[运行协议](doc/0_architecture/design/bridgepilot-runtime-protocol.md)。
 
 ## 兼容边界
 
