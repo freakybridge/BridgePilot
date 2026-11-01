@@ -168,10 +168,13 @@ pub struct State {
     pub wakeups: BTreeMap<String, crate::wakeup::Wakeup>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub custody: Option<crate::handoff::Custody>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub tracking: BTreeMap<String, crate::tracking::TaskTracking>,
 }
 
 impl State {
     pub fn validate(&self) -> Result<()> {
+        crate::tracking::validate_state(self)?;
         crate::handoff::validate(self)?;
         crate::wakeup::validate(self)?;
         for (id, p) in &self.projects {
@@ -345,6 +348,14 @@ impl State {
     pub fn prepare_run(&mut self, task_id: &str, machine: &str) -> Result<String> {
         self.validate()?;
         crate::handoff::require_owner(self, machine)?;
+        if self.tracking.get(task_id).is_some_and(|t| {
+            t.mode == crate::tracking::ExecutionMode::Observed
+                || t.hold
+                    .as_ref()
+                    .is_some_and(|h| h.scope == crate::tracking::HoldScope::Task)
+        }) {
+            return Err("task belongs to an observed chat or has an explicit task hold; do not dispatch it again".into());
+        }
         let t = self.tasks.get(task_id).ok_or("unknown task")?;
         if t.state != TaskState::Ready {
             return Err("task is not ready to execute; reconcile existing run first".into());
@@ -610,11 +621,15 @@ impl State {
         for id in projects {
             self.projects.get_mut(id).unwrap().paused = false;
         }
-        for t in self
-            .tasks
-            .values_mut()
-            .filter(|t| projects.contains(&t.input.project) && t.state == TaskState::Paused)
-        {
+        for t in self.tasks.values_mut().filter(|t| {
+            projects.contains(&t.input.project)
+                && t.state == TaskState::Paused
+                && !self.tracking.get(&t.id).is_some_and(|m| {
+                    m.hold
+                        .as_ref()
+                        .is_some_and(|h| h.scope == crate::tracking::HoldScope::Task)
+                })
+        }) {
             t.state = t.resume_state.take().unwrap_or(TaskState::Ready);
         }
         Ok(())

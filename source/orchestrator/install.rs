@@ -23,11 +23,21 @@ const GUIDE: &[u8] = r#"# BridgePilot 安装与恢复
 
 这些是 Agent 的执行摘要；用户继续在 Codex 中给目标，无需手填 JSON。
 
+统一入口为 `$bridgepilot init`、`$bridgepilot project add <目录>`、`$bridgepilot handoff prepare all`、`$bridgepilot handoff restore` 和 `$bridgepilot status`。首次init只确认一次本人私有存档库，保存后复用；项目登记不启动开发；旧机prepare all保存已确认进度到工作分支，新机restore核验后接管但任务与heartbeat仍暂停。
+
+0.6.0起包另含四个Skill模式引用，均由BP固定资产表核验。程序install无需Git／gh；先安装程序，再由 `environment-check --context <已有目录>` 核对必要依赖，缺失时经本次授权用 `environment-install --home <已安装home> --scope user --source <来源>` 静默准备Git／GitHub CLI。状态与锁固定在home，用户级不支持或结果未知时报告，不自动提权或换目录重发；机器级scope只在明确授权后使用。登录本人完成，PATH未刷新不重复安装。
+
+程序安装后，通过 `skill-install-preview --home <home> --skills-root <本机CODEX_HOME/skills>` 再 `skill-install` 安装用户级bridgepilot，`skill-status`核验。源码仍归BP，不进入Forge共享分发；拒绝覆盖同名未知或用户编辑的Skill。中断先 `skill-recover`，与程序install-recover分别核销，不能绕过pending升级程序。已安装用户级Skill时，回退目标须支持bp-user-skill-v1，否则拒绝。仅恢复档案不等于接管，显式handoff restore才包含接管授权。
+
+0.8.0起包另含 bridgeforge-update-skill.md，由固定资产表安装到 home 的 source/orchestrator/skills/bridgeforge-update/SKILL.md。用户通过 BP 发起骨架升级，由 BP 入口定位实际 home 并读取；此 Skill 不单独进入 Forge 共享分发，安装本身不授权下游维护或发布。
+
 包包含 payload/bp-core.exe、payload/bp-launcher.exe 和 package.json。新机准备 Git、GitHub CLI 与 Codex 登录，无需编译 Rust。先初始化独立私有工作区：`bp-core.exe init --workspace <绝对路径>`。用 `install-preview --bundle <包目录> --home <独立绝对目录> --workspace <工作区>` 零写入检查，再将命令换成 install。在 Codex 打开 home；稳定入口是 `.build/bridgepilot/bin/bp.exe`，从 home/.runtime/config/bridgepilot.json 定位档案。
 
 升级用新包重复 preview/install，最后切换 current，配置和旧完整包保留。中断先 install-recover --home，回退用 install-rollback --home；旧程序不能读真实档案时拒绝。安装不迁移或回滚档案、不修改 PATH、旧 Forge、共享 Skill 或凭据。用户编辑过的受管文件不覆盖。
 
-私有同步：先以 sync-configure --workspace --input 绑定 JSON `{"repository":"<owner/repo>","branch":"main","source":"<真实授权>"}`。原机首次 sync-enrol --expected <当前 revision> --source 登记控制权；空闲边界 sync-upload。只传 HEAD 与完整 revisions，不传 .runtime/.deps/.build、源码、原生会话或 Memory。新机 init 自己的身份、配置同一私有库、sync-download；下载不授予控制权。未知结果先 sync-reconcile，只查不重发。远端仍是原预期头时，明确 sync-fence-pending --source 可发布兄弟提交栅栏解决未发送的初始同步或放弃接管；不删除 pending，不 force 或自动合并。
+任务状态唯一保存在私有workspace的 doc/5_project_knowledgebase/bridgepilot/bridgepilot.sqlite3。用户只使用status；CLI生成固定“序号／项目／任务／阶段／进展／阻点”，Skill原样展示。查询零写入，不扫描聊天或补登记。内部JSON是请求和证据编码，不是第二份状态库。旧JSON先storage-preview，只在明确迁移授权后storage-migrate --expected --source；中断storage-recover。迁移保留原字节备份及退役哨兵，拒绝旧reader回退，不恢复任务或heartbeat。
+
+私有同步：先以 sync-configure --workspace --input 绑定 JSON `{"repository":"<owner/repo>","branch":"main","source":"<真实授权>"}`。原机首次 sync-enrol --expected <当前 revision> --source 登记控制权；空闲边界 sync-upload。只传包含完整逻辑历史的SQLite一致快照，显式排除local_records本机outbox／候选／核销收据及配置、源码、原生会话和Memory；网络期间不持有SQL写事务。新机 init 自己的身份、配置同一私有库、sync-download；下载不授予控制权。未知结果先 sync-reconcile，只查不重发，清理运行缓存不丢在途候选。远端仍是原预期头时，明确 sync-fence-pending --source 可发布兄弟提交栅栏解决未发送的初始同步或放弃接管；不删除 pending，不 force 或自动合并。
 
 交接前必须明确全部暂停、无活跃/Unknown，原进程确认已停。各项目由主对话按已有 git-sync 授权保存并推送代码，BP 不内部提交。每项目 checkpoint-probe --workspace --project --remote --ref refs/heads/<branch> --source，收集真实输出中的 checkpoint 对象。handoff-release --workspace --input 消费 `{"checkpoints":[<真实 checkpoint 对象>],"source":"..."}`，原机先冻结。handoff-status 显示 transfer；不要手写 ID。
 
@@ -238,6 +248,36 @@ fn assets() -> Vec<(
             "source/orchestrator/skills/bridgepilot/SKILL.md",
             Some(include_bytes!("skills/bridgepilot/SKILL.md")),
         ),
+        (
+            "bp.controller.skill.init",
+            "payload/bridgepilot-init.md",
+            "source/orchestrator/skills/bridgepilot/references/init.md",
+            Some(include_bytes!("skills/bridgepilot/references/init.md")),
+        ),
+        (
+            "bp.controller.skill.projects",
+            "payload/bridgepilot-projects.md",
+            "source/orchestrator/skills/bridgepilot/references/projects.md",
+            Some(include_bytes!("skills/bridgepilot/references/projects.md")),
+        ),
+        (
+            "bp.controller.skill.handoff",
+            "payload/bridgepilot-handoff.md",
+            "source/orchestrator/skills/bridgepilot/references/handoff.md",
+            Some(include_bytes!("skills/bridgepilot/references/handoff.md")),
+        ),
+        (
+            "bp.controller.skill.execution",
+            "payload/bridgepilot-execution.md",
+            "source/orchestrator/skills/bridgepilot/references/execution.md",
+            Some(include_bytes!("skills/bridgepilot/references/execution.md")),
+        ),
+        (
+            "bp.controller.skill.forge-update",
+            "payload/bridgeforge-update-skill.md",
+            "source/orchestrator/skills/bridgeforge-update/SKILL.md",
+            Some(include_bytes!("skills/bridgeforge-update/SKILL.md")),
+        ),
     ]
 }
 pub fn bundle(output: &Path, core: &Path, launcher: &Path) -> Result<Value> {
@@ -290,7 +330,12 @@ fn package(root: &Path) -> Result<Package> {
         return Err("unsupported BridgePilot package".into());
     }
     SemVer::from_str(&p.version)?;
-    let expected = assets();
+    let mut expected = assets();
+    if p.assets.len() == 6 && SemVer::from_str(&p.version)? < SemVer::from_str("0.6.0")? {
+        expected.truncate(6);
+    } else if p.assets.len() == 10 && SemVer::from_str(&p.version)? < SemVer::from_str("0.8.0")? {
+        expected.truncate(10);
+    }
     if expected.len() != p.assets.len() {
         return Err("portable asset registry mismatch".into());
     }
@@ -365,15 +410,18 @@ fn workspace(home: &Path, requested: Option<&Path>) -> Result<Option<PathBuf>> {
 }
 fn reader_check(core: &Path, workspace: Option<&Path>) -> Result<()> {
     if let Some(workspace) = workspace {
+        let capability=probe(core,&["self-test".into()])?;
+        let sqlite_reader=capability["archive_reader_features"].as_array()
+            .is_some_and(|features|features.iter().any(|f|f=="sqlite-v1"));
         let result = probe(
             core,
             &[
-                "status".into(),
+                if sqlite_reader {"storage-preview".into()} else {"status".into()},
                 "--workspace".into(),
                 workspace.to_str().ok_or("invalid workspace path")?.into(),
             ],
         )?;
-        if result["schema"] != 1 {
+        if !matches!(result["schema"].as_u64(),Some(1|2)) {
             return Err("candidate program cannot read the actual configured archive".into());
         }
     }
@@ -394,6 +442,32 @@ fn install_inner(
     preview: bool,
     rollback: bool,
 ) -> Result<Value> {
+    install_before_lock(
+        package_root,
+        home,
+        requested_workspace,
+        preview,
+        rollback,
+        || {},
+    )
+}
+#[cfg(feature = "test-fixtures")]
+pub fn install_with_before_lock(
+    package: &Path,
+    home: &Path,
+    workspace: Option<&Path>,
+    hook: impl FnOnce(),
+) -> Result<Value> {
+    install_before_lock(package, home, workspace, false, false, hook)
+}
+fn install_before_lock(
+    package_root: &Path,
+    home: &Path,
+    requested_workspace: Option<&Path>,
+    preview: bool,
+    rollback: bool,
+    before_lock: impl FnOnce(),
+) -> Result<Value> {
     if !home.is_absolute() {
         return Err("absolute installation home required".into());
     }
@@ -404,7 +478,21 @@ fn install_inner(
     if journal(home).exists() {
         return Err("interrupted installation requires install-recover first".into());
     }
+    if home
+        .join(".runtime/bridgepilot-skill/journal.json")
+        .exists()
+    {
+        return Err(
+            "user Skill installation requires skill-recover before changing runtime".into(),
+        );
+    }
     let p = package(package_root)?;
+    let skill_marker = home.join(".runtime/config/bridgepilot-user-skill.json");
+    let skill_binding = if skill_marker.exists() {
+        Some(bytes(&skill_marker)?)
+    } else {
+        None
+    };
     let old = read_old(home)?;
     let claimed_launcher = claim(home)?;
     if old.is_none() && claimed_launcher.is_none() && !scaffold_only(home)? {
@@ -416,6 +504,22 @@ fn install_inner(
         workspace.as_deref(),
     )?;
     let core = &p.assets[0];
+    if rollback
+        && home
+            .join(".runtime/config/bridgepilot-user-skill.json")
+            .exists()
+    {
+        let candidate = probe(
+            &package_root.join("payload/bp-core.exe"),
+            &["self-test".into()],
+        )?;
+        if !candidate["capabilities"]
+            .as_array()
+            .is_some_and(|v| v.iter().any(|x| x == "bp-user-skill-v1"))
+        {
+            return Err("rollback target cannot maintain the installed BP user Skill".into());
+        }
+    }
     let rel = format!(
         ".build/bridgepilot/versions/{}-{}/bp-core.exe",
         p.version,
@@ -518,8 +622,15 @@ fn install_inner(
     }
     fs::create_dir_all(home.join(".runtime/bridgepilot-install/locks"))
         .map_err(|e| e.to_string())?;
+    before_lock();
     let _lock = FileLock::acquire(&home.join(".runtime/bridgepilot-install/locks/writer.lock"))?;
-    if read_old(home)? != old || journal(home).exists() {
+    if read_old(home)? != old
+        || journal(home).exists()
+        || !matches_bytes(&skill_marker, skill_binding.as_deref())?
+        || home
+            .join(".runtime/bridgepilot-skill/journal.json")
+            .exists()
+    {
         return Err("installation changed after preview".into());
     }
     for change in &changes {

@@ -1,0 +1,44 @@
+{
+  "common_entries": 154,
+  "entries": 164,
+  "imported": [
+    {
+      "id": "orchestrator",
+      "original_hash": "sha256:3b5feeef854d9558bc42f1a303cd146c43da015ae506ba92db5cee3b317c7872",
+      "reconciled_hash": "sha256:d326e59725190d9143f25da8b670db02d656ddc1298b7ea5e8b81f19e7f33ccb"
+    },
+    {
+      "id": "core",
+      "original_hash": "sha256:e628f3ca4bd3ab52028c4eaf3169689c98827c0f46813e03d815f20b68a70be6",
+      "reconciled_hash": "sha256:920a943c36c08304518837d3260356b507ce7fa74109a9f9044f02ba2325b8b0"
+    },
+    {
+      "id": "orchestrator",
+      "original_hash": "sha256:2a21a67e69d8381fa46b7d17f7e83999606a32b5b54858cd93bbb85c7c733e3f",
+      "reconciled_hash": "sha256:c896ca19be4186c54faa9d0a10db3406a0b1050fccc57bffd1e34f5d7267ea4e"
+    },
+    {
+      "id": "orchestrator",
+      "original_hash": "sha256:3049edf5ea96eddc55d68d57e916c8954557dcb12f7c7e472632abbe13de879f",
+      "reconciled_hash": "sha256:6aeea33ae77970498f3e9120707938c7a8ed2133c567b043e45c87a3d7eafb2f"
+    },
+    {
+      "id": "orchestrator",
+      "original_hash": "sha256:4fbe78eae88d09cca9f87bba301b8aa9f3185bbc951b680b6457e09b5876a38d",
+      "reconciled_hash": "sha256:c7bed1a3a3a0de5c276c11ce06ba928df52fb60085a214335f61af1e4cb81b44"
+    }
+  ],
+  "evidence_changed": false,
+  "schema": 1,
+  "fingerprint": "sha256:fc76ed8c125fad461a15f5ea08cf665b22c0d120d8415329bcf49c05a981d710",
+  "inputs": {
+    "base": "sha256:a90e2554f23765f19165abc62e120bec9bced731c21510ddd3a2855472a46746",
+    "published": "sha256:6c7627566acd284cabe1b02902466fd968381b7ca097ba16ed64551c07e56eef",
+    "incoming": "sha256:6c38582ae7aba55d569ce4c6e6d6eed16cea3185ce1c532fc6cef9b79b5f389a",
+    "working": "sha256:2e3b73667422562f5925787d8e17909e8d754c4fb4e8473ff0389e11bc367e2c",
+    "head": "sha256:cbaf53d492e84e703b1fcea96dc7892507551fb0c87ac08a03f1651718212875",
+    "index": "sha256:cb9b07e2fa8950b0c1368485b3ae93a7a857de737833ec2fd42abba9d0939237"
+  },
+  "archive": ".codex/package-closure-reconciliations/fc76ed8c125fad461a15f5ea08cf665b22c0d120d8415329bcf49c05a981d710",
+  "result_sha256": "sha256:c9ca9577ef5f6904cccc2a2bd656052ef128b7c54ad0b789c41b00602c26f17b"
+}

@@ -205,6 +205,9 @@ fn main() {
                     json!({"method":"turn/completed","params":{"threadId":thread,"turn":{"id":"fixture-turn","status":"interrupted"}}}),
                 );
             }
+            "thread/goal/get" => send(
+                json!({"id":v["id"],"result":{"goal":if mode=="observer-goal-active"{json!({"status":"active"})}else if mode=="observer-goal-paused"{json!({"status":"paused"})}else{Value::Null}}}),
+            ),
             "thread/read" => {
                 if v["params"]["includeTurns"] == false {
                     let project = std::fs::read_to_string(".bp-fixture-project").ok();
@@ -228,7 +231,7 @@ fn main() {
                     .map(|v| serde_json::from_str(&v).unwrap())
                     .unwrap_or(Value::Null);
                 send(
-                    json!({"id":v["id"],"result":{"thread":{"id":v["params"]["threadId"],"turns":if turn.is_null(){vec![]}else{vec![turn]}}}}),
+                    json!({"id":v["id"],"result":{"thread":{"id":v["params"]["threadId"],"status":{"type":if mode=="observer-active"{"active"}else{"notLoaded"}},"turns":if turn.is_null(){vec![]}else{vec![turn]}}}}),
                 );
             }
             "" => {

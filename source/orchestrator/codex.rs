@@ -206,6 +206,217 @@ fn update<T>(
     store.update(change)
 }
 
+/// Observe an explicitly registered existing thread without starting/resuming a
+/// turn or adopting its writer. Native completion remains an observation only.
+pub fn observe_task(
+    store: &Store,
+    expected: u64,
+    id: &str,
+    executable: &Path,
+    source: &str,
+) -> Result<Value> {
+    observe_task_until(
+        store,
+        expected,
+        id,
+        executable,
+        source,
+        Instant::now() + Duration::from_secs(20),
+    )
+}
+pub(crate) fn observe_task_until(
+    store: &Store,
+    expected: u64,
+    id: &str,
+    executable: &Path,
+    source: &str,
+    deadline: Instant,
+) -> Result<Value> {
+    let result = observe_task_inner(store, expected, id, executable, source, deadline);
+    if let Err(error) = &result {
+        let _ = crate::tracking::observation_failed(store, expected, id, error, source);
+    }
+    result
+}
+fn observe_task_inner(
+    store: &Store,
+    expected: u64,
+    id: &str,
+    executable: &Path,
+    source: &str,
+    deadline: Instant,
+) -> Result<Value> {
+    if source.trim().is_empty() {
+        return Err("actual observation source is required".into());
+    }
+    let before = store.read()?;
+    if before.revision != expected {
+        return Err("archive revision changed before thread observation".into());
+    }
+    let task = before.state.tasks.get(id).ok_or("unknown observed task")?;
+    let meta = before
+        .state
+        .tracking
+        .get(id)
+        .ok_or("task has no explicit thread binding")?;
+    if meta.mode != crate::tracking::ExecutionMode::Observed {
+        return Err("task is not registered in observed-thread mode".into());
+    }
+    let thread = meta
+        .execution_thread_id
+        .as_ref()
+        .ok_or("observed thread ID missing")?;
+    if before
+        .state
+        .runs
+        .values()
+        .any(|r| r.task == id && r.state.active())
+    {
+        return Err("cannot observe/adopt an existing owned active execution".into());
+    }
+    let mut rpc = Rpc::start_limited(executable, &store.workspace, Some(deadline))?;
+    let response = rpc.call(
+        "thread/read",
+        json!({"threadId":thread,"includeTurns":true}),
+    )?;
+    let native = &response["thread"];
+    if native["id"].as_str() != Some(thread.as_str()) {
+        return Err("native observation returned another thread identity".into());
+    }
+    if meta.controller_thread_id.as_ref() != Some(thread) {
+        let machine = store.machine()?;
+        let binding = before
+            .state
+            .bindings
+            .get(&format!("{machine}:{}", task.input.project))
+            .ok_or("observed project binding missing")?;
+        let cwd = native["cwd"]
+            .as_str()
+            .ok_or("native observed thread omitted cwd")?;
+        if std::fs::canonicalize(cwd).map_err(|e| e.to_string())?
+            != std::fs::canonicalize(&binding.root).map_err(|e| e.to_string())?
+        {
+            return Err("observed execution thread is outside the registered project".into());
+        }
+    }
+    let turns = native["turns"]
+        .as_array()
+        .ok_or("native observation omitted actual turn history")?;
+    let latest = turns
+        .iter()
+        .find(|t| t["status"] == "inProgress")
+        .or_else(|| turns.last());
+    let observed = latest.and_then(|t| t["status"].as_str()).unwrap_or("idle");
+    let observed = if matches!(
+        observed,
+        "inProgress" | "completed" | "interrupted" | "failed" | "idle"
+    ) {
+        observed
+    } else {
+        "unknown"
+    };
+    // A separate server's notLoaded status cannot establish the desktop
+    // writer's current turn. Its persisted last turn may already be outdated.
+    let thread_status = native["status"]["type"].as_str().unwrap_or("unknown");
+    let goal = if thread_status != "active" {
+        rpc.call("thread/goal/get", json!({"threadId":thread})).ok()
+    } else {
+        None
+    };
+    let goal_active = goal
+        .as_ref()
+        .is_some_and(|g| g["goal"]["status"] == "active");
+    let recorded_status = observed;
+    let observed = if thread_status == "active" && recorded_status == "inProgress" {
+        observed
+    } else {
+        "unknown"
+    };
+    let turn = latest.and_then(|t| t["id"].as_str()).map(str::to_owned);
+    let commands = latest
+        .and_then(|t| t["items"].as_array())
+        .into_iter()
+        .flatten()
+        .filter(|item| item["type"] == "commandExecution")
+        .collect::<Vec<_>>();
+    let completed = commands
+        .iter()
+        .filter(|item| item["exitCode"].as_i64().is_some())
+        .count();
+    let failed = commands
+        .iter()
+        .filter(|item| item["exitCode"].as_i64().is_some_and(|n| n != 0))
+        .count();
+    let proof = json!({"thread_id":thread,"cwd":native["cwd"],"turn_id":turn,"turn_status":observed,
+        "last_recorded_turn_status":recorded_status,"thread_status":thread_status,"goal_status":goal.as_ref().map(|g|&g["goal"]["status"]),
+        "command_receipts":completed,"failed_command_receipts":failed,
+        "native_readback_sha256":crate::digest(&serde_json::to_vec(&response).map_err(|e|e.to_string())?),"source":source});
+    let event = crate::tracking::Event::native(
+        task,
+        None,
+        &format!(
+            "{}:{expected}",
+            crate::digest(&serde_json::to_vec(&proof).map_err(|e| e.to_string())?)
+        ),
+        if goal_active {
+            "goal_observed_active"
+        } else {
+            "thread_observed"
+        },
+        format!(
+            "{}；末次持久回合：{recorded_status}；已读回 {completed} 条命令回执，{failed} 条非零退出（业务完成待核验）",
+            if goal_active {
+                "原生托管目标进行中"
+            } else if observed == "unknown" {
+                "当前执行回合观察受限"
+            } else {
+                "已读回关联回合"
+            }
+        ),
+        (observed == "unknown")
+            .then(|| "独立原生服务未读到桌面当前回合，仅能核对目标及末次历史记录".into()),
+        format!("codex://threads/{thread}"),
+        proof.clone(),
+    );
+    if let Some(latest) = &meta.latest {
+        if crate::tracking::latest_receipt_matches(
+            &store.read_connection()?,
+            &event,
+            &latest.event_id,
+        )? {
+            let current = store.read()?;
+            if current.revision != expected {
+                return Err("archive revision changed during thread observation".into());
+            }
+            return Ok(
+                json!({"schema":1,"status":"task_observed","revision":current.revision,"proof":proof,"unchanged":true,"task_turn_started":false,"business_verified":false}),
+            );
+        }
+    }
+    let (snapshot, ()) = store.transact_with_sql(expected, |s, tx| {
+        let m = s
+            .tracking
+            .get_mut(id)
+            .ok_or("observed task binding disappeared")?;
+        if m.execution_thread_id.as_ref() != Some(thread) {
+            return Err("observed task binding changed".into());
+        }
+        m.observation = Some(crate::tracking::Observation {
+            thread_id: thread.clone(),
+            turn_id: turn,
+            status: observed.into(),
+            observed_at: crate::tracking::now(),
+            source: source.into(),
+        });
+        m.observation_error = None;
+        crate::tracking::append(s, tx, &event)?;
+        Ok(())
+    })?;
+    Ok(
+        json!({"schema":1,"status":"task_observed","revision":snapshot.revision,"proof":proof,"task_turn_started":false,"business_verified":false}),
+    )
+}
+
 /// Execute only a previously created, idle, correctly grouped native chat.
 /// A missing UI binding produces a durable client action instead of a hidden chat.
 pub fn execute(store: &Store, run_id: &str, executable: &Path, timeout: u64) -> Result<Value> {
@@ -512,6 +723,15 @@ fn execute_inner(
         dispatch_header(run, &turn_op),
         serde_json::to_string_pretty(task).map_err(|e| e.to_string())?
     );
+    if let Some(hold) = dispatch_snapshot
+        .state
+        .tracking
+        .get(&task.id)
+        .and_then(|m| m.publication_hold.as_ref().or(m.hold.as_ref()))
+    {
+        prompt.push_str("\nEffective restriction overrides any earlier grant: publication is currently held. Do not submit, push, or release this task. Continue only work already authorized within its non-publication scope. Hold record:\n");
+        prompt.push_str(&serde_json::to_string(hold).map_err(|e| e.to_string())?);
+    }
     if let Some(context) = prior_context {
         prompt.push_str("\nVerified machine handoff continuation:\n");
         prompt.push_str(&serde_json::to_string_pretty(&context).map_err(|e| e.to_string())?);
@@ -529,6 +749,19 @@ fn execute_inner(
         s.operations.get_mut(&turn_op).unwrap().state = OperationState::Observed;
         Ok(())
     })?;
+    crate::tracking::record(
+        store,
+        crate::tracking::Event::native(
+            &task,
+            Some(run_id),
+            &turn,
+            "turn_started",
+            "原生执行回合已启动".into(),
+            None,
+            format!("codex://threads/{thread_id}#turn/{turn}"),
+            response,
+        ),
+    )?;
     emit(
         &json!({"event":"run_started","run":run_id,"thread_id":thread_id,"turn_id":turn,"project":task.input.project,"pid":pid}),
     );
@@ -575,6 +808,19 @@ fn execute_inner(
         };
         if event.get("id").is_some() && event.get("method").is_some() {
             approval = Some(event.clone());
+            crate::tracking::record(
+                store,
+                crate::tracking::Event::native(
+                    &task,
+                    Some(run_id),
+                    &event["id"].to_string(),
+                    "approval_required",
+                    "执行器收到原生审批请求".into(),
+                    Some("需要用户处理原生审批".into()),
+                    format!("codex://threads/{thread_id}#turn/{turn}"),
+                    event.clone(),
+                ),
+            )?;
             emit(&json!({"event":"client_approval_required","run":run_id,"request":event}));
             rpc.decline(&event)?;
             continue;
@@ -600,6 +846,33 @@ fn execute_inner(
             let raw = serde_json::to_vec(item).map_err(|e| e.to_string())?;
             let output = item["aggregatedOutput"].as_str().unwrap_or("");
             tool_receipts.push(json!({"id":item["id"],"command":item["command"],"cwd":item["cwd"],"status":item["status"],"exit_code":item["exitCode"],"item_sha256":crate::digest(&raw),"output":output.chars().take(16384).collect::<String>(),"output_truncated":output.chars().count()>16384}));
+            let command_status = item["exitCode"].as_i64();
+            let message = match command_status {
+                Some(code) => format!(
+                    "命令已结束，退出码 {code}（第 {} 项命令回执）",
+                    tool_receipts.len()
+                ),
+                None => "命令结束状态待核实".into(),
+            };
+            crate::tracking::record(
+                store,
+                crate::tracking::Event::native(
+                    &task,
+                    Some(run_id),
+                    item["id"]
+                        .as_str()
+                        .ok_or("native command omitted event identity")?,
+                    "command_completed",
+                    message,
+                    match command_status {
+                        Some(0) => None,
+                        Some(code) => Some(format!("最近命令退出码 {code}，尚未证明问题已解决")),
+                        None => Some("命令退出码缺失".into()),
+                    },
+                    format!("codex://threads/{thread_id}#turn/{turn}"),
+                    tool_receipts.last().unwrap().clone(),
+                ),
+            )?;
         }
         if event["method"] == "turn/completed"
             && event["params"]["threadId"] == thread_id
@@ -615,7 +888,23 @@ fn execute_inner(
                 _ => return Err("unknown turn terminal".into()),
             };
             let receipt = json!({"schema":1,"run":run_id,"thread_id":thread_id,"turn_id":turn,"turn_status":terminal,"approval_required":approval,"text":final_text,"tool_receipts":tool_receipts,"publication_verified":false,"time_limit_seconds":hard_deadline.duration_since(started).as_secs(),"elapsed_millis":started.elapsed().as_millis()});
-            update(store, |s| {
+            let terminal_event = crate::tracking::Event::native(
+                &task,
+                Some(run_id),
+                &turn,
+                "turn_completed",
+                format!("原生回合结束：{terminal}；业务交付仍需核验"),
+                if approval.is_some() {
+                    Some("原生审批尚未处理".into())
+                } else if run_state == RunState::Failed {
+                    Some("执行回合失败".into())
+                } else {
+                    None
+                },
+                format!("codex://threads/{thread_id}#turn/{turn}"),
+                crate::tracking::receipt_reference(&receipt)?,
+            );
+            crate::tracking::transition(store, &terminal_event, |s| {
                 if Instant::now() >= hard_deadline {
                     return Err(
                         "execution time limit reached before terminal result could be recorded"
@@ -734,6 +1023,20 @@ pub fn project_probe(executable: &Path, root: &Path) -> Result<Value> {
     let response = rpc.call("project/list", json!({"limit":100}))?;
     Ok(
         json!({"schema":1,"status":"project_protocol_ready","cwd":root,"response":response,"task_turn_started":false}),
+    )
+}
+
+/// Verify native Skill discovery without loading a chat or starting a turn.
+pub fn skill_probe(executable: &Path, root: &Path) -> Result<Value> {
+    let root = std::fs::canonicalize(root).map_err(|e| e.to_string())?;
+    let mut rpc = Rpc::start_limited(
+        executable,
+        &root,
+        Some(Instant::now() + Duration::from_secs(30)),
+    )?;
+    let response = rpc.call("skills/list", json!({"cwds":[root],"forceReload":true}))?;
+    Ok(
+        json!({"schema":1,"status":"native_skills_observed","cwd":root,"response":response,"task_turn_started":false}),
     )
 }
 
@@ -952,7 +1255,19 @@ pub fn reconcile(store: &Store, id: &str, executable: &Path) -> Result<Value> {
         _ => return Err("nonterminal history".into()),
     };
     let receipt = json!({"schema":1,"status":"reconciled","run":id,"thread_id":thread_id,"turn":turn,"publication_verified":false});
-    store.transact(snapshot.revision, |s| {
+    let event = crate::tracking::Event::native(
+        &snapshot.state.tasks[&r.task],
+        Some(id),
+        turn["id"]
+            .as_str()
+            .ok_or("native reconciled turn ID missing")?,
+        "turn_reconciled",
+        format!("已核销原生回合：{terminal}；业务交付仍需核验"),
+        (state == RunState::Failed).then(|| "原生回合失败".into()),
+        format!("codex://threads/{thread_id}"),
+        crate::tracking::receipt_reference(&receipt)?,
+    );
+    store.transact_with_sql(snapshot.revision, |s, tx| {
         let run = s.runs.get_mut(id).ok_or("unknown run")?;
         if !run.state.active() {
             return Err("run already has a terminal result".into());
@@ -981,6 +1296,7 @@ pub fn reconcile(store: &Store, id: &str, executable: &Path) -> Result<Value> {
             diagnostic["reconciled_from_turn"] = turn["id"].clone();
             op.result = Some(diagnostic);
         }
+        crate::tracking::append(s, tx, &event)?;
         Ok(())
     })?;
     Ok(receipt)

@@ -57,6 +57,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "bridgeforge-factory-tests"
+version = "6.0.0"
+dependencies = [
+ "bridgeforge-checks",
+ "bridgeforge-core",
+ "bridgeforge-factory",
+ "bridgeforge-hook",
+ "bridgeforge-lifecycle",
+ "bridgeforge-memory",
+ "bridgeforge-skeleton",
+ "bridgeforge-workflow",
+ "serde_json",
+ "sha2",
+ "windows-sys",
+]
+
+[[package]]
 name = "bridgeforge-core"
 version = "10.2.0"
 dependencies = [
@@ -89,25 +106,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "bridgeforge-factory-tests"
-version = "6.0.0"
-dependencies = [
- "bridgeforge-checks",
- "bridgeforge-core",
- "bridgeforge-factory",
- "bridgeforge-hook",
- "bridgeforge-lifecycle",
- "bridgeforge-memory",
- "bridgeforge-skeleton",
- "bridgeforge-workflow",
- "serde_json",
- "sha2",
- "windows-sys",
-]
-
-[[package]]
 name = "bridgeforge-hook"
-version = "14.0.0"
+version = "15.0.0"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
@@ -439,7 +439,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d466e9454f08e4a911e14806c24e16fba1b4c121d1ea474396f396069cf949d9"
 dependencies = [
  "equivalent",
- "hashbrown",
+ "hashbrown 0.17.1",
 ]
 
 [[package]]
@@ -534,7 +534,7 @@ dependencies = [
  "rustc-hash",
  "serde",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.69",
  "unicode-width",
  "url",
  "urlencoding",
@@ -747,7 +747,7 @@ version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6aaf5339b578ea85b50e080feb250a3e8ae8cfcdff9a461c9ec2904bc923f52"
 dependencies = [
- "thiserror-impl",
+ "thiserror-impl 1.0.69",
 ]
 
 [[package]]

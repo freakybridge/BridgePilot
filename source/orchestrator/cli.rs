@@ -36,11 +36,16 @@ fn args(values: Vec<String>) -> Result<(String, BTreeMap<String, String>)> {
     }
     let allowed: &[&str] = match command.as_str() {
         "help" | "self-test" => &[],
-        "probe" | "project-probe" => &["codex", "project-root"],
+        "probe" | "project-probe" | "skill-probe" => &["codex", "project-root"],
         "development-probe" => &["project-root", "tool", "packages"],
         "bundle" => &["output", "core", "launcher"],
         "install" | "install-preview" => &["bundle", "home", "workspace"],
         "install-status" | "install-recover" | "install-rollback" => &["home"],
+        "skill-install" | "skill-install-preview" | "skill-status" | "skill-recover" => {
+            &["home", "skills-root"]
+        }
+        "environment-check" => &["context"],
+        "environment-install" => &["home", "scope", "source"],
         "sync-configure" => &["workspace", "input"],
         "sync-enrol" => &["workspace", "expected", "source"],
         "sync-upload" | "sync-download" | "sync-reconcile" | "handoff-status" => &["workspace"],
@@ -59,7 +64,11 @@ fn args(values: Vec<String>) -> Result<(String, BTreeMap<String, String>)> {
         "checkpoint-probe" => &["workspace", "project", "remote", "ref", "source"],
         "verify-development" | "verify-publication" => &["workspace", "expected", "input"],
         "configure" => &["product-root", "workspace"],
-        "init" | "status" | "actions" | "rebuild-index" => &["workspace"],
+        "init" | "status" | "actions" | "rebuild-index" | "storage-preview" => &["workspace"],
+        "storage-migrate" => &["workspace","expected","source"],
+        "storage-recover" => &["workspace","source"],
+        "task-hold" => &["workspace", "expected", "input"],
+        "task-observe" => &["workspace","expected","task","codex","source"],
         "project-add" | "task-add" | "task-revise" | "run-bind" | "pause" | "resume" => {
             &["workspace", "expected", "input"]
         }
@@ -108,14 +117,42 @@ fn receipt(snapshot: crate::store::Snapshot, result: Value) -> Value {
 
 pub fn run(values: Vec<String>) -> Result<Value> {
     let (command, options) = args(values)?;
+    if command == "skill-probe" {
+        return codex::skill_probe(
+            Path::new(get(&options, "codex")?),
+            Path::new(get(&options, "project-root")?),
+        );
+    }
+    if command == "environment-check" {
+        return crate::environment::check(Path::new(get(&options, "context")?));
+    }
+    if command == "environment-install" {
+        return crate::environment::prepare(
+            Path::new(get(&options, "home")?),
+            get(&options, "scope")?,
+            get(&options, "source")?,
+        );
+    }
+    if matches!(
+        command.as_str(),
+        "skill-install" | "skill-install-preview" | "skill-status" | "skill-recover"
+    ) {
+        let home = Path::new(get(&options, "home")?);
+        let skills = Path::new(get(&options, "skills-root")?);
+        return match command.as_str() {
+            "skill-status" => crate::user_skill::status(home, skills),
+            "skill-recover" => crate::user_skill::recover(home, skills),
+            _ => crate::user_skill::install(home, skills, command == "skill-install-preview"),
+        };
+    }
     if command == "help" {
         return Ok(
-            json!({"schema":1,"commands":["init","configure","status","actions","project-add","task-add","task-revise","task-confirm","run-prepare","operation-attempt","run-bind","chat-restore","chat-group","project-probe","execute","supervise","report-review","development-probe","verify-development","verify-publication","wake-plan","wake-attempt","wake-bind","wake-revise","wake-check","run-reconcile","pause","resume","rebuild-index","probe","self-test","bundle","install","install-preview","install-status","install-recover","install-rollback","sync-configure","sync-enrol","sync-upload","sync-download","sync-reconcile","sync-cancel-pending","sync-fence-pending","checkpoint-probe","handoff-status","handoff-release","handoff-accept","handoff-cancel","handoff-continue","legacy-server-probe"],"input":"JSON files; direct mutations require --expected <archive revision>; supervise owns its bounded CAS loop","workspace":"explicit private workspace, separate from product repository"}),
+            json!({"schema":1,"commands":["init","configure","status","actions","project-add","task-add","task-revise","task-confirm","task-hold","task-observe","run-prepare","operation-attempt","run-bind","chat-restore","chat-group","project-probe","execute","supervise","report-review","development-probe","verify-development","verify-publication","wake-plan","wake-attempt","wake-bind","wake-revise","wake-check","run-reconcile","pause","resume","rebuild-index","probe","self-test","bundle","install","install-preview","install-status","install-recover","install-rollback","sync-configure","sync-enrol","sync-upload","sync-download","sync-reconcile","sync-cancel-pending","sync-fence-pending","checkpoint-probe","handoff-status","handoff-release","handoff-accept","handoff-cancel","handoff-continue","legacy-server-probe","skill-probe","environment-check","environment-install","skill-install-preview","skill-install","skill-status","skill-recover","storage-preview","storage-migrate","storage-recover"],"input":"Internal JSON requests; direct mutations require --expected <archive revision>; supervise owns its bounded CAS loop","workspace":"configured private workspace; user query entry remains status"}),
         );
     }
     if command == "self-test" {
         return Ok(
-            json!({"schema":1,"program":"bridgepilot","version":env!("CARGO_PKG_VERSION"),"capabilities":["bp-task-archive-v1","bp-confirm-gate-v1","bp-client-action-outbox-v1","bp-owned-stdio-v1","bp-explicit-pause-scope-v1","bp-bounded-supervision-v1","bp-readonly-report-review-v1","bp-native-chat-handoff-v1","bp-native-project-assignment-v1","bp-native-heartbeat-v1","bp-managed-development-review-v1","bp-managed-publication-review-v1","bp-private-archive-sync-v1","bp-explicit-machine-handoff-v1","bp-portable-install-v1"],"archive_reader_features":["custody-v1"],"installed_home_supported":true,"desktop_creation":"native-client-action","native_heartbeat_available":true,"wakeup_requires_observed_registration":true,"automatic_takeover":false}),
+            json!({"schema":1,"program":"bridgepilot","version":env!("CARGO_PKG_VERSION"),"capabilities":["bp-task-archive-v1","bp-confirm-gate-v1","bp-client-action-outbox-v1","bp-owned-stdio-v1","bp-explicit-pause-scope-v1","bp-bounded-supervision-v1","bp-readonly-report-review-v1","bp-native-chat-handoff-v1","bp-native-project-assignment-v1","bp-native-heartbeat-v1","bp-managed-development-review-v1","bp-managed-publication-review-v1","bp-private-archive-sync-v1","bp-explicit-machine-handoff-v1","bp-portable-install-v1","bp-unified-skill-v1","bp-user-skill-v1","bp-prerequisite-install-v1","bp-sqlite-archive-v1","bp-sqlite-status-v1","bp-task-events-v1","bp-permanent-task-number-v1","bp-json-import-v1"],"archive_reader_features":["custody-v1","sqlite-v1"],"installed_home_supported":true,"desktop_creation":"native-client-action","native_heartbeat_available":true,"wakeup_requires_observed_registration":true,"automatic_takeover":false}),
         );
     }
     if command == "probe" {
@@ -291,12 +328,12 @@ pub fn run(values: Vec<String>) -> Result<Value> {
         "report-review" => {
             crate::review::review(&store, number(&options, "expected")?, input(&options)?)
         }
-        "status" => {
-            let snapshot = store.read()?;
-            Ok(
-                json!({"schema":1,"status":"ok","archive":snapshot.archive_id,"revision":snapshot.revision,"state":snapshot.state}),
-            )
-        }
+        "status" => crate::status::query(&store),
+        "storage-preview" => crate::migration::preview(&store),
+        "storage-migrate" => crate::migration::apply(&store,number(&options,"expected")?,get(&options,"source")?),
+        "storage-recover" => crate::migration::recover(&store,get(&options,"source")?),
+        "task-hold" => crate::tracking::hold(&store,number(&options,"expected")?,input(&options)?).map(|s|receipt(s,json!({"hold_recorded":true}))),
+        "task-observe" => crate::codex::observe_task(&store,number(&options,"expected")?,get(&options,"task")?,Path::new(get(&options,"codex")?),get(&options,"source")?),
         "rebuild-index" => {
             Ok(json!({"schema":1,"status":"index_rebuilt","path":store.rebuild_index()?}))
         }
@@ -308,6 +345,8 @@ pub fn run(values: Vec<String>) -> Result<Value> {
                 .values()
                 .filter(|t| {
                     t.state == TaskState::Ready
+                        && !snapshot.state.tracking.get(&t.id).is_some_and(|m|m.mode==crate::tracking::ExecutionMode::Observed
+                            || m.hold.as_ref().is_some_and(|h|h.scope==crate::tracking::HoldScope::Task))
                         && !snapshot.state.projects[&t.input.project].paused
                         && t.input
                             .dependencies
@@ -456,9 +495,8 @@ pub fn run(values: Vec<String>) -> Result<Value> {
             ))
         }
         "task-add" => {
-            let value: TaskInput = input(&options)?;
-            let (snapshot, id) =
-                store.transact(number(&options, "expected")?, |s| s.add_task(value))?;
+            let value: Value = input(&options)?;
+            let (snapshot, id) = crate::tracking::register(&store,number(&options,"expected")?,value)?;
             let task = snapshot.state.tasks[&id].clone();
             Ok(receipt(snapshot, json!({"task":task})))
         }

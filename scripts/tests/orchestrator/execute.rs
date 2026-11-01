@@ -3,10 +3,14 @@ use bridgepilot_orchestrator::{codex, domain::*, new_id, store::Store};
 mod delivery_cases;
 #[path = "grouping.rs"]
 mod grouping_cases;
+#[path = "observation.rs"]
+mod observation_cases;
 #[path = "portable.rs"]
 mod portable_cases;
 #[path = "scheduler.rs"]
 mod scheduler_cases;
+#[path = "setup.rs"]
+mod setup_cases;
 #[path = "wakeup.rs"]
 mod wakeup_cases;
 use std::{

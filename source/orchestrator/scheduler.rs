@@ -251,6 +251,8 @@ pub fn supervise(
     let mut cursor = 0;
     let mut blocked = BTreeMap::new();
     let mut remembered = BTreeMap::new();
+    let mut observed_at: BTreeMap<String, Instant> = BTreeMap::new();
+    let mut observations = BTreeMap::new();
     event(
         json!({"event":"supervision_started","session":session,"projects":request.projects,"max_parallel":request.max_parallel}),
     );
@@ -283,6 +285,51 @@ pub fn supervise(
             // Observe new tasks and binding receipts every tick, without a new
             // user prompt or a second project writer. Project order rotates.
             blocked.clear();
+            // Refresh only explicitly bound observed tasks. This never resumes
+            // their chats and consumes the same finite supervisor deadline.
+            let observed = store
+                .read()?
+                .state
+                .tracking
+                .iter()
+                .filter_map(|(id, m)| {
+                    (m.mode == crate::tracking::ExecutionMode::Observed
+                        && !observed_at
+                            .get(id)
+                            .is_some_and(|at| at.elapsed() < Duration::from_secs(60)))
+                    .then_some(id.clone())
+                })
+                .collect::<Vec<_>>();
+            for id in observed {
+                if Instant::now() >= deadline {
+                    return Ok("time_limit");
+                }
+                let snapshot = store.read()?;
+                let task = &snapshot.state.tasks[&id];
+                if !request.projects.contains(&task.input.project)
+                    || task.state.delivered()
+                    || task.state == TaskState::Cancelled
+                {
+                    continue;
+                }
+                observed_at.insert(id.clone(), Instant::now());
+                let until = deadline.min(Instant::now() + Duration::from_secs(20));
+                let result = crate::codex::observe_task_until(
+                    store,
+                    snapshot.revision,
+                    &id,
+                    codex,
+                    "supervisor:native-thread-readback",
+                    until,
+                );
+                observations.insert(
+                    id,
+                    match result {
+                        Ok(value) => value,
+                        Err(error) => json!({"status":"observation_failed","error":error}),
+                    },
+                );
+            }
             for offset in 0..request.projects.len() {
                 let project = &request.projects[(cursor + offset) % request.projects.len()];
                 if workers.iter().any(|w| &w.project == project) {
@@ -348,6 +395,12 @@ pub fn supervise(
                 let ready = snapshot.state.tasks.values().find(|t| {
                     t.input.project == *project
                         && t.state == TaskState::Ready
+                        && !snapshot.state.tracking.get(&t.id).is_some_and(|m| {
+                            m.mode == crate::tracking::ExecutionMode::Observed
+                                || m.hold
+                                    .as_ref()
+                                    .is_some_and(|h| h.scope == crate::tracking::HoldScope::Task)
+                        })
                         && t.input
                             .dependencies
                             .iter()
@@ -396,6 +449,12 @@ pub fn supervise(
             let ready = snapshot.state.tasks.values().any(|t| {
                 request.projects.contains(&t.input.project)
                     && t.state == TaskState::Ready
+                    && !snapshot.state.tracking.get(&t.id).is_some_and(|m| {
+                        m.mode == crate::tracking::ExecutionMode::Observed
+                            || m.hold
+                                .as_ref()
+                                .is_some_and(|h| h.scope == crate::tracking::HoldScope::Task)
+                    })
                     && !snapshot.state.projects[&t.input.project].paused
                     && t.input.authorization.allow_execution_chat
                     && t.input
@@ -428,7 +487,7 @@ pub fn supervise(
         );
     }
     let reason = outcome.as_ref().copied().unwrap_or("error");
-    let receipt = json!({"schema":1,"status":"supervision_stopped","session":session,"reason":reason,"error":outcome.as_ref().err(),"projects":request.projects,"launched":launched,"finished":finished,"blocked":blocked,"elapsed_millis":started.elapsed().as_millis(),"automatic_wakeup":false,"publication_verified":false});
+    let receipt = json!({"schema":1,"status":"supervision_stopped","session":session,"reason":reason,"error":outcome.as_ref().err(),"projects":request.projects,"launched":launched,"finished":finished,"blocked":blocked,"observations":observations,"elapsed_millis":started.elapsed().as_millis(),"automatic_wakeup":false,"publication_verified":false});
     persistence::atomic_write_json(&status_path, &receipt).map_err(|e| e.to_string())?;
     outcome?;
     Ok(receipt)

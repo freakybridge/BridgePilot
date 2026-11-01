@@ -255,7 +255,17 @@ pub fn review_development(store: &Store, expected: u64, input: DevelopmentReview
     proof["note"] = json!(input.note);
     proof["task_spec"] = json!(r.spec_hash);
     proof["result_sha256"] = json!(input.result_sha256);
-    store.update(|s| {
+    let verified_event = crate::tracking::Event::native(
+        &snapshot.state.tasks[&r.task],
+        Some(&input.run),
+        &input.result_sha256,
+        "development_verified",
+        "受管开发证据已核验，等待明确发布安排".into(),
+        None,
+        input.source.clone(),
+        crate::tracking::receipt_reference(&proof)?,
+    );
+    crate::tracking::transition(store, &verified_event, |s| {
         let r = run_context(s, &input.run, &machine, &input.result_sha256)?;
         let task = r.task.clone();
         s.runs.get_mut(&input.run).unwrap().result.as_mut().unwrap()["development_review"] =
@@ -344,6 +354,14 @@ pub fn review_publication(store: &Store, expected: u64, input: PublicationReview
     }
     let machine = store.machine()?;
     let r = run_context(&snapshot.state, &input.run, &machine, &input.result_sha256)?;
+    if snapshot
+        .state
+        .tracking
+        .get(&r.task)
+        .is_some_and(|m| m.hold.is_some() || m.publication_hold.is_some())
+    {
+        return Err("task/publication is explicitly held; do not certify publication before the hold is cleared".into());
+    }
     let task = &snapshot.state.tasks[&r.task];
     if !task.input.authorization.allow_publish {
         return Err("publication verification cannot grant missing publication authority".into());
@@ -499,8 +517,24 @@ pub fn review_publication(store: &Store, expected: u64, input: PublicationReview
         return Err("publication identity drifted during verification".into());
     }
     let proof = json!({"schema":1,"status":"publication_verified","source":input.source,"task_spec":r.spec_hash,"result_sha256":input.result_sha256,"code":code,"product_version":committed_version,"receipt_path":receipt_path,"receipt_sha256":input.receipt_sha256,"remote":input.remote,"remote_ref":input.remote_ref,"live_remote_commit":code.head,"packages":package_list,"managed_receipt":receipt,"publication_verified":true});
-    store.update(|s| {
+    let verified_event = crate::tracking::Event::native(
+        &snapshot.state.tasks[&r.task],
+        Some(&input.run),
+        &input.receipt_sha256,
+        "publication_verified",
+        "受管发布及真实远端已核验".into(),
+        None,
+        input.source.clone(),
+        crate::tracking::receipt_reference(&proof)?,
+    );
+    crate::tracking::transition(store, &verified_event, |s| {
         let r = run_context(s, &input.run, &machine, &input.result_sha256)?;
+        if s.tracking
+            .get(&r.task)
+            .is_some_and(|m| m.hold.is_some() || m.publication_hold.is_some())
+        {
+            return Err("publication decision changed during verification; preserve actual result for reconciliation".into());
+        }
         let task = r.task.clone();
         s.runs.get_mut(&input.run).unwrap().result.as_mut().unwrap()["publication_review"] =
             proof.clone();

@@ -15,6 +15,24 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [15.0.0] - 2026-11-02
+
+### Added
+
+- [product][repo][meta] 发布 SQLite 任务状态与 BP 私有升级入口 **BREAKING:**
+
+### Release analysis
+
+- Product: Publish the accepted BP status and SQLite migration: deterministic six-column status with stable task numbers, SQLite as the sole online task archive with explicit legacy migration and private snapshot recovery, unified protected BP installation and the private bridgeforge-update skill. Preserve the previously published Forge 14.0.0 implementation and all reconciled development history. The online archive protocol change requires product 15.0.0.
+- `checks`: 0.2.2 -> 0.2.2 (Refresh build coverage for unchanged source and native dependencies after the shared locked SQLite dependency merge; preserve current package version.)
+- `core`: 10.2.0 -> 10.2.0 (Refresh unchanged core build coverage after adding the locked SQLite dependency to the shared Cargo lock; no core source or API change.)
+- `factory`: 0.10.1 -> 0.10.1 (Refresh build coverage for unchanged source and native dependencies after the shared locked SQLite dependency merge; preserve current package version.)
+- `lifecycle`: 0.8.4 -> 0.8.4 (Refresh build coverage for unchanged source and native dependencies after the shared locked SQLite dependency merge; preserve current package version.)
+- `memory`: 0.1.1 -> 0.1.1 (Refresh build coverage for unchanged source and native dependencies after the shared locked SQLite dependency merge; preserve current package version.)
+- `orchestrator`: 0.5.0 -> 0.8.0 (Extend the BP-owned unified Skill with initialization, project registration and explicit handoff modes; add protected user-skill projection and recovery, bounded prerequisite installation with persistent unknown outcomes, and native skill discovery diagnostics. Preserve archive format and legacy portable packages.; Replace the online JSON task archive with SQLite, add deterministic six-column CLI status, stable task numbers, native event tracking and explicit migration.; Correct observed desktop status when a separate native server is notLoaded: retain historical turns, read Goal without mutation and label current observation limits explicitly.; Preserve unknown stop outcomes for active desktops with historical terminal turns, and deduplicate observation only against the latest receipt so Goal state cycles remain current.; Add the BP-private bridgeforge-update skill, its owned package asset and BP routing; Forge product capability was withdrawn as a one-time recovery.)
+- `skeleton`: 0.6.0 -> 0.6.0 (Refresh build coverage for unchanged source and native dependencies after the shared locked SQLite dependency merge; preserve current package version.)
+- `workflow`: 0.9.2 -> 0.9.2 (Refresh build coverage for unchanged source and native dependencies after the shared locked SQLite dependency merge; preserve current package version.)
+
 ## [14.0.0] - 2026-11-01
 
 ### Added

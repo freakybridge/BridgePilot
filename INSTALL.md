@@ -128,6 +128,23 @@ powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-shared-ski
 
 BP 源码在 `source/orchestrator/`，与 Forge 使用同一个锁定的 Rust workspace；也可用独立便携包安装，无需新机编译 Rust。它不替换 Forge 既有安装、公共骨架名称或共享 Skill。普通用户只通过 Codex 对话下达目标，以下命令由当前 Agent 按真实路径准备和恢复。
 
+### 从 GitHub 在新电脑安装并恢复
+
+在新电脑的 Codex 对话中输入这一句即可启动引导；不要求预先安装 BP Skill、复制旧电脑便携包或编译 Rust：
+
+> 请按 https://github.com/freakybridge/BridgePilot 最新正式 Release 的安装说明安装 BP，并从我的私有仓库 freakybridge/BridgePilotData 恢复档案；只恢复和核对，暂不接管或执行项目任务。
+
+下列流程由 Codex 执行。GitHub 登录、平台要求的权限确认仍由本人完成；账号登录不能从旧电脑复制。程序从公开产品仓库取得，个人档案只从用户明确指定的私有库读取。
+
+1. **核对本机和入口。** 当前包面向 Windows x64，Codex 已安装。检测 Git、GitHub CLI（`gh`），但缺失时不以它们作为下载 BP 的前提：可用系统 HTTPS 客户端（例如 PowerShell 的 Invoke-RestMethod／Invoke-WebRequest）读取 GitHub.com 的公开 API 并下载已核验的正式包；这一段仅用于安装引导，不替代 BP 的 Rust 执行内核。先安装 BP 程序，再由固定 home 的 environment-install 准备缺少的 Git／gh。鉴权由本人完成，不在聊天中粘贴令牌。`GH_HOST` 指向其他服务时停止核对，不把其他服务器当 GitHub.com。首次引导不要求已有 BP Skill。
+2. **选择目录并保护已有数据。** 默认 home 为本机 `Documents/Codex/BridgePilot`，私有工作区为同级 `BridgePilotWorkspace`，均使用实际绝对路径。存在安装或档案时先读取已有配置、安装状态与同步记录；不重置、不换空目录掩盖冲突，不覆盖用户修改。不使用或复制旧机机器身份。下载暂存固定放在工作区 `.runtime/download/bridgepilot/<release-id>/`；首次安装的 home 保持为空，不能先把下载文件堆到 home 导致归属检查失败。
+3. **固定发布身份并下载。** 使用 `gh api --hostname github.com repos/freakybridge/BridgePilot/releases/latest`，读取同一非 draft、非 prerelease 的正式 Release，保存真实 id、tag、资产 id／name／size／digest。正式 tag 须可解析至该发布的固定源码提交。找不到完整 BP 包时停止，不能改用 main 源码编译、旧机器文件或未经验证的第三方二进制。通过 `gh release download <实际 tag> --repo freakybridge/BridgePilot --pattern <精确资产名> --dir <下载目录>` 下载，禁止通配或覆盖冲突文件；中断后先核对已有文件再复用。
+4. **执行前校验并组装包。** Release 必须包含 `package.json`、`bp-core.exe`、`bp-launcher.exe`、`controller-rules.md`、`readme.md`、`install.md`、`bridgepilot-skill.md`；core 0.6.0起另含 `bridgepilot-init.md`、`bridgepilot-projects.md`、`bridgepilot-handoff.md`、`bridgepilot-execution.md` 四个模式引用；0.8.0起另含 `bridgeforge-update-skill.md`。先按 GitHub 实际资产 digest（`sha256:`）校验 manifest，再核对 `schema=1`、`product=BridgePilot`、SemVer版本和该版本精确资产登记：0.8.0起十一项，0.6.x至0.7.x十项，旧0.5.x为六项。旧包仍可走旧安装流程，但不具备新版能力。源路径必须为对应 `payload/<上述文件名>`，拒绝额外入口、绝对路径、`..`、链接与未知目标；目标须匹配 BP 固定资产表（四个模式引用进入 home 的 `source/orchestrator/skills/bridgepilot/references/`，骨架升级 Skill 进入 `source/orchestrator/skills/bridgeforge-update/SKILL.md`）。它由用户级 BP 入口通过实际 home 加载，不另装 Forge 共享 Skill。逐文件校验大小、GitHub digest 和 manifest SHA256；缺失、漂移或身份不明时停止，不执行候选程序。组装到同一下载任务的 `bundle/`。校验后再执行 core `self-test` 与 launcher `--launcher-self-test`，核对 core 版本、所需能力与 manifest、launcher protocol=1；摘要和回执保存在本次下载目录。
+5. **安装、准备依赖并恢复。** 对新工作区调用 core `init`，先 `install-preview --bundle <已核验包> --home <home> --workspace <工作区>`，通过后执行 `install`；这两步无需 Git／gh，也不接管其他机器。用稳定 launcher `environment-check --context <home>` 检查；需要时经明确授权执行 `environment-install --home <home> --scope user --source <来源>`，安装日志和 Unknown 意图固定在 home，不允许换目录重发。只安装 Git.Git／GitHub.cli，不脚本化登录或提权。用户级不受支持时报告，只有用户明确授权才可 machine scope；成功但 PATH未刷新时先核实再检查，不重复安装。winget缺失时报告系统依赖，不猜第三方下载入口。首次配置只确认一次本人私有库，验证后 `sync-configure`；已有库用 `sync-download`，必须读回私有属性、完整历史与准确远端提交。全新空库按已确认初始化授权 enrol／upload，已有控制权不覆盖。已有工作区沿原配置，pending／分叉／活跃／Unknown先核销。最后核对 install-status、self-test和status；中断用 install-recover，不手改记录。
+6. **安装用户级入口并报告。** 按实际 CODEX_HOME（未设则本人 `~/.codex`）解析 skills 目录，使用 `skill-install-preview --home <home> --skills-root <目录>`，再 `skill-install`，用 `skill-status` 验证。其来源仍在 BP home，用户级目录只有受管投影和本机 home 绑定；不进入 Forge 共享分发，未知或用户修改的同名 Skill 拒绝覆盖。中断用 `skill-recover`。返回 home、core版本、档案id／revision、项目、owner与本机身份、Skill安装结果和缺口。只恢复档案的请求不接管、不上传、不恢复任务或heartbeat、不创建聊天；首次新库初始化另按用户确认的授权。显式 `$bridgepilot handoff restore` 才包含核验后的接管，成功后任务仍暂停。项目代码和业务环境不在私有档案中，恢复和执行分别按实际授权进行。
+
+公开 Release 的安装引导从本节生成，包资产从同一已验证便携包取得。公开产品资产不能包含个人档案、配置、凭据、日志或原生会话／Memory。恢复成功不等于已经完成物理换机接续；缺少旧机交接时，保留可查看档案的状态并报告。
+
 从产品仓库根构建专用 CLI，编译产物只进入 `.build/`：
 
 ```powershell
@@ -143,13 +160,19 @@ $bpWorkspace = Join-Path $env:USERPROFILE 'Documents/Codex/BridgePilotWorkspace'
 & .build/bridgepilot/cargo/release/bp.exe status --workspace $bpWorkspace
 ```
 
-产品或安装目录的 `.runtime/config/bridgepilot.json` 仅记录本机工作区位置；档案工作区的 `.runtime/config/bridgepilot-machine.json` 记录本机身份。实际任务及决定保存在 `<工作区>/doc/5_project_knowledgebase/bridgepilot/`：`HEAD.json` 选择不可变 `revisions/`。不得手工编辑，也不能只备份 `.runtime/`。个人档案不进入产品仓库、分发清单或原生 Memory。
+产品或安装目录的 `.runtime/config/bridgepilot.json` 仅记录本机工作区位置；档案工作区的 `.runtime/config/bridgepilot-machine.json` 记录本机身份。任务、稳定序号、执行事件、修订历史及本机传输待办保存在 `<工作区>/doc/5_project_knowledgebase/bridgepilot/bridgepilot.sqlite3`。SQLite 是唯一在线任务状态库，内部 JSON 参数和证据载荷不构成第二套任务档案。不得手工编辑，也不能只备份 `.runtime/`。个人档案不进入产品仓库、分发清单或原生 Memory。
+
+用户查询只需 `$bridgepilot status`，Skill 根据本机绑定调用 CLI，原样展示其生成的“序号／项目／任务／阶段／进展／阻点”。任务由执行入口登记，序号不随排序变化；查询本身不补登记、不刷新聊天、不创建库或迁移。
+
+已绑定的既有聊天由执行入口观察。独立 App Server 无法读取桌面当前回合时，CLI 明示“观察受限”，只展示可核实的原生 Goal 和末次历史；不把旧回合结束误报为当前任务完成。来源和观察时间可在表外核对。
+
+旧 JSON 档案必须显式转换：先准备具备 `bp-sqlite-status-v1` 的新程序，用 `storage-preview --workspace <工作区>` 只读核对原完整历史、revision、控制权与在途状态；无活跃／Unknown 和未核销传输时，用 `storage-migrate --workspace <工作区> --expected <实际revision> --source <迁移授权来源>`。程序保留原始字节备份，核验所有历史逻辑摘要、实体和稳定号后激活 SQLite，旧 HEAD 替换为退役哨兵以阻止旧写入器复活。中断用 `storage-recover --workspace <工作区> --source <来源>`，不能手工删除候选、备份或哨兵来绕过保护。转换不授予新机控制权，不启动任务或 heartbeat。
 
 ### 私有档案同步
 
 1. 每机准备 Git、GitHub CLI（`gh auth status`）和 Codex 登录；不复制凭据。sync-configure 的输入为 `{"repository":"<已授权 owner/repository>","branch":"main","source":"<真实用户授权来源>"}`，配置只在本机 `.runtime/config/bridgepilot-sync.json`。用户本次选择的独立私有库是 `freakybridge/BridgePilotData`；示例不是其他用户的默认值。
 2. 当前控制机首次用 status 的 revision 调用 `sync-enrol --expected <revision> --source <来源>`，加入可验证的控制权。旧程序不支持 custody，因此启用前确保新程序已就绪；此操作不自动启动任务或恢复心跳。
-3. 每个空闲批次边界 `sync-upload --workspace <工作区>`，只上传 HEAD 与完整历史；不传本机配置、日志、源码、原生会话和 Memory。每次抓取／发布都读回准确 GitHub 私有属性；归档图和 Git 图分别校验，不自动合并分叉。活跃／Unknown Run 先处理，不在网络锁内阻塞 worker。
+3. 每个空闲批次边界 `sync-upload --workspace <工作区>`，只上传经过完整性校验的单一 SQLite 一致快照，包含共享任务、事件与完整逻辑历史；快照显式排除 `local_records` 本机传输待办、配置、日志、源码、原生会话和 Memory。首次转换远端可验证旧 JSON 祖先后切换为 SQLite；新客户端不从旧远端自动迁移。每次抓取／发布都读回准确 GitHub 私有属性；归档图和 Git 图分别校验，不自动合并分叉。活跃／Unknown Run 先处理，不持有数据库写事务等待网络。未知 push 的候选快照及 outbox 位于在线库的本机表，清理运行缓存后仍可核销。
 4. 新机空工作区 init、sync-configure 后 `sync-download`，导入仍只可观察；旧机器身份不复制，不从同名仓库推导执行权。待交接完成才能写任务。pending 状态先 `sync-reconcile`，只读查询实际远端，不重发未知 push。远端仍为原预期头、确认需要放弃旧发布时，`sync-fence-pending --source <明确来源>` 以兄弟 Git 提交建立栅栏；首次同步的空远端也支持。它不会重发旧候选，放弃 accept 不激活新 owner，迟到旧 push 先赢时仍核销真实结果。原机取消尚未确认的释放也可用 `sync-cancel-pending`；禁止删除 pending 或回退 HEAD。
 
 ### 换机交接
@@ -177,7 +200,7 @@ $bpWorkspace = Join-Path $env:USERPROFILE 'Documents/Codex/BridgePilotWorkspace'
 
 升级重复 preview/install，保留旧完整包及配置，最后原子切换 current。用户改过的受管文件拒绝覆盖；同版本不同程序字节拒绝复用。失败用包内 core 的 `install-recover --home <home>`；稳定 launcher 也会先恢复中断事务。回退用 `install-rollback --home <home>`，必须保留旧包、没有活跃执行，且旧 reader 能读取当前实际档案；否则拒绝。安装不升级／回滚档案，启用 custody 后不能回退到不支持它的 reader。真实双物理机、掉电和网络盘环境仍须区分于隔离工作区测试。
 
-`status` 不创建锁或重建运行目录。HEAD 缺失、摘要冲突或历史断裂时停止写入，保留文件供诊断。当前入口的字段与能力以 `bp help`、`bp self-test` 为准。
+`status` 以只读连接读取一个 SQLite 事务快照，不创建锁文件或重建运行目录。缺库、未迁移旧库、摘要冲突或历史断裂时保留现场并报告，不能初始化空库掩盖问题。迁移后的档案拒绝回退到旧 JSON reader；程序安装和档案迁移仍是独立操作。当前入口的字段与能力以 `bp help`、`bp self-test` 为准。
 
 已配置私有工作区后，由当前 Codex 对话准备监督请求 JSON，明确 `projects`、`max_parallel`（1–8）、`timeout_seconds`（1–86400，且不超过用户本阶段剩余时间）和 `stop_when_idle`。以下为入口形式，实际路径及 Codex 程序必须从本机核实：
 

@@ -154,12 +154,31 @@ pub fn review(store: &Store, expected: u64, input: ReportReview) -> Result<Value
     let grouping_verified = desktop_grouping.is_some();
     let grouping=desktop_grouping.as_ref().map(|v|json!({"thread_id":v.thread_id,"project_id":v.project_id,"cwd":v.cwd,"source":v.source}));
     let review = json!({"source":input.source,"note":input.note,"result_sha256":input.result_sha256,"task_spec":task.spec_hash,"files":evidence,"selected_command_ids":selected_ids,"excluded_command_ids":excluded_ids,"desktop_grouping_verified":grouping_verified,"desktop_grouping":grouping,"publication_verified":false});
-    let (snapshot, _) = store.transact(expected, |s| {
+    let review_event = crate::tracking::Event::native(
+        &task,
+        Some(&input.run),
+        &input.result_sha256,
+        if grouping_verified {
+            "report_delivered"
+        } else {
+            "report_reviewed"
+        },
+        if grouping_verified {
+            "只读报告和证据已完成交付核验".into()
+        } else {
+            "报告证据已复核，原生归类仍待核验".into()
+        },
+        (!grouping_verified).then(|| "原生项目归类缺少有效读回".into()),
+        input.source.clone(),
+        crate::tracking::receipt_reference(&review)?,
+    );
+    let (snapshot, _) = store.transact_with_sql(expected, |s, tx| {
         let r = s.runs.get_mut(&input.run).ok_or("unknown run")?;
         r.result.as_mut().ok_or("missing result")?["review"] = review.clone();
         if grouping_verified {
             s.tasks.get_mut(&r.task).unwrap().state = TaskState::ReportDelivered;
         }
+        crate::tracking::append(s, tx, &review_event)?;
         Ok(())
     })?;
     Ok(

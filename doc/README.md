@@ -8,7 +8,9 @@ delivery_layout: flat
 
 ## 从这里开始
 
-- 发布计划与执行记录：[四个下游骨架升级与 Release Plan](1_delivery/forge-downstream-upgrade/plan_2026-11-01_four-projects.md)（用户已明确 Forge 目标 14.0.0 并授权开始推进；DR-01～03 已完成，DR-04 公共换行规则与 CRS 发布归属、DR-05 Stratus 专项、DR-06 BL 专项按 RL-01～10 推进。只按真实收据报告发布状态，保留未验证项及既有项目修改）。
+- 已验收：[BP 第九阶段：status 六列与 SQLite 唯一状态库](1_delivery/bridgepilot-evolution/plan_2026-10-30_bridgepilot-evolution.md#bp-status-sqlite-acceptance)（2026-11-01用户验收TODO-050内部阶段并授权release；BP／用户级Skill **0.7.2**，真实档案及私有GitHub SQLite切换、旧86份历史等价审计和隔离恢复通过。超4MiB来源观察受限、物理双机未验证等边界保留，heartbeat仍暂停；发布结果以实际收据为准）。
+
+- 发布计划与执行记录：[四个下游骨架升级与 Release Plan](1_delivery/forge-downstream-upgrade/plan_2026-11-01_four-projects.md)（DR 编号、最新执行结果、发布边界和继续条件以该记录为准）。 最终仅保留BP私有 `bridgeforge-update`：BP 0.8.0收口和安装验证有效，额外BF能力与升版已撤回，见2026-11-02最终结果。
 
 - 待用户验收：[发布范围判定修复与四个下游骨架升级结果](1_delivery/package-version-lifecycle/requirements_2026-10-31_release-scope-and-four-projects.md#10-正式发布与四项目安装结果2026-10-31)（TODO-051、TODO-052；13.0.3 已由 475b04f 发布推送，lifecycle 0.8.1→0.8.2，12 项最终候选检查与最终工具核验通过；四个下游已逐一安装 13.0.3，保护摘要一致、未提交下游。Stratus 业务发布仍有独立的全局输入与证据缺口；安装后记录尚未另行提交）。
 
@@ -16,7 +18,7 @@ delivery_layout: flat
 
 - 已验收：[旧工具目录保留与 StratusAgent 骨架升级](0_architecture/design/codex-project-sync.md#用户验收旧工具目录保留与-stratusagent-升级2026-10-31)（core 10.0.1、workflow 0.9.1；8 项检查 184 个用例及独立退役 1 项通过，真实 StratusAgent 9.0.0→13.0.0，151 项现有改动、15 个保护文件和项目专区原样保留；公共工具自检及独立复核通过，已授权 Forge release。项目自有 Hook 业务运行未验证）。
 
-- 进行中：[BridgePilot 产品演进与跨项目总管开发计划](1_delivery/bridgepilot-evolution/plan_2026-10-30_bridgepilot-evolution.md)（TODO-050；第六阶段更名已完成仓库、源码、Codex源目录和BP档案绑定，orchestrator **0.5.0** 已收口并安装，登记总管检查及4项分发回归通过。档案 revision=85 已同步 BridgePilotData，当前机器保留控制权；五分钟 heartbeat 仍暂停。旧空根因进程占用保留；下游更名适配另行处理。真实业务发布与物理双机尚未验证；主程序13.0.3，产品源码未提交、推送或发布）。
+- 进行中：[BridgePilot 产品演进与跨项目总管开发计划](1_delivery/bridgepilot-evolution/plan_2026-10-30_bridgepilot-evolution.md)（TODO-050；第八阶段统一Skill已于2026-11-01验收，历史发布尝试及边界保留原章节；第九阶段工程结果、B实际切换与未验证项见15.18，整体需求尚未关闭）。
 
 - 已验收：[统一产品清单与安装管理边界](0_architecture/design/codex-project-sync.md#用户验收与发布授权2026-10-30)（三个旧源清单合并至根 bridgeforge-manifest.json；资产历史、忽略内容和退役测试拆分一并验收；受管收口、143 项最终候选测试及最终工具核验通过，已授权 release；真实下游和用户级安装未执行）。
 

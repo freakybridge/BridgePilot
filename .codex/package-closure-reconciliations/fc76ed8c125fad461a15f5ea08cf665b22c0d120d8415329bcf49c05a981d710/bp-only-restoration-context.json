@@ -1,0 +1,9 @@
+{
+  "scope": "one-time-unpublished-snapshot-restoration",
+  "active_ledger_entries": 164,
+  "restored_ledger_sha256": "sha256:c9ca9577ef5f6904cccc2a2bd656052ef128b7c54ad0b789c41b00602c26f17b",
+  "preserved_unpublished_ledger_sha256": "sha256:eef8a6c2816042d70553fbb31abecdb314a550231cefb19bd8c4bf4a88d6217c",
+  "reason": "User authorized removal of the extra Forge product capability while retaining BP skill and both historical ledgers.",
+  "native_recovery_command_retained": false,
+  "old_development_receipt_is_historical_only": true
+}

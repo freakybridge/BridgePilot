@@ -15,7 +15,8 @@ source/
 └─ orchestrator/                  # 与 forge 平行，无 src 中间层
    ├─ lib.rs / main.rs / cli.rs   # Rust 库、JSON CLI、严格参数
    ├─ domain.rs                  # 项目、机器绑定、任务、确认、Run、操作意图
-   ├─ store.rs                   # 不可变修订、原子 HEAD、CAS、本机锁
+   ├─ store.rs / database/       # SQLite 实体、历史、CAS、本机锁
+   ├─ migration.rs / status.rs   # 旧链转换、只读六列视图
    ├─ codex.rs                   # 自管 stdio、停止、未知结果核对
    ├─ owned.rs                   # 自有进程树、单调期限、Windows 创建身份
    ├─ scheduler.rs               # 有限时长常驻调度、跨项目并行与待办观察
@@ -93,16 +94,21 @@ Run 保存任务摘要、单调 ordinal、机器、绑定快照、thread/turn、
 
 ```text
 <私有工作区>/doc/5_project_knowledgebase/bridgepilot/
-├─ HEAD.json
-└─ revisions/<revision>-<sha256>.json
+├─ bridgepilot.sqlite3
+├─ HEAD.json（迁移后仅为阻止旧写入器的非 JSON 哨兵）
+└─ legacy-json-backup/（迁移原始证据，实际目录由迁移收据给出）
 <私有工作区>/.runtime/
 ├─ config/bridgepilot-machine.json
 └─ bridgepilot/locks/ 与 index/
 ```
 
-schema=1，完整修订最大 16 MiB；拒绝重复 JSON key、未知结构字段、链接／reparse 路径、损坏历史。每份修订含 archive ID、递增 revision、父 HEAD、完整状态。提交先取 core FileLock，验证 HEAD／完整父链与 expected revision，校验新状态，写入并刷盘不可变修订，最后原子替换 HEAD。HEAD 安装成功才提交。
+SQLite 是唯一在线任务状态库，当前实体按项目、任务、依赖、Run、Operation、控制权与唤醒规范化保存；State 仅为进程内领域模型。修订使用历史实体 delta，旧 JSON 全链原始字节保留为只读证据。数据库最大 256 MiB，旧修订导入每份最大 16 MiB；拒绝重复 JSON key、未知字段、链接／reparse 路径、损坏历史。写入先取本机 writer 锁，使用 SQLite 事务、外键和 expected revision CAS，当前实体、事件链、进展与修订同事务提交。逻辑 archive ID、revision 和父摘要在迁移前后保持一致。
 
-中断留下的孤立修订不自动提升；HEAD 缺失、摘要冲突或断链时停止写入，不自动回退可能发生外部动作的状态。摘要用于完整性，不是身份认证。status 零写入，rebuild-index 只重建可丢弃索引；清理不能删除长期修订。物理掉电、网络盘、云盘冲突未验证；本机锁和 CAS 不构成跨机全局锁。完整快照及全历史读取适用于个人规模，暂不压缩或自动删历史。
+迁移采用候选库、全历史等价核验、原始字节备份、旧写入器哨兵与显式恢复；中断候选不自动提升。缺库、摘要冲突或断链停止写入，不自动回退可能发生外部动作的状态。摘要用于完整性，不是身份认证。status 使用只读连接和单事务一致视图，不建库、不迁移、不扫描聊天；固定六列及展示文本全部由 CLI 归约，Agent 原样展示。持久 task_numbers 独立于排序和过滤，旧任务按首次出现修订及 task ID 确定迁移序号。执行事件绑定 task/spec/run，重复回执幂等，模型 completed 仍只进入 Reviewing。
+
+显式登记的既有聊天使用 Observed 模式，执行器仅 thread/read，不 resume、不启动回合，也不因观察完成认证业务交付。有限 supervise 每至多一分钟刷新观察，status 不刷新；任务暂停与发布暂缓独立保存，只有对应范围的人类恢复决定才能解除。共享快照通过显式表集导出，排除本机 local_records；该表保存 outbox、候选和核销收据，清理运行缓存不丢失在途操作。物理掉电、网络盘、云盘冲突未验证；本机锁和 CAS 不构成跨机全局锁，不自动删历史。
+
+真实桌面试用发现，独立 stdio 服务返回 notLoaded 时，末次持久回合可能早于客户端当前回合。观察器仅在实际 active 且回合为 inProgress 时归约正在执行；其他情况下可额外只读 thread/goal/get，active Goal 显示“托管目标进行中·观察受限”，无可靠目标则显示当前状态未核实。原始末次回合、命令计数与快照摘要保留为历史证据，不把其 completed／interrupted 当作客户端当前任务结束，也不据此认证暂停。观察只与最新事件比较去重；同一证据在其他状态之后再次出现仍提交新观察，原生命令item本身继续按身份幂等。
 
 ## 5. 外部动作、暂停与恢复
 
@@ -158,7 +164,7 @@ development-probe／verify-development 限定项目已有受管工具入口和�
 
 实现为 BP 私有模块 sync、handoff、install，不进入公共 Forge 投影。具体操作仅在根 INSTALL.md 维护。首次显式 enrol 引入可缺省 custody：owner、epoch、handoff、代码 checkpoints、已核验 bindings 与 continuation。空缺保持早期档案可读；启用后旧 reader 不再兼容，安装事务不暗改档案。常规写事务检查本机 owner、冻结和 pending；只读下载不授予执行权。
 
-同步以 GitHub 私有仓库为传输，缓存 bare repo/index/pending 在本机 .runtime。只允许固定 archive 根的 HEAD 与完整不可变父链，不 checkout 远端、不开通公共仓库、不传原生会话／Memory／日志／凭据。Git 无强推，应用 HEAD 另核对真实祖先；拒绝分叉、回退、未引用修订、未知路径和非普通文件。无活跃 Run 的同步边界持单 writer 锁；远端确认后保存真实回执。推送前持久 pending；结果未知查询远端实际提交／祖先，不自动重发。
+同步以 GitHub 私有仓库为传输，bare repo/index 为本机 `.runtime` 可丢弃缓存，pending／候选与核销收据保存在在线库 local_records。当前树只接受固定 archive 根的单一共享 SQLite 快照；首次切换可验证旧 JSON 祖先，但不接受混合格式。不 checkout 远端、不开通公共仓库、不传原生会话／Memory／日志／凭据。Git 无强推，逻辑修订另核对真实祖先；拒绝分叉、回退、未知路径和非普通文件。无活跃 Run 的同步边界持单 writer 文件锁，网络等待不占 SQL 写事务；远端确认后保存真实回执。推送前持久 pending；结果未知查询远端实际提交／祖先，不自动重发。
 
 全控制器交接须全部项目明确暂停、所有执行归属已停止、每项目有实际远端代码检查点。主对话按项目 git-sync 权限保存代码，内核 checkpoint-probe 仅验证，不能提交脏代码。release 本地先冻结；accept 先验证新机每个实际代码绑定，远端独占变更确认后才本地激活。旧机不能写；竞争接受或取消均由远端 Git ref 与应用父链挡住。未确认释放的取消以新的 Git 分支子提交发布栅栏，迟到旧释放不能 FF；取消候选落盘前保留原恢复记录。
 

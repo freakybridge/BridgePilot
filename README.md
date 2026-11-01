@@ -5,6 +5,7 @@
 BridgePilot（BP）接收项目目标，保存确认、任务与执行历史，协调不同项目的开发和交付。
 日常直接在 Codex 的 BP 对话中指定项目和目标；复杂任务先 confirm，重要方向再由你判断。
 `source/forge/` 提供工程骨架与受管工具，`source/orchestrator/` 提供总管能力。
+单项目或多项目骨架升级由 BP 私有 [bridgeforge-update](source/orchestrator/skills/bridgeforge-update/SKILL.md) 编排，覆盖 dry-run、问题处理、升级及本轮已有授权的发布。
 Forge 维护入口仍为 `$bridgeforge-codex`，现有下游入口的迁移另行处理。
 
 Forge 工程子系统负责：
@@ -18,7 +19,31 @@ Native Memory 与受管项目 Hook 全部由 Rust 承载，不要求 Python 或�
 
 ## 快速开始
 
-BP 的独立安装和私有档案恢复见 [INSTALL.md](INSTALL.md#bridgepilot-本地试用与档案恢复)。从源码维护工程子系统时：
+### 首次使用
+
+先安装并登录 Codex，再新开对话，复制以下提示词；不需要预先安装 BP Skill 或 Rust：
+
+```text
+请读取 https://github.com/freakybridge/BridgePilot 最新正式 Release 的安装说明，下载、校验并安装 BP，再检查并从官方来源安装缺少的 Git、GitHub CLI；没有这些依赖时，先沿说明中的系统 HTTPS 引导安装 BP 程序。
+我是首次使用，请为我初始化独立的个人工作区。首次配置时请向我确认一次私有存档库：可推荐我当前 GitHub 账号下的 BridgePilotData，也允许我指定已有库；确认后保存绑定，以后直接复用。已有资料先核对，不读取或恢复其他人的档案。必要的账号登录由我完成。
+完成后请报告实际安装和初始化结果，并引导我登记第一个需要管理的项目；暂不启动项目开发。
+```
+
+这是首次初始化入口；已有 BP 档案的用户按 [安装与恢复说明](INSTALL.md#从-github-在新电脑安装并恢复)恢复自己的档案。完整流程统一维护在 INSTALL.md。
+
+### 已安装后的统一入口
+
+以下入口需要 BP core 0.6.0及以上，以及已核验的用户级 Skill；正式可下载版本以 Release 为准。
+
+| 用法 | 用途 |
+|---|---|
+| `$bridgepilot init` | 首次确认并保存本人存档库，已有配置复用 |
+| `$bridgepilot project add <项目目录>` | 核对并登记项目，不自动开发 |
+| `$bridgepilot handoff prepare all` | 全部暂停，保存并上传已确认进度，完成旧机交接 |
+| `$bridgepilot handoff restore` | 新机恢复并核验接管，任务与定时唤醒仍暂停 |
+| `$bridgepilot status` | CLI 从 SQLite 只读生成固定六列：序号／项目／任务／阶段／进展／阻点；Agent 原样展示，流程见 [BP Skill](source/orchestrator/skills/bridgepilot/SKILL.md#status当前在做什么) |
+
+### 从源码维护 Forge
 
 ```powershell
 git clone https://github.com/freakybridge/BridgePilot.git "$env:USERPROFILE\tools\BridgePilot"

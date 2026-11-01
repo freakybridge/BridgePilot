@@ -1,13 +1,16 @@
-use crate::{Result, digest, domain::State, new_id, valid_id};
+use crate::{Result, database, domain::State, new_id, valid_id};
 use bridgeforge_core::{file_lock::FileLock, persistence};
+use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
 };
 
-const SCHEMA: u32 = 1;
 const MAX_BYTES: u64 = 16 * 1024 * 1024;
+pub(crate) const RETIRED_HEAD: &[u8] =
+    b"BridgePilot SQLite archive. Legacy JSON reader and initializer are retired.\n";
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -31,8 +34,8 @@ pub struct Snapshot {
 #[derive(Clone, Debug)]
 pub struct Store {
     pub workspace: PathBuf,
-    archive: PathBuf,
-    runtime: PathBuf,
+    pub(crate) archive: PathBuf,
+    pub(crate) runtime: PathBuf,
 }
 
 pub fn ordinary(path: &Path) -> Result<()> {
@@ -50,10 +53,10 @@ pub fn ordinary(path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn read_bytes(path: &Path) -> Result<Vec<u8>> {
+pub(crate) fn read_bytes(path: &Path) -> Result<Vec<u8>> {
     ordinary(path)?;
-    let metadata = fs::metadata(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    if !metadata.is_file() || metadata.len() > MAX_BYTES {
+    let m = fs::metadata(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    if !m.is_file() || m.len() > MAX_BYTES {
         return Err("archive entry is not a bounded ordinary file".into());
     }
     fs::read(path).map_err(|e| e.to_string())
@@ -97,22 +100,23 @@ impl Store {
         let store = Self::open(root)?;
         ordinary(&store.archive)?;
         ordinary(&store.runtime)?;
-        fs::create_dir_all(store.runtime.join("locks")).map_err(|e| e.to_string())?;
-        let _lock = FileLock::acquire(&store.runtime.join("locks/writer.lock"))?;
-        if store.archive.join("HEAD.json").exists() {
+        let candidate = store.archive.join("bridgepilot.initial.sqlite3");
+        ordinary(&candidate)?;
+        if store.database_path().exists() {
+            if candidate.exists() {
+                return store.finish_initial(&candidate);
+            }
             store.read()?;
             return Ok(store);
         }
-        let revisions = store.archive.join("revisions");
-        if revisions.exists()
-            && fs::read_dir(&revisions)
-                .map_err(|e| e.to_string())?
-                .next()
-                .is_some()
+        if candidate.exists() {
+            return store.finish_initial(&candidate);
+        }
+        if store.archive.join("HEAD.json").exists()
+            || store.archive.join("revisions").exists()
+            || store.archive.join("bridgepilot.migration.sqlite3").exists()
         {
-            return Err(
-                "uncommitted archive files exist without HEAD; preserve for diagnosis".into(),
-            );
+            return Err("existing legacy, retired, or interrupted archive requires explicit migration/recovery; refusing empty init".into());
         }
         for layer in [
             "0_architecture",
@@ -125,206 +129,204 @@ impl Store {
             fs::create_dir_all(store.workspace.join("doc").join(layer))
                 .map_err(|e| e.to_string())?;
         }
-        fs::create_dir_all(&revisions).map_err(|e| e.to_string())?;
-        let index = store.workspace.join("doc/README.md");
-        if !index.exists() {
-            persistence::atomic_write(&index, b"---\ndelivery_layout: flat\n---\n\n# BridgePilot workspace\n\n- [Task archive](5_project_knowledgebase/bridgepilot/README.md)\n").map_err(|e| e.to_string())?;
+        fs::create_dir_all(&store.archive).map_err(|e| e.to_string())?;
+        fs::create_dir_all(store.runtime.join("locks")).map_err(|e| e.to_string())?;
+        let _lock = store.writer_lock()?;
+        if store.database_path().exists() {
+            store.read()?;
+            return Ok(store);
         }
-        let ignore = store.workspace.join(".gitignore");
-        if !ignore.exists() {
-            persistence::atomic_write(&ignore, b"/.runtime/\n/.deps/\n/.build/\n")
-                .map_err(|e| e.to_string())?;
-        }
-        let readme = store.archive.join("README.md");
-        if !readme.exists() {
-            persistence::atomic_write(&readme, b"# BridgePilot task archive\n\nHEAD.json selects the committed immutable revision. Do not edit revision files. Use bp status and bp actions. Local logs and indexes are disposable.\n").map_err(|e| e.to_string())?;
-        }
+        store.write_scaffold()?;
         let snapshot = Snapshot {
-            schema: SCHEMA,
+            schema: 1,
             archive_id: new_id("archive"),
             revision: 0,
             parent: None,
             state: State::default(),
         };
-        let (head, bytes) = Self::encode(&snapshot)?;
-        store.install_generation(&head, &bytes)?;
-        persistence::atomic_write_json(&store.archive.join("HEAD.json"), &head)
-            .map_err(|e| e.to_string())?;
+        let conn = database::create(&snapshot)?;
+        let bytes = database::snapshot_bytes(&conn)?;
+        persistence::atomic_write(&candidate, &bytes).map_err(|e| e.to_string())?;
+        store.protect_legacy()?;
+        persistence::atomic_write(&store.database_path(), &bytes).map_err(|e| e.to_string())?;
+        fs::remove_file(candidate).map_err(|e| e.to_string())?;
         Ok(store)
     }
 
-    fn encode(snapshot: &Snapshot) -> Result<(Head, Vec<u8>)> {
-        snapshot.state.validate()?;
-        let bytes = serde_json::to_vec(snapshot).map_err(|e| e.to_string())?;
-        if bytes.len() as u64 > MAX_BYTES {
-            return Err("archive revision exceeds size limit".into());
+    fn finish_initial(self, candidate: &Path) -> Result<Self> {
+        let _lock = self.writer_lock()?;
+        if !candidate.exists() {
+            self.read()?;
+            return Ok(self);
         }
-        Ok((
-            Head {
-                schema: SCHEMA,
-                archive_id: snapshot.archive_id.clone(),
-                revision: snapshot.revision,
-                digest: digest(&bytes),
-            },
-            bytes,
-        ))
+        let bytes = database::file_bytes(candidate)?;
+        let snapshot = database::inspect_bytes(&bytes)?;
+        if snapshot.revision != 0
+            || !snapshot.state.projects.is_empty()
+            || !snapshot.state.tasks.is_empty()
+        {
+            return Err("initialization candidate contains unexpected state".into());
+        }
+        if self.database_path().exists() {
+            if self.head()? != database::head_bytes(&bytes)? {
+                return Err(
+                    "online SQLite state differs from unfinished initializer; preserve both".into(),
+                );
+            }
+            self.read()?;
+            fs::remove_file(candidate).map_err(|e| e.to_string())?;
+            return Ok(self);
+        }
+        self.protect_legacy()?;
+        persistence::atomic_write(&self.database_path(), &bytes).map_err(|e| e.to_string())?;
+        fs::remove_file(candidate).map_err(|e| e.to_string())?;
+        Ok(self)
+    }
+
+    fn write_scaffold(&self) -> Result<()> {
+        let index = self.workspace.join("doc/README.md");
+        if !index.exists() {
+            persistence::atomic_write(&index,b"---\ndelivery_layout: flat\n---\n\n# BridgePilot workspace\n\n- [Task archive](5_project_knowledgebase/bridgepilot/README.md)\n").map_err(|e|e.to_string())?;
+        }
+        let ignore = self.workspace.join(".gitignore");
+        if !ignore.exists() {
+            persistence::atomic_write(&ignore, b"/.runtime/\n/.deps/\n/.build/\n")
+                .map_err(|e| e.to_string())?;
+        }
+        let readme = self.archive.join("README.md");
+        if !readme.exists() {
+            persistence::atomic_write(&readme,b"# BridgePilot task archive\n\nbridgepilot.sqlite3 is the only online task state. Use BP commands; do not edit the database or retired HEAD guard.\n").map_err(|e|e.to_string())?;
+        }
+        Ok(())
+    }
+
+    pub fn database_path(&self) -> PathBuf {
+        self.archive.join(database::FILE)
+    }
+    pub fn is_sqlite(&self) -> bool {
+        self.database_path().is_file()
+    }
+
+    pub(crate) fn protect_legacy(&self) -> Result<()> {
+        let path = self.archive.join("HEAD.json");
+        ordinary(&path)?;
+        if path.exists() {
+            if fs::read(&path).map_err(|e| e.to_string())? != RETIRED_HEAD {
+                return Err("legacy HEAD must be explicitly migrated before activation".into());
+            }
+        } else {
+            persistence::atomic_write(&path, RETIRED_HEAD).map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+
+    fn require_sqlite(&self) -> Result<()> {
+        ordinary(&self.database_path())?;
+        if !self.database_path().is_file() {
+            return Err(
+                "SQLite task archive is not active; explicit legacy migration required".into(),
+            );
+        }
+        if read_bytes(&self.archive.join("HEAD.json"))? != RETIRED_HEAD {
+            return Err("SQLite archive legacy-write guard is missing or modified; explicit recovery required".into());
+        }
+        Ok(())
+    }
+
+    pub fn read_connection(&self) -> Result<Connection> {
+        self.require_sqlite()?;
+        database::connect(&self.database_path(), false)
+    }
+    pub fn write_connection(&self) -> Result<Connection> {
+        self.require_sqlite()?;
+        if self.archive.join("bridgepilot.migration.sqlite3").exists() {
+            return Err("migration activation is unfinished; recover before writing".into());
+        }
+        if self.archive.join("bridgepilot.initial.sqlite3").exists() {
+            return Err(
+                "initialization activation is unfinished; run init recovery before writing".into(),
+            );
+        }
+        database::connect(&self.database_path(), true)
+    }
+
+    pub fn read(&self) -> Result<Snapshot> {
+        if !self.database_path().exists() {
+            return crate::migration::read_legacy(self);
+        }
+        let conn = self.read_connection()?;
+        let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+        let snapshot = database::read(&tx)?;
+        tx.commit().map_err(|e| e.to_string())?;
+        Ok(snapshot)
     }
 
     pub(crate) fn head(&self) -> Result<Head> {
-        read_json(&self.archive.join("HEAD.json"))
+        if !self.database_path().exists() {
+            return read_json(&self.archive.join("HEAD.json"));
+        }
+        database::head(&self.read_connection()?)
     }
 
     pub(crate) fn writer_lock(&self) -> Result<FileLock> {
         ordinary(&self.runtime)?;
-        FileLock::acquire(&self.runtime.join("locks/writer.lock"))
+        let path = self.runtime.join("locks/writer.lock");
+        ordinary(&path)?;
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        FileLock::acquire(&path)
     }
 
-    pub(crate) fn archive_files(&self) -> Result<std::collections::BTreeMap<String, Vec<u8>>> {
-        self.read()?;
-        let mut files = std::collections::BTreeMap::new();
-        let mut cursor = self.head()?;
-        files.insert(
-            "HEAD.json".into(),
-            serde_json::to_vec(&cursor).map_err(|e| e.to_string())?,
-        );
-        loop {
-            let path = self.path(&cursor)?;
-            let bytes = read_bytes(&path)?;
-            let snapshot: Snapshot = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
-            let key = format!(
-                "revisions/{}",
-                path.file_name()
-                    .unwrap()
-                    .to_str()
-                    .ok_or("invalid archive name")?
-            );
-            files.insert(key, bytes);
-            match snapshot.parent {
-                Some(parent) => cursor = parent,
-                None => break,
-            }
-        }
-        Ok(files)
+    pub(crate) fn archive_files(&self) -> Result<BTreeMap<String, Vec<u8>>> {
+        let conn = self.read_connection()?;
+        let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+        let bytes = database::snapshot_bytes(&tx)?;
+        tx.commit().map_err(|e| e.to_string())?;
+        Ok(BTreeMap::from([(database::FILE.into(), bytes)]))
     }
 
     pub(crate) fn derived(&self, state: State) -> Result<(Head, Vec<u8>)> {
-        let before = self.read()?;
-        let snapshot = Snapshot {
-            schema: SCHEMA,
-            archive_id: before.archive_id,
-            revision: before.revision.checked_add(1).ok_or("revision overflow")?,
-            parent: Some(self.head()?),
-            state,
-        };
-        Self::encode(&snapshot)
+        let files = self.archive_files()?;
+        database::derive_bytes(files.get(database::FILE).ok_or("snapshot missing")?, state)
     }
 
-    // Caller holds the writer lock. Transport validates full history and exact
-    // ancestry before invoking this; activation is always the last atomic write.
-    pub(crate) fn install_transport(
+    /// Caller owns writer_lock. Exported snapshots cannot overwrite local outbox.
+    pub(crate) fn install_transport(&self, files: &BTreeMap<String, Vec<u8>>) -> Result<()> {
+        self.install_transport_inner(files, database::MAX_BYTES)
+    }
+
+    fn install_transport_inner(
         &self,
-        files: &std::collections::BTreeMap<String, Vec<u8>>,
+        files: &BTreeMap<String, Vec<u8>>,
+        candidate_limit: usize,
     ) -> Result<()> {
-        let head: Head =
-            serde_json::from_slice(files.get("HEAD.json").ok_or("missing transport HEAD")?)
-                .map_err(|e| e.to_string())?;
-        for (name, bytes) in files {
-            if name == "HEAD.json" {
-                continue;
-            }
-            let Some(file) = name.strip_prefix("revisions/") else {
-                return Err("unknown archive transport path".into());
-            };
-            if file.contains(['/', '\\']) {
-                return Err("invalid revision transport path".into());
-            }
-            let candidate: Snapshot = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
-            let actual = Head {
-                schema: SCHEMA,
-                archive_id: candidate.archive_id.clone(),
-                revision: candidate.revision,
-                digest: digest(bytes),
-            };
-            let path = self.path(&actual)?;
-            if path.file_name().and_then(|n| n.to_str()) != Some(file) {
-                return Err("revision transport digest mismatch".into());
-            }
-            ordinary(&path)?;
-            if path.exists() {
-                if read_bytes(&path)? != *bytes {
-                    return Err("immutable transport collision".into());
-                }
-            } else {
-                persistence::atomic_write(&path, bytes).map_err(|e| e.to_string())?;
-            }
+        if files.len() != 1 {
+            return Err("SQLite transport must contain exactly one owned snapshot".into());
         }
-        persistence::atomic_write_json(&self.archive.join("HEAD.json"), &head)
-            .map_err(|e| e.to_string())?;
+        let bytes = files
+            .get(database::FILE)
+            .ok_or("SQLite transport snapshot missing")?;
+        database::inspect_shared_bytes(bytes)?;
+        let local = if self.database_path().exists() {
+            database::local_records(&self.read_connection()?)?
+        } else {
+            BTreeMap::new()
+        };
+        let restored = database::restore_local_limited(bytes, &local, candidate_limit)?;
+        database::inspect_bytes(&restored)?;
+        if self.archive.join("HEAD.json").exists()
+            && read_bytes(&self.archive.join("HEAD.json"))? != RETIRED_HEAD
+        {
+            return Err(
+                "legacy local task archive requires explicit migration before SQLite import".into(),
+            );
+        }
+        fs::create_dir_all(&self.archive).map_err(|e| e.to_string())?;
+        self.protect_legacy()?;
+        persistence::atomic_write(&self.database_path(), &restored).map_err(|e| e.to_string())?;
         self.read()?;
         Ok(())
-    }
-
-    fn path(&self, head: &Head) -> Result<PathBuf> {
-        if head.schema != SCHEMA
-            || !valid_id(&head.archive_id)
-            || head.digest.len() != 64
-            || !head.digest.bytes().all(|b| b.is_ascii_hexdigit())
-        {
-            return Err("invalid archive HEAD identity".into());
-        }
-        Ok(self
-            .archive
-            .join("revisions")
-            .join(format!("{}-{}.json", head.revision, head.digest)))
-    }
-
-    fn install_generation(&self, head: &Head, bytes: &[u8]) -> Result<()> {
-        let path = self.path(head)?;
-        ordinary(&path)?;
-        if path.exists() {
-            if read_bytes(&path)? != bytes {
-                return Err("immutable revision collision".into());
-            }
-        } else {
-            persistence::atomic_write(&path, bytes).map_err(|e| e.to_string())?;
-        }
-        Ok(())
-    }
-
-    pub fn read(&self) -> Result<Snapshot> {
-        let head: Head = read_json(&self.archive.join("HEAD.json"))?;
-        let mut cursor = head.clone();
-        let mut latest = None;
-        loop {
-            let bytes = read_bytes(&self.path(&cursor)?)?;
-            if digest(&bytes) != cursor.digest {
-                return Err("revision digest mismatch; no automatic rollback".into());
-            }
-            let value = bridgeforge_core::json::parse_unique_json(&bytes, "BridgePilot revision")?;
-            let snapshot: Snapshot = serde_json::from_value(value).map_err(|e| e.to_string())?;
-            if snapshot.schema != SCHEMA
-                || snapshot.archive_id != head.archive_id
-                || snapshot.revision != cursor.revision
-            {
-                return Err("revision identity mismatch".into());
-            }
-            snapshot.state.validate()?;
-            if latest.is_none() {
-                latest = Some(snapshot.clone());
-            }
-            match snapshot.parent {
-                Some(parent)
-                    if snapshot.revision > 0
-                        && parent.revision == snapshot.revision - 1
-                        && parent.archive_id == head.archive_id =>
-                {
-                    cursor = parent
-                }
-                None if snapshot.revision == 0 => break,
-                _ => return Err("broken archive history chain".into()),
-            }
-        }
-        latest.ok_or_else(|| "missing archive".into())
     }
 
     pub fn transact<T>(
@@ -332,69 +334,96 @@ impl Store {
         expected: u64,
         change: impl FnOnce(&mut State) -> Result<T>,
     ) -> Result<(Snapshot, T)> {
-        self.transact_inner(expected, change, || Ok(()))
+        self.transact_with_sql(expected, |s, _| change(s))
     }
 
-    /// Retry only local CAS/lock contention; external actions stay outside.
-    pub fn update<T>(&self, mut change: impl FnMut(&mut State) -> Result<T>) -> Result<T> {
-        for _ in 0..20 {
-            let revision = self.read()?.revision;
-            match self.transact(revision, |s| change(s)) {
-                Ok((_, result)) => return Ok(result),
-                Err(e) if e.contains("revision changed") || e.contains("lock is held") => {
-                    std::thread::sleep(std::time::Duration::from_millis(50))
-                }
-                Err(e) => return Err(e),
-            }
-        }
-        Err("archive writer remained busy".into())
-    }
-
-    fn transact_inner<T>(
+    pub fn transact_with_sql<T>(
         &self,
         expected: u64,
-        change: impl FnOnce(&mut State) -> Result<T>,
-        before_head: impl FnOnce() -> Result<()>,
+        change: impl FnOnce(&mut State, &Transaction<'_>) -> Result<T>,
     ) -> Result<(Snapshot, T)> {
-        ordinary(&self.runtime)?;
-        let _lock = FileLock::acquire(&self.runtime.join("locks/writer.lock"))?;
-        let previous: Head = read_json(&self.archive.join("HEAD.json"))?;
-        let mut snapshot = self.read()?;
+        self.transact_sql_inner(expected, change, || Ok(()))
+    }
+
+    fn transact_sql_inner<T>(
+        &self,
+        expected: u64,
+        change: impl FnOnce(&mut State, &Transaction<'_>) -> Result<T>,
+        before_commit: impl FnOnce() -> Result<()>,
+    ) -> Result<(Snapshot, T)> {
+        self.require_sqlite()?;
+        let _lock = self.writer_lock()?;
+        let mut conn = self.write_connection()?;
+        let tx = conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(|e| format!("archive writer lock is held or SQLite unavailable: {e}"))?;
+        let mut snapshot = database::read(&tx)?;
         if snapshot.state.custody.is_some() {
             crate::handoff::require_owner(&snapshot.state, &self.machine()?)?;
-            if self
-                .workspace
-                .join(".runtime/bridgepilot/transport/pending.json")
-                .exists()
+            let pending: Option<i64> = tx
+                .query_row(
+                    "SELECT 1 FROM local_records WHERE key='transport.pending'",
+                    [],
+                    |r| r.get(0),
+                )
+                .optional()
+                .map_err(|e| e.to_string())?;
+            if pending.is_some()
+                || self
+                    .workspace
+                    .join(".runtime/bridgepilot/transport/pending.json")
+                    .exists()
             {
                 return Err(
                     "archive transport outcome unresolved; reconcile before writing".into(),
                 );
             }
         }
-        if previous.revision != snapshot.revision || expected != snapshot.revision {
+        if snapshot.revision != expected {
             return Err(format!(
                 "archive revision changed; expected {expected}, current {}",
                 snapshot.revision
             ));
         }
-        let result = change(&mut snapshot.state)?;
+        let previous = database::head(&tx)?;
+        let result = change(&mut snapshot.state, &tx)?;
         snapshot.revision = snapshot
             .revision
             .checked_add(1)
             .ok_or("revision overflow")?;
-        snapshot.parent = Some(previous.clone());
-        let (head, bytes) = Self::encode(&snapshot)?;
-        self.install_generation(&head, &bytes)?;
-        before_head()?;
-        // Even non-cooperating HEAD changes are detected before committing.
-        let now: Head = read_json(&self.archive.join("HEAD.json"))?;
-        if now != previous {
-            return Err("HEAD changed outside writer lock; preserve orphan revision".into());
-        }
-        persistence::atomic_write_json(&self.archive.join("HEAD.json"), &head)
-            .map_err(|e| e.to_string())?;
+        snapshot.parent = Some(previous);
+        database::append_revision(&tx, &snapshot, None)?;
+        before_commit()?;
+        tx.commit().map_err(|e| e.to_string())?;
         Ok((snapshot, result))
+    }
+
+    #[cfg(test)]
+    fn transact_inner<T>(
+        &self,
+        expected: u64,
+        change: impl FnOnce(&mut State) -> Result<T>,
+        before_commit: impl FnOnce() -> Result<()>,
+    ) -> Result<(Snapshot, T)> {
+        self.transact_sql_inner(expected, |s, _| change(s), before_commit)
+    }
+
+    pub fn update<T>(&self, mut change: impl FnMut(&mut State) -> Result<T>) -> Result<T> {
+        for _ in 0..20 {
+            let revision = self.read()?.revision;
+            match self.transact(revision, |s| change(s)) {
+                Ok((_, result)) => return Ok(result),
+                Err(e)
+                    if e.contains("revision changed")
+                        || e.contains("lock is held")
+                        || e.contains("database is locked") =>
+                {
+                    std::thread::sleep(std::time::Duration::from_millis(50))
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        Err("archive writer remained busy".into())
     }
 
     pub fn machine(&self) -> Result<String> {
@@ -414,7 +443,7 @@ impl Store {
             }
             return Ok(value.id);
         }
-        let _lock = FileLock::acquire(&self.runtime.join("locks/writer.lock"))?;
+        let _lock = self.writer_lock()?;
         if path.exists() {
             return Ok(read_json::<Machine>(&path)?.id);
         }
@@ -426,11 +455,10 @@ impl Store {
     }
 
     pub fn rebuild_index(&self) -> Result<PathBuf> {
-        let snapshot = self.read()?;
-        let path = self.runtime.join("index/tasks.json");
-        ordinary(&path)?;
-        persistence::atomic_write_json(&path, &serde_json::json!({"schema":1,"archive":snapshot.archive_id,"revision":snapshot.revision,"tasks":snapshot.state.tasks})).map_err(|e| e.to_string())?;
-        Ok(path)
+        let conn = self.write_connection()?;
+        database::verify_all(&conn)?;
+        conn.execute_batch("REINDEX;").map_err(|e| e.to_string())?;
+        Ok(self.database_path())
     }
 }
 

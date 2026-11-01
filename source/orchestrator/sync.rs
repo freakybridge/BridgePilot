@@ -1,10 +1,11 @@
 //! Private archive transport. Git ancestry and archive ancestry are separate
 //! gates. No checkout of remote files, no force push and no automatic merge.
 use crate::{
-    Result, digest,
+    Result, database, digest,
     store::{Head, Snapshot, Store, ordinary, read_json},
 };
 use bridgeforge_core::{ProcessRequest, ProcessRunner, SystemProcessRunner, persistence};
+use rusqlite::{OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, fs, path::PathBuf, time::Duration};
@@ -83,6 +84,8 @@ pub struct Pending {
     pub kind: String,
     pub local_before: Head,
     pub candidate_head: Head,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snapshot_sha256: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub superseded: Vec<Candidate>,
 }
@@ -114,10 +117,38 @@ impl<'a> Engine<'a> {
             cache,
         })
     }
-    fn pending_path(&self) -> PathBuf {
+    fn local(&self, key: &str) -> Result<Option<Vec<u8>>> {
         self.store
-            .workspace
-            .join(".runtime/bridgepilot/transport/pending.json")
+            .read_connection()?
+            .query_row("SELECT value FROM local_records WHERE key=?1", [key], |r| {
+                r.get(0)
+            })
+            .optional()
+            .map_err(|e| e.to_string())
+    }
+    fn pending(&self) -> Result<Pending> {
+        let bytes = self
+            .local("transport.pending")?
+            .ok_or("no unresolved transport intent")?;
+        let value = bridgeforge_core::json::parse_unique_json(&bytes, "SQLite transport intent")?;
+        serde_json::from_value(value).map_err(|e| e.to_string())
+    }
+    fn has_pending(&self) -> Result<bool> {
+        Ok(self.local("transport.pending")?.is_some())
+    }
+    fn save_pending(&self, pending: &Pending, files: &Files) -> Result<()> {
+        let mut conn = self.store.write_connection()?;
+        let tx = conn
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(|e| e.to_string())?;
+        let bytes = serde_json::to_vec(pending).map_err(|e| e.to_string())?;
+        let snapshot = files
+            .get(database::FILE)
+            .ok_or("new transport intent requires a SQLite snapshot")?;
+        tx.execute("INSERT INTO local_records(key,value) VALUES('transport.pending',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value",[bytes]).map_err(|e|e.to_string())?;
+        tx.execute("INSERT INTO local_records(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            params![format!("transport.snapshot.{}",pending.candidate),snapshot]).map_err(|e|e.to_string())?;
+        tx.commit().map_err(|e| e.to_string())
     }
     pub(crate) fn call(&self, program: &str, args: &[String], stdin: Vec<u8>) -> Result<Vec<u8>> {
         let mut request = ProcessRequest::new(program, &self.store.workspace);
@@ -135,7 +166,7 @@ impl<'a> Engine<'a> {
                 String::from_utf8_lossy(&output.stderr)
             ));
         }
-        if output.stdout.len() > 32 * 1024 * 1024 {
+        if output.stdout.len() > database::MAX_BYTES {
             return Err("oversized archive transport output".into());
         }
         Ok(output.stdout)
@@ -257,6 +288,15 @@ impl<'a> Engine<'a> {
         }
         Ok(files)
     }
+    fn candidate_files(&self, commit: &str) -> Result<Files> {
+        // Only unresolved local candidate recovery may use this durable copy;
+        // fetch/readback must always inspect the actual fetched Git object.
+        if let Some(bytes) = self.local(&format!("transport.snapshot.{commit}"))? {
+            database::inspect_shared_bytes(&bytes)?;
+            return Ok(Files::from([(database::FILE.into(), bytes)]));
+        }
+        self.files_at(commit)
+    }
     fn commit(&self, files: &Files, parent: Option<&str>, kind: &str) -> Result<String> {
         validate_files(files)?;
         let index = self
@@ -335,11 +375,11 @@ impl<'a> Engine<'a> {
         replacing: Option<&Pending>,
     ) -> Result<Value> {
         if let Some(expected) = replacing {
-            let actual: Pending = read_json(&self.pending_path())?;
+            let actual = self.pending()?;
             if &actual != expected {
                 return Err("pending transport changed before replacement".into());
             }
-        } else if self.pending_path().exists() {
+        } else if self.has_pending()? {
             return Err("pending transport requires query-only reconciliation".into());
         }
         let local_before = self.store.head()?;
@@ -353,9 +393,10 @@ impl<'a> Engine<'a> {
             if replacing.is_none()
                 && head_from_files(remote_files)? == candidate_head
                 && local_before == candidate_head
+                && remote_files.contains_key(database::FILE)
             {
                 return Ok(
-                    json!({"status":"archive_current","commit":commit,"revision":candidate.revision}),
+                    json!({"status":"archive_current","commit":commit,"revision":candidate.revision,"snapshot_sha256":crate::digest(&remote_files[database::FILE]),"remote_verified":true}),
                 );
             }
         }
@@ -375,6 +416,7 @@ impl<'a> Engine<'a> {
             kind: kind.into(),
             local_before,
             candidate_head,
+            snapshot_sha256: Some(crate::digest(&files[database::FILE])),
             superseded: replacing
                 .map(|old| {
                     let mut candidates = old.superseded.clone();
@@ -386,8 +428,7 @@ impl<'a> Engine<'a> {
                 })
                 .unwrap_or_default(),
         };
-        persistence::atomic_write_json(&self.pending_path(), &pending)
-            .map_err(|e| e.to_string())?;
+        self.save_pending(&pending, &files)?;
         if install_before {
             self.store.install_transport(&files)?;
         }
@@ -421,28 +462,53 @@ impl<'a> Engine<'a> {
                 push.err().unwrap_or_else(|| "remote differs".into())
             ));
         }
-        self.store.install_transport(&files)?;
-        self.finish(&pending)?;
+        let (readback_commit, readback_files, _) = self
+            .fetch()?
+            .ok_or("published archive remote readback missing; reconcile required")?;
+        let readback_hash = crate::digest(
+            readback_files
+                .get(database::FILE)
+                .ok_or("published readback omitted SQLite snapshot")?,
+        );
+        if readback_commit != commit
+            || head_from_files(&readback_files)? != pending.candidate_head
+            || Some(&readback_hash) != pending.snapshot_sha256.as_ref()
+        {
+            return Err(
+                "published archive readback differs from exact candidate; reconcile required"
+                    .into(),
+            );
+        }
+        self.store.install_transport(&readback_files)?;
+        self.finish(&pending,json!({"commit":readback_commit,"snapshot_sha256":readback_hash,"head":pending.candidate_head}))?;
         Ok(
-            json!({"status":"archive_published","kind":kind,"commit":commit,"revision":candidate.revision,"remote_verified":true,"repository":self.config.repository}),
+            json!({"status":"archive_published","kind":kind,"commit":commit,"revision":candidate.revision,"snapshot_sha256":readback_hash,"remote_verified":true,"repository":self.config.repository}),
         )
     }
-    fn finish(&self, pending: &Pending) -> Result<()> {
-        persistence::atomic_write_json(
-            &self
-                .store
-                .workspace
-                .join(".runtime/bridgepilot/transport/last-receipt.json"),
-            &json!({"status":"confirmed","operation":pending}),
+    fn finish(&self, pending: &Pending, readback: Value) -> Result<()> {
+        let mut conn = self.store.write_connection()?;
+        let tx = conn.transaction().map_err(|e| e.to_string())?;
+        let actual: Vec<u8> = tx
+            .query_row(
+                "SELECT value FROM local_records WHERE key='transport.pending'",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        if serde_json::from_slice::<Pending>(&actual).map_err(|e| e.to_string())? != *pending {
+            return Err("pending intent changed during confirmation".into());
+        }
+        let receipt = serde_json::to_vec(
+            &json!({"status":"confirmed","operation":pending,"readback":readback}),
         )
         .map_err(|e| e.to_string())?;
-        ordinary(&self.pending_path())?;
-        fs::remove_file(self.pending_path()).map_err(|e| e.to_string())?;
-        Ok(())
+        tx.execute("INSERT INTO local_records(key,value) VALUES('transport.last_receipt',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value",[receipt]).map_err(|e|e.to_string())?;
+        tx.execute("DELETE FROM local_records WHERE key='transport.pending' OR key LIKE 'transport.snapshot.%'",[]).map_err(|e|e.to_string())?;
+        tx.commit().map_err(|e| e.to_string())
     }
     pub fn reconcile(&self) -> Result<Value> {
         let _lock = self.store.writer_lock()?;
-        let pending: Pending = read_json(&self.pending_path())?;
+        let pending = self.pending()?;
         let Some((commit, files, _)) = self.fetch()? else {
             return Err("pending archive push is unresolved; no remote head".into());
         };
@@ -470,13 +536,31 @@ impl<'a> Engine<'a> {
             );
         };
         require_ancestor(&observed.head, &files)?;
+        let physical = crate::digest(
+            files
+                .get(database::FILE)
+                .ok_or("reconciliation remote is not SQLite")?,
+        );
+        if commit == pending.candidate
+            && pending
+                .snapshot_sha256
+                .as_ref()
+                .is_some_and(|expected| expected != &physical)
+        {
+            return Err("reconciliation candidate physical snapshot digest mismatch".into());
+        }
         let local = self.store.head()?;
         if local != pending.local_before {
             require_ancestor(&local, &files)?;
         }
         self.store.install_transport(&files)?;
-        self.finish(&pending)?;
-        Ok(json!({"status":"archive_transport_reconciled","commit":commit,"replayed":false}))
+        self.finish(
+            &pending,
+            json!({"commit":commit,"snapshot_sha256":physical,"head":head_from_files(&files)?}),
+        )?;
+        Ok(
+            json!({"status":"archive_transport_reconciled","commit":commit,"snapshot_sha256":physical,"replayed":false}),
+        )
     }
     pub fn upload(&self) -> Result<Value> {
         let _lock = self.store.writer_lock()?;
@@ -495,7 +579,7 @@ impl<'a> Engine<'a> {
         if source.trim().is_empty() {
             return Err("explicit cancellation source required".into());
         }
-        let pending: Pending = read_json(&self.pending_path())?;
+        let pending = self.pending()?;
         if pending.kind != "handoff-release" {
             return Err("only an unresolved release can be cancelled by this command".into());
         }
@@ -505,7 +589,7 @@ impl<'a> Engine<'a> {
                 "remote has changed; reconcile the original release before cancellation".into(),
             );
         }
-        let files = self.files_at(&pending.candidate)?;
+        let files = self.candidate_files(&pending.candidate)?;
         let mut snapshot = validate_files(&files)?;
         let machine = self.store.machine()?;
         let c = snapshot
@@ -527,11 +611,16 @@ impl<'a> Engine<'a> {
         c.handoff = None;
         c.source = source.into();
         let cancellation = derive_files(files, snapshot.state)?;
-        let saved = self.store.workspace.join(format!(
-            ".runtime/bridgepilot/transport/abandoned-{}.json",
-            pending.candidate
-        ));
-        persistence::atomic_write_json(&saved, &pending).map_err(|e| e.to_string())?;
+        self.store
+            .write_connection()?
+            .execute(
+                "INSERT OR REPLACE INTO local_records(key,value) VALUES(?1,?2)",
+                params![
+                    format!("transport.abandoned.{}", pending.candidate),
+                    serde_json::to_vec(&pending).map_err(|e| e.to_string())?
+                ],
+            )
+            .map_err(|e| e.to_string())?;
         // This sibling Git commit fences any delayed old release push. Local
         // activation remains frozen until the cancellation is confirmed remotely.
         // Keep the original recovery record until the new candidate is completely
@@ -545,12 +634,12 @@ impl<'a> Engine<'a> {
         if source.trim().is_empty() {
             return Err("explicit pending resolution source required".into());
         }
-        let pending: Pending = read_json(&self.pending_path())?;
+        let pending = self.pending()?;
         if pending.kind == "handoff-release" {
             return self.cancel_pending_release(source);
         }
         let _lock = self.store.writer_lock()?;
-        let actual: Pending = read_json(&self.pending_path())?;
+        let actual = self.pending()?;
         if actual != pending {
             return Err("pending publication changed".into());
         }
@@ -565,7 +654,7 @@ impl<'a> Engine<'a> {
             pending.kind.as_str(),
             "sync" | "handoff-cancel" | "pending-fence"
         ) {
-            self.files_at(&pending.candidate)?
+            self.candidate_files(&pending.candidate)?
         } else {
             return Err("unsupported pending publication kind".into());
         };
@@ -583,7 +672,7 @@ impl<'a> Engine<'a> {
     }
     pub fn download(&self) -> Result<Value> {
         let _lock = self.store.writer_lock()?;
-        if self.pending_path().exists() {
+        if self.has_pending()? {
             return Err("pending archive transport must be reconciled first".into());
         }
         let local = self.store.read()?;
@@ -593,6 +682,9 @@ impl<'a> Engine<'a> {
         let Some((commit, files, snapshot)) = self.fetch()? else {
             return Err("private archive remote is empty".into());
         };
+        if !files.contains_key(database::FILE) {
+            return Err("legacy remote archive requires explicit owner migration before new-machine restore".into());
+        }
         let current = self.store.head()?;
         let empty = local.revision == 0
             && local.state.projects.is_empty()
@@ -603,7 +695,7 @@ impl<'a> Engine<'a> {
         }
         self.store.install_transport(&files)?;
         Ok(
-            json!({"status":"archive_downloaded","commit":commit,"revision":snapshot.revision,"owner":snapshot.state.custody.as_ref().map(|c|&c.owner),"execution_started":false}),
+            json!({"status":"archive_downloaded","commit":commit,"revision":snapshot.revision,"snapshot_sha256":crate::digest(&files[database::FILE]),"owner":snapshot.state.custody.as_ref().map(|c|&c.owner),"execution_started":false}),
         )
     }
 }
@@ -611,6 +703,9 @@ fn oid(s: &str) -> bool {
     matches!(s.len(), 40 | 64) && s.bytes().all(|b| b.is_ascii_hexdigit())
 }
 fn archive_name(s: &str) -> bool {
+    if s == database::FILE {
+        return true;
+    }
     if s == "HEAD.json" {
         return true;
     }
@@ -628,10 +723,22 @@ fn archive_name(s: &str) -> bool {
         && hash.bytes().all(|b| b.is_ascii_hexdigit())
 }
 pub(crate) fn head_from_files(files: &Files) -> Result<Head> {
+    if let Some(bytes) = files.get(database::FILE) {
+        if files.len() != 1 {
+            return Err("mixed SQLite and legacy archive transport".into());
+        }
+        return database::head_bytes(bytes);
+    }
     serde_json::from_slice(files.get("HEAD.json").ok_or("archive HEAD missing")?)
         .map_err(|e| e.to_string())
 }
 pub(crate) fn validate_files(files: &Files) -> Result<Snapshot> {
+    if let Some(bytes) = files.get(database::FILE) {
+        if files.len() != 1 {
+            return Err("mixed SQLite and legacy archive transport".into());
+        }
+        return database::inspect_shared_bytes(bytes);
+    }
     if files.keys().any(|k| !archive_name(k)) {
         return Err("unowned archive transport path".into());
     }
@@ -673,6 +780,9 @@ pub(crate) fn validate_files(files: &Files) -> Result<Snapshot> {
     latest.ok_or("empty transport archive".into())
 }
 pub(crate) fn require_ancestor(ancestor: &Head, files: &Files) -> Result<()> {
+    if let Some(bytes) = files.get(database::FILE) {
+        return database::require_ancestor_bytes(ancestor, bytes);
+    }
     let mut cursor = head_from_files(files)?;
     loop {
         if &cursor == ancestor {
@@ -689,20 +799,16 @@ pub(crate) fn require_ancestor(ancestor: &Head, files: &Files) -> Result<()> {
     }
 }
 pub(crate) fn changed_files(store: &Store, state: crate::domain::State) -> Result<Files> {
-    let mut files = store.archive_files()?;
-    let (head, bytes) = store.derived(state)?;
-    files.insert(
-        format!("revisions/{}-{}.json", head.revision, head.digest),
-        bytes,
-    );
-    files.insert(
-        "HEAD.json".into(),
-        serde_json::to_vec(&head).map_err(|e| e.to_string())?,
-    );
+    let (_, bytes) = store.derived(state)?;
+    let files = Files::from([(database::FILE.into(), bytes)]);
     validate_files(&files)?;
     Ok(files)
 }
 fn derive_files(mut files: Files, state: crate::domain::State) -> Result<Files> {
+    if let Some(bytes) = files.get(database::FILE) {
+        let (_, candidate) = database::derive_bytes(bytes, state)?;
+        return Ok(Files::from([(database::FILE.into(), candidate)]));
+    }
     let old = validate_files(&files)?;
     let snapshot = Snapshot {
         schema: 1,

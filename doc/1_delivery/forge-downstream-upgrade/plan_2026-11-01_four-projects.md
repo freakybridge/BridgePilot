@@ -168,3 +168,86 @@ Holdem 首次规划因重复传入自动保留项而停止，已完整恢复后�
 上述表格为升级前预检时点结果；最终安装和发布状态以上一节为准。原始预检与用户级刷新收据位于项目忽略目录 `.runtime/tests/forge-rename/`，历史候选范围预览位于 `.runtime/tests/support-floor/develop-before.json`；这些本机证据不保证随 Git 分发。
 
 后续执行以本记录的 Release Plan 和最新有效授权为准：DR-04 公共方案已确认、DR-05 专项处理、DR-06 暂按 BL 专项且具体处理待确认。已完成的 DR-01～03 与 Holdem 首次发布不重做；新增问题仍先解释。门禁失败不降级普通同步，不绕过 Hook，不把安装成功替代发布成功。
+
+
+### 后续经验固化：BP 私有 bridgeforge-update（已收口并安装验证）
+
+用户已明确授权：名称为 `bridgeforge-update`，作为 BP 私有 Skill，覆盖整轮升级并复用本次有效 release 授权。本轮在实际 `D:/Quant/BridgePilot` 的 BP 0.7.2 源码完成私有资产登记、BP 主入口路由、项目导航及安装说明；新 Skill 随 BP 包进入 home，由用户级 BP 入口按实际 home 加载，不另行进入 Forge 共享分发。当前 Forge 发布 worktree 的 BP 仍为旧 0.5.0，不用其安装器认证实际 BP。
+
+冲突来源已逐项核对：2026-11-01 20:14 的受管 Git 同步从 `b447e695` 快进到 Forge 14.0.0 的 `45a51bcb` 后，恢复 `codex_git_sync_autostash`（`1e5f5ef40642d9bf6091d2b1a4ab03d2f501550f`）产生四个冲突。各文件 stage 1、2、3 分别与 stash 基线、当前 HEAD、stash 本地文件完全对应；不是新 Skill 引入，也没有证据表明其他对话正在处理。
+
+| 编号 | 冲突文件 | 已核实内容与处理边界 |
+|---|---|---|
+| CF-01 | `.codex/managed-skeleton.json` | Forge 14 的公共资产更新与本地公共运行时锁文件哈希更新相遇；本地相对基线仅三个锁文件哈希字段变化，不是 BP 业务规则冲突。保留原文件和三阶段索引，尚未重建。 |
+| CF-02 | `.codex/package-closures.json` | 基线154条，Forge与BP分别新增5条，形成不同的全局 previous/hash 链。原生校验要求已发布前缀不变，不能拼接或手工重算。两条原链完整保留，尚未受管调和。 |
+| CF-03 | `bridgeforge-manifest.json` | 与CF-01同源；不拿旧清单覆盖Forge14，也不丢弃BP本地锁文件变化。原文件保留。 |
+| CF-04 | `doc/README.md` | Forge升级索引与BP 0.7.2 SQLite/status交付索引相遇，两方内容都保留；尚未处理索引冲突。 |
+
+为避免覆盖已有BP改动，先将实际807个源文件复制到忽略的隔离验证目录，核验通过后仅同步本轮7个目标文件；其余801个既有文件的字节哈希不变，Git索引、HEAD、stash与四个冲突文件保持原样。同步前备份、精确增量补丁与哈希记录位于当前worktree的 `.runtime/tests/bridgeforge-update/`。没有全文件回退BP代码，也没有切换日常安装。
+
+实际验证：锁定Cargo构建BP 0.7.2源码候选；扩展的安装回归1项通过，覆盖十一资产打包、新Skill字节一致性、安装预览零写入、用户级BP入口完整性、新Skill用户修改保护及篡改payload拒绝；相关 `setup_cases` 7项通过，覆盖入口幂等、来源/用户编辑保护、并发安装日志互斥等。实际旧BP 0.7.2生成十资产包，新候选 `install-preview` 返回 `writes:false` 且目标目录不存在。Skill Creator返回 `Skill is valid!`。原包六/十资产读取边界保留，新增十一资产对应下次受管minor版本；没有手工改包版本。日志为 `portable-tests.log`、`setup-tests.log`，旧包与预览也留在同一忽略目录。
+
+上一轮阻点（本轮已解除）：实际主目录受管 `develop --root . --preview --packages orchestrator` 返回 `[package-development] installed skeleton identity is invalid JSON: key must be a string at line 3322 column 1`，与保留的身份文件冲突标记一致。正式子包收口和日常home安装因此未执行，未提交、推送或发布BP；不能把隔离安装测试当作正式安装，也未执行新一轮下游升级或runtime验证。全包fmt检查还显示既有BP源码格式差异，本轮只修正新增测试的格式，未格式化他人的修改。
+
+### 2026-11-02 正式收口与日常安装结果
+
+> 历史记录：本节中的BF新增能力和两项BF升版已撤回，当前状态以下方“最终结果：仅保留BP Skill”一节为准。
+
+用户明确授权继续安全解决四个冲突、保留BP既有改动与两边收口记录，并完成本Skill正式收口和安装验证。实际开发与收口源码为 `D:/Quant/BridgePilot`；本Forge发布worktree只保存实现镜像、批次记录和本机证据，不用其旧BP 0.5.0安装器覆盖实际BP。
+
+四个索引冲突均已解除：两份生成清单先恢复已发布基线作为渲染输入，再由原生 `manifest` 按当前源码和锁文件重建；文档索引保留BP 0.7.2交付条目与Forge升级导航。HEAD和原始autostash未变，原有40个BP Rust源码文件在本轮正式收口前后逐字节一致。
+
+账本恢复补充了工厂专属 `closure-reconcile --preview` / `--apply --fingerprint <实际预览>` 入口。预览零写入；执行验证三阶段原链与共同前缀，拒绝历史、证据和版本冲突以及指纹漂移。先永久保存三份原始账本、冲突原件的可逆编码及原哈希→新哈希映射，再由Rust重接未发布BP记录的previous/hash，不改版本、内容、检查或证据。没有放宽既有Ledger校验或手工伪造收据。
+
+永久原件和恢复收据位于 `.codex/package-closure-reconciliations/fc76ed8c125fad461a15f5ea08cf665b22c0d120d8415329bcf49c05a981d710/`；原始冲突文本以 `working-conflict.hex` 保存，解码后与原哈希一致，避免Git将备份识别为未清理冲突。活动账本先恢复为164条，正式收口再追加6条，最终170条。独立实现逐条验证整链，确认已发布159条前缀未变、BP五条历史除链指针/哈希外完全一致。
+
+受管 `develop --apply --packages orchestrator,lifecycle,factory --analysis-file .runtime/tests/bridgeforge-update/develop-analysis.json` 返回 `development-closed`，6项最终候选检查全部实际执行，无复用：生成身份、工厂参数拒绝、4项账本恢复、BP portable安装回归、骨架合同、Git同步冲突保护。checks、skeleton、workflow源码未改，仅无升版刷新覆盖记录。
+
+| 包 | 原版本 | 收口版本 | 原因 |
+|---|---|---|---|
+| orchestrator | 0.7.2 | 0.8.0 | 新增BP私有bridgeforge-update打包与入口路由 |
+| lifecycle | 0.8.4 | 0.9.0 | 原生验证并接入分叉账本，保留原件和证据 |
+| factory | 0.10.1 | 0.11.0 | 提供受限的账本恢复命令与能力声明 |
+| checks | 0.2.2 | 0.2.2 | 构建覆盖刷新 |
+| skeleton | 0.6.0 | 0.6.0 | 构建覆盖刷新 |
+| workflow | 0.9.2 | 0.9.2 | 依赖及构建覆盖刷新 |
+
+主程序VERSION保持14.0.0，未进行本轮Git提交、推送或GitHub release。新增恢复能力没有下发到其他项目，没有重跑四下游升级。旧版本包读取兼容与用户文件保护继续保留。
+
+最终版本的工厂受管准备返回 `prepared`，CLI、Hook、factory三项产物均完成实际self-test。随后零写入核对：manifest返回 `changed:false`，build-assets返回 `current`、复用3项且未构建；最终develop预览为 `task-development-current`、`affected_packages:[]`，仅证明本轮任务范围已收口，不推导全仓release就绪。工作区与暂存的diff检查通过，未解决索引为空。
+
+BP最终0.8.0 release构建成功，十一资产本地验证包位于 `.build/bridgepilot/bundles/0.8.0-bridgeforge-update-20261102/`，不包含私有档案。先对原home零写入预览，再通过原生install升级 `C:/Users/bridg/Documents/Codex/BridgePilot`，通过skill-install刷新原用户级BP入口。install返回 `installation_current`、`archive_migrated:false`；skill-status返回 `user_skill_current`、`current:true`。独立核验9项受管内容和Skill源码字节一致，原home绑定、SQLite档案和配置等4个文件哈希不变，安装事务无pending。
+
+使用方式：在BP对话中提出“使用bridgeforge-update为指定项目升级骨架”。用户级入口按已验证home读取 `source/orchestrator/skills/bridgeforge-update/SKILL.md`；它随BP管理，不单独进入Forge共享分发。已安装Skill的元数据校验通过；本轮未执行新的真实下游升级、桌面或完整流程行为验收，不把安装检查当作这些场景已通过。
+
+本机原始收据、日志和独立核验位于当前Forge发布worktree的 `.runtime/tests/bridgeforge-update/`，包括 `closure-reconcile-result.json`、`develop-formal-result.json`、`formal-closure-verification.json`、`live-install-verification.json` 与最终工厂准备记录。它们是本机证据，不假定随Git分发；永久双方账本原件另按上文保留。
+
+### 2026-11-02 最终结果：仅保留BP Skill，撤回BF新增能力
+
+本节取代上节联合收口作为当前状态。用户明确要求本次只添加BP Skill，并授权按恢复计划撤回额外BF能力；没有授权提交、推送、发布或新的下游升级。
+
+已核验当时活动账本170条，索引仍保存原生恢复完成后的164条快照，SHA256为 `c9ca9577ef5f6904cccc2a2bd656052ef128b7c54ad0b789c41b00602c26f17b`。现有 `develop --recover` 只处理未完成事务，不能撤销已成功收口。因此本次执行明确授权的一次性未发布快照恢复，没有伪造develop journal、修改Ledger校验或再增加BF长期入口。
+
+一次性Rust工具临时挂入既有锁定workspace构建，使用现有工厂/项目锁、精确11文件白名单、输入哈希、804个受保护文件及逐项备份/回退保护。隔离副本验证了预览零写入、受保护文件漂移时零写入拒绝、正常精确恢复及完整备份；独立Python核验全部恢复和保护哈希。实际恢复完成后，其临时Cargo入口与源文件已撤出生产树，审计副本留在忽略证据目录。未把一次性处理变成新BF功能。
+
+BF源码、模板和专用测试已恢复为已发布提交 `45a51bcb1e0ad95397d1936c597b0568d43443e4` 的内容；实际仓库与发布worktree的该范围Git对比均无差异。`closure-reconcile` 命令、能力声明、恢复模块和新增测试已移除，dogfood中的退役模块也已精确清理。清单、锁文件及投影仍由既有原生入口按保留的BP工作区生成，未回退已有BP依赖和业务内容。
+
+| 编号 | 对象 | 最终状态 |
+|---|---|---|
+| BR-01 | BP orchestrator | 重新受管收口0.7.2→0.8.0，仅包含BP私有Skill及必要接入 |
+| BR-02 | BF lifecycle | 恢复0.8.4，撤回未发布的0.9.0能力 |
+| BR-03 | BF factory | 恢复0.10.1，撤回未发布的0.11.0命令 |
+| BR-04 | 主程序VERSION | 14.0.0不变 |
+| BR-05 | checks / skeleton / workflow | 0.2.2 / 0.6.0 / 0.9.2不变，本次未追加其收口记录 |
+
+本轮还清理了暂存清单里的退役BF模块引用：只同步4个本轮冲突文件及4个新增历史归档，其他既有暂存条目逐条核对未变。
+
+原四个文件冲突保持解决：共同154条、Forge新增5条、BP新增5条组成的164条恢复结果完整保留，随后只追加一条BP原生收口记录，活动账本最终165条。先前170条账本及六条联合收口的原始收据完整封存在同一 `.codex/package-closure-reconciliations/fc76ed8c125fad461a15f5ea08cf665b22c0d120d8415329bcf49c05a981d710/`，分别为 `superseded-development-170.json`、`superseded-development-receipt.json`；一次性恢复收据和说明另存于同目录。旧记录作为历史保留，不充当当前版本证明。已发布159条前缀及其后BP五条恢复记录均未改动；独立核验165条完整哈希链通过。
+
+最终 `develop --apply --packages orchestrator --analysis-file .runtime/tests/bp-only-recovery/develop-analysis.json` 返回 `development-closed`，只有orchestrator一项变化，实际执行一项已登记的安装相关检查（portable用例过滤），未复用。后续原生只读预览返回 `task-development-current`、`affected_packages:[]`，有效范围只有core与orchestrator，不据此声明全仓release就绪。
+
+恢复后的CLI、Hook、factory三项原生产物准备和实际self-test通过；manifest检查为 `changed:false`，build-assets只读检查为 `current`、复用3项且未构建。最终工具不再声明 `closure-reconciliation-v1`，实测调用旧命令被原有usage分支拒绝。
+
+BP现有0.8.0安装没有降级或重装。重新收口记录的content、dependencies和build身份与原已安装0.8.0对应记录完全一致；实际home中新Skill与源码一致，9项受管内容校验通过，用户级入口原生状态为 `user_skill_current`、`current:true`。原配置、SQLite档案等4文件字节未变，40个BP Rust源文件保护哈希未变，安装事务无pending。HEAD、原始stash保持不变，未解决索引为空。
+
+本机演练、一次性计划、原始收据和独立核验位于当前发布worktree `.runtime/tests/bridgeforge-update/bp-only-recovery/`，包括 `rehearsal-verification.json`、`live-restore-receipt.json`、`bp-only-develop-result.json`、`final-verification.json`、`final-bp-current.json`。没有进行新的真实下游升级或完整桌面/升级流程行为验收。当前结果是BP Skill新增与必要接入完成，BF没有新增长期能力；未提交、推送或发布。

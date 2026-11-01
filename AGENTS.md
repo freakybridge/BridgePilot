@@ -128,7 +128,9 @@
 
 ### 项目快速命令
 
-用户在本项目要求 BP 跨项目登记、分派、状态核对或明确范围的暂停时，先读取 [BridgePilot 本地入口](source/orchestrator/skills/bridgepilot/SKILL.md)。该入口只在本项目使用，不安装到共享 Skills。有限窗口调度由自有进程执行，窗口外接续依赖本控制对话已核验的原生 heartbeat；每次唤醒先核对机器、控制对话与实际原生配置，不接管 Unknown。任务回合结束先进入 Reviewing；只读报告须核对命令、文件及原生项目成员，写任务须另核验受管开发与发布证据，不能把 completed 当作 Released。工作区和恢复入口见 [INSTALL.md](INSTALL.md#bridgepilot-本地试用与档案恢复)，实际验证缺口见唯一开发计划。
+BP 组织单项目或多项目骨架升级时，读取私有 [bridgeforge-update](source/orchestrator/skills/bridgeforge-update/SKILL.md)；该 Skill 随 BP 包管理，不进入 Forge 公共模板或共享分发。
+
+用户要求 BP 初始化、项目登记、换机、分派、状态核对或明确范围的暂停时，先读取 [BridgePilot 统一入口](source/orchestrator/skills/bridgepilot/SKILL.md)。该入口由 BP 独立包管理，可受管安装到用户级 Skills，不进入 Forge 共享分发。有限窗口调度由自有进程执行，窗口外接续依赖本控制对话已核验的原生 heartbeat；每次唤醒先核对机器、控制对话与实际原生配置，不接管 Unknown。任务回合结束先进入 Reviewing；只读报告须核对命令、文件及原生项目成员，写任务须另核验受管开发与发布证据，不能把 completed 当作 Released。工作区和恢复入口见 [INSTALL.md](INSTALL.md#bridgepilot-本地试用与档案恢复)，实际验证缺口见唯一开发计划。
 
 本工厂的 develop 本地 dogfood 优先读取 `source/forge/templates/skills/develop/SKILL.md` 及其按需引用的 reference；用户级安装副本不同时，以仓库候选作为本工厂的执行依据，不把旧版全仓清零规则重新带入。本入口不分发到公共 Template 或其他项目。
 

@@ -11,6 +11,8 @@ validation_status: in_progress
 
 本文件是本主题唯一的需求与开发计划，后续实施、验证、偏差和验收增量在此维护，不另建一份重复需求卡。
 
+最新工程交付：[第九阶段：status 统一输出、执行事件与 SQLite 唯一状态库迁移](#bp-status-sqlite-plan)，最终结果见[15.18](#bp-status-sqlite-delivery)。用户后续明确授权 autopilot 实施及 B 范围，并将同一 Goal 上限调至10000000；本机 BP／Skill 已更新0.7.2，真实档案及私有 GitHub 已切为 SQLite，独立恢复核验通过。2026-11-01用户已验收本阶段并授权release，见[15.19](#bp-status-sqlite-acceptance)；发布实际结果另记，heartbeat保持暂停。下文早期“只计划／待执行”为各自时点历史，不是当前权限或状态。
+
 ## 1. 原始目标、来源与授权边界
 
 用户希望通过一个个人 Agent 总管并行推进多个项目，减少项目切换、任务分派、追问进度、上下文传递和发布协调所消耗的精力。用户保留阶段目标、重要方向与审美判断。
@@ -187,6 +189,8 @@ BridgePilot/
 另设受阻、暂停中、已暂停、结果未知、已取消，以及调查类任务的报告交付终点。运行结束、验证通过、发布成功和用户验收分别记录。交付不自动等于用户 `summary accept`。
 
 ### 6.2 长期档案与本机数据
+
+本节下述 SQLite 仅作索引的选型属于首版历史方案。后续用户已选择 SQLite 唯一在线任务状态库，目标合同以[第九阶段](#bp-status-sqlite-plan)为准；当前代码尚未迁移，不能将新目标当作现状。
 
 前期“SQLite 位于 .runtime 且作为唯一长期状态”的建议因 cleanup 合同而修正。本计划建议长期结构化档案作为事实来源，SQLite 仅作可重建查询索引；首版数据量较小时可不启用 SQLite。具体存储格式及事务实现由 P0-03 确定，不把该技术建议冒充已由用户单独确认的实现事实。
 
@@ -750,3 +754,492 @@ Codex 项目编辑器已将唯一源文件夹切换到新目录；实际 `list_p
 本次验收依据为第六阶段记录的同一仓库身份、原生项目与新源目录、BP0.5.0实际安装、revision85私有档案同步、受管开发收口、工程检查及独立复核。经验补充：Codex 项目源目录更改后，既有聊天的 `cwd` 不一定随之更新；实际 `read_thread` 仍返回本控制聊天 `D:\Quant\BridgeForge`。本轮命令均显式指定新根执行，未改写原生历史；当前聊天上下文迁移与被占用的旧空目录仍未收尾。后续需使用受支持的聊天目录设置处理，不以改数据库、历史文件、链接或强杀进程绕过。
 
 **TODO-050 继续为进行中**：本次验收仅确认已有交付，不把当前聊天目录收尾、原计划要求的真实双项目发布／物理换机续接与自然唤醒等缺失证据标为完成；下游更名适配按用户决定另外逐一处理。既有阶段事实与未验证边界保留，整体 `lifecycle: active`／`validation_status: in_progress` 不变。
+
+### 第七阶段：GitHub 新机引导（2026-11-01）
+
+用户要求新电脑只在 Codex 说一句话，即可从 GitHub 下载 BP、完成安装并恢复私有档案，免去从旧机复制便携包。核验后确认现有0.5.0的 init／sync-configure／sync-download／install 已覆盖内核行为；本次补齐正式发布资产与 Codex 冷启动说明，不新增后台执行器、预算管理、自动接管或新的归档格式。
+
+安装与恢复的唯一维护源仍为根 [INSTALL.md](../../../INSTALL.md#从-github-在新电脑安装并恢复)，README 仅导航。新机无需已有 BP Skill 或 Rust，Codex 从产品仓库的正式 Release 说明开始；必要账号登录与平台权限仍由本人完成。暂存位于私有工作区 `.runtime/download/bridgepilot/<release-id>/`，保持安装 home 的首次归属检查成立。固定正式 tag／提交、真实资产 id／size／digest 后，先校验 manifest 与六项固定 payload，再运行候选 core；通过私有恢复后才 preview／install。重复安装、已有配置、pending 与控制权仍沿已有受管边界处理。
+
+已为正式发布的13.1.0提交 `b447e6954e59244d08e37cdc9d396ca8718767fd` 补齐 [GitHub Release v13.1.0](https://github.com/freakybridge/BridgePilot/releases/tag/v13.1.0)，实际 Release ID=`430059590`。tag API 解析回同一固定提交；非 draft／非 prerelease，latest 可读。安装说明自动取自 INSTALL 的引导段。公开资产恰为 package.json 与六个 payload，均来自此前已验证的0.5.0便携包；没有上传个人档案、本机配置、日志、凭据或原生会话／Memory，也没有提交或推送本轮新增的源码文档。
+
+#### 实际验证与边界
+
+- 本机现有包的受管预览为 `task-development-current`、affected=[]，核心源码和版本未变，不再次升版或重跑整包开发检查。
+- 先用同一包在隔离身份下安装并从真实 BridgePilotData 下载，确认既有组合入口成立；随后重新从真实 GitHub latest Release 下载全部七资产，逐个核对 API digest／size、manifest SHA256和源制品摘要，再用这批网络下载文件执行全流程。
+- 网络全流程的 init、sync-configure、sync-download、install-preview、install、installed self-test、install-status 和档案 status 均成功，实际 core=0.5.0、archive=`archive-df1b25cda65f9bf5a0ff8c35`、revision=85、项目数5；新测试机器身份与原 owner 不同，未取得控制权，未上传数据或执行任务。
+- 原始收据位于 `.runtime/tests/bridgepilot-github-bootstrap/`，其中 `github-release.json`／`github-tag.json` 为实际原生响应，`github-verification.json` 汇总实际网络安装恢复，逐阶段输出分别保留。一次测试命令因 PowerShell 只读 HOME 变量命名冲突在下载／安装前停止，修正为独立任务变量后继续，没有更改系统变量或产品实现。
+- 上述证明本机隔离身份下的真实网络引导；**物理第二台电脑、缺依赖时的实际安装及交互登录仍未验证**。下载档案不授权接管、恢复 heartbeat、创建聊天或推进项目；真正换机继续按既有全部暂停、代码检查点与 release／accept／continue 流程。既有 TODO-050 状态与第六阶段未完成边界保持。
+
+### 第八阶段需求确认：扩展 BP 统一 Skill（2026-11-01）
+
+关联原需求继续为 **TODO-050**，本节接续已有换机交接与 GitHub 新机引导，不另建重复需求卡。用户于2026-11-01明确“开始开发吧”，本阶段已获准实施、必要隔离验证与受管开发收口；不因此操作真实项目交接或提交／推送／发布新产品代码。整体计划及TODO不因开工而收口。
+
+#### 用户目标与已确认决定
+
+用户最初要求用归属于 BP 的 Skill 完成旧电脑暂停及上传进度、新电脑同步恢复；Codex 视为已安装，Git／GitHub CLI 不满足要求时支持静默安装，并接入第七阶段已有 GitHub 一句话引导。随后补充首次初始化／存档库绑定及下游项目登记，并明确选择 A：扩展现有 `bridgepilot` Skill 作为统一入口，不另建独立管理或换机 Skill。原 bp-handoff 仅为前期拟议名称，尚未实施，无已安装入口需要兼容迁移。
+
+1. **旧机选择 A。** 显式调用拟议的 `$bp-handoff prepare all` 表示全部暂停，并授权核对实际改动范围后，将已确认开发任务的进度保存、推送至专用工作分支；不发布正式版。遇到冲突、范围不明或权限缺口才找用户，不默认提交其他未确认改动。仅“我要换机”等模糊表达仍不能推导全部暂停。
+2. **新机选择 A。** 调用拟议的 `$bp-handoff restore` 时，核对旧机已释放、远端交接记录、准确代码检查点及本机项目绑定后自动接管控制权；任务与定时唤醒仍保持暂停，不自动开始开发。先前“独立安装只恢复、不接管”的边界继续保留；本次显式 restore 才包含上述接管授权。
+3. **首次存档库选择 A。** 仅对没有任何 BP 配置的全新用户，init 首次向本人确认一次私有存档库：推荐当前登录 GitHub 账号下的 BridgePilotData，也允许指定已有库；确认后验证并保存绑定，后续自动复用。推荐位置不是创建或覆盖授权，确认前不创建远端库或上传数据；已有配置不重新询问、不静默更换目标。已有远端档案先按实际身份与控制权核对，不把它作为空白首次档案。
+
+以上两项已确认行为继续有效，统一入口下分别对应拟议的 `$bridgepilot handoff prepare all` 与 `$bridgepilot handoff restore`；只改变入口组织，不重新解释或扩大操作授权。首次使用提示词已按用户明确要求加入 README 的快速开始，尚未提交或推送。
+
+#### 拟议入口与职责
+
+| 入口 | 行为 |
+|---|---|
+| `$bridgepilot init` | 首次初始化个人工作区；仅无配置的全新用户确认一次本人私有存档库，默认推荐当前GitHub账号下的BridgePilotData，也可指定已有库，验证后保存绑定。已有配置直接复用并核对，不从公开产品包推导用户私有库，不把已有远端档案当空白库 |
+| `$bridgepilot project add <本机目录>` | 核对实际仓库、项目规则、安装入口与原生项目身份，登记到本人 BP 档案；缺少关键信息时补问。登记不授权骨架改造、业务开发、提交或发布，不直接修改下游文件 |
+| `$bridgepilot handoff prepare all` | 核对控制机与范围，全部暂停并确认停止，保存当前开发上下文，沿项目受管 Git 入口保存并推送进度，验证代码检查点，同步档案并释放旧机控制权 |
+| `$bridgepilot handoff restore` | 检测必要依赖，必要时静默安装，复用 GitHub 正式包下载校验，恢复档案与所有登记项目的准确代码检查点及本机绑定；经受管 handoff-accept 成功后报告，任务继续暂停 |
+| `$bridgepilot status` | 只读查看已登记项目、控制机、交接阶段、运行停止状态、已保存进度及具体阻点，不安装、推送、接管或恢复任务 |
+
+统一 Skill 的唯一源为现有 `source/orchestrator/skills/bridgepilot/`，沿用日常任务与调度能力，增加上述管理模式，随 BP 独立包管理及升级；为支持任意 Codex 对话调用，安装时提供受管的用户级 Skill。源及所有权属于 BP，不进入 `source/forge/templates/skills/` 或 Forge 共享 Skill 分发，不改写用户自有同名技能。新机尚无此 Skill 时，由现有 GitHub 引导完成依赖、BP 与 Skill 的首次安装；全新用户初始化自己的档案，换机用户恢复自己的已有档案。底层现有 init／configure／sync-configure／project-add 应优先复用，Skill 用法不冒充已增加的 CLI 子命令。
+
+Skill 负责明确模式、授权及流程协调，Rust 内核继续负责停止、持久状态、传输、安装和控制权核验，不另外制造脚本执行器或第二套交接档案。安装与恢复的完整说明继续以根 INSTALL.md 为唯一入口；Skill 仅保留必要决策、步骤和停止条件，较长模式细节按需引用。
+
+#### 安装与数据边界
+
+- 静默安装仅覆盖 Git 与 GitHub CLI，优先复用符合要求的已有版本，从官方来源取得所需安装程序，优先当前用户范围；不默认升级其他工具、不安装 Codex或项目业务依赖、不重置 Git 配置。凭据登录、SSO及操作系统强制权限确认仍由本人完成，不复制旧机登录状态、不绕过确认。
+- 代码进入各项目自己的受管远端工作分支，任务与交接事实进入本人已确认并绑定的私有档案库（本机现有绑定为 BridgePilotData）；当前控制聊天的已确认目标、决定、未完成工作及证据链接写入项目接续说明，不声称私有档案包含整段原生聊天、凭据或业务数据。
+- 已有本机代码或配置发生冲突时保留现场，不强制覆盖；未明确归属的改动保持不动并报告依赖阻点。暂停、Unknown、CAS、网络丢回执、单控制机及原生聊天授权规则继续适用，失败从可核验阶段恢复，不重发未知操作。
+- 不复制旧机项目绝对路径作为新机事实。先发现并核对已有仓库，再选择实际目录和原生项目绑定；缺少代码或环境时明确说明。独立只读恢复不等于接管，接管不等于恢复任务或 heartbeat。
+
+#### 实施范围与验收安排
+
+预期改动：扩展上述现有 BP Skill及必要模式引用；更新 `source/orchestrator/install.rs` 的私有资产打包、受管用户级 Skill 安装／升级／恢复及相关 CLI 入口；依实际需要在 orchestrator 内补必要的依赖检测／安装能力；同步 `source/orchestrator/skills/bridgepilot/SKILL.md`、INSTALL、README、GitHub 新版安装引导及明确资产清单；定向测试放在 `scripts/tests/orchestrator/`，实际包输入与所选检查登记按真实改动维护。既有0.5.0正式资产不可覆盖，新包与版本只能经受管开发收口产生。
+
+验收覆盖旧机范围与进度保存、新机恢复及自动接管后仍暂停、Skill归属与可发现性、已有安装保护、依赖已存在／缺失／安装失败及需人工登录分支、中断恢复与未知操作拒绝。使用隔离身份和测试远端验证，不实际暂停当前五项目、转移当前控制权、提交下游代码或卸载本机 Git／gh 来造缺失环境。真实缺依赖系统与物理双机缺少可用环境时保留未验证项，不能以模拟结果代替。
+
+规模暂定 **M**，复用 BP 整体已约定的时间与预算边界，不增加预算访谈或原生 Goal；默认主对话推进，按实际风险选择必要验证。正式开工确认只授权本阶段实现、必要隔离验证与受管开发收口，不自动授权新产品代码提交、推送、正式发布或实际换机。用户后续明确调用 prepare／restore，才触发对应已确认的操作授权。
+
+#### 方案保存决定与后续开工授权（2026-11-01）
+
+用户在本阶段开工确认中明确选择 **B：只保存方案，暂不实施**。上述需求、统一Skill命名及已确认行为保持有效，但本阶段尚无实施授权；不实施或安装本阶段的统一 bridgepilot Skill 扩展、不修改核心实现、不进行依赖安装、隔离执行或开发收口，也不触发实际项目暂停、进度上传或控制权接管。此决定仅限制本阶段实施，不改变其他项目的暂停状态，不撤回既有已发布成果。后续收到明确开工授权时，从本节接续，不重复确认已记录的需求。相关 TODO-050 及整体计划状态保持，不标完成。
+
+后续用户明确“开始开发吧”，已接续本阶段实施并解除上述暂不实施限制；原已确认需求与本轮无真实交接／无新产品代码发布的边界不变。传播四问：本阶段为BP私有产品能力及自身入口说明，非Forge共享能力；orchestrator经受管流程升兼容minor，主程序及正式CHANGELOG留待另行release；公共模板／八包投影不传播，仅同步本仓库项目级AGENTS导航、BP独立包与用户级投影。
+
+#### 本阶段实际交付
+
+已扩展现有 `source/orchestrator/skills/bridgepilot/SKILL.md`，五种管理模式按需读取 init／projects／handoff 引用，原日常调度与执行规则移入 execution 引用并保留。私有包使用十项稳定资产登记，新增四模式引用；用户级投影仍归 BP，不使用 Forge 共享分发。底层原有 init／sync-configure／project-add／handoff 内核继续承担已有职责，不把 Skill 的空格参数伪装为 CLI 子命令。
+
+`user_skill.rs` 提供 skill-install-preview／skill-install／skill-status／skill-recover：从实际安装home的受管来源取得内容，显式固定五文件与本机绑定；不采纳未知同名Skill、用户编辑或额外文件。跨目录写入前保存journal，逐项核验旧字节，入口与绑定最后提交；回滚前逐项比较实际观察字节。与程序安装共用home锁并互查pending，持锁后复核home到skills根的绑定，提交前核验marker，拒绝跨profile竞争造成第二份失管投影。已投影用户Skill时，回退core必须具备维护该Skill的能力；旧六资产包仍可读取，不用改写历史包冒充新包。
+
+`environment.rs` 提供 environment-check与environment-install，Git最低2.28、GitHub CLI最低2.0；只针对明确的Git.Git／GitHub.cli、scope与授权来源，通过受管无窗口进程调用WinGet。检测可指定现有context，安装仅接受真实已安装home，状态与锁固定在此home，不能换项目目录重发Unknown。安装意图在启动前持久化，失败／超时／丢结果保留真实回执；成功但PATH滞后不重复安装，不自动提权、改scope、登录或升级其他软件。冷启动先通过系统HTTPS读取正式包，校验后无需Git／gh安装BP程序，再准备依赖，避免要求缺失的工具先下载自身入口。
+
+独立只读复核定位并修正了四项边界：恢复扫描后的用户编辑、程序与Skill安装交错、依赖安装状态随context分散、同一home被不同Skills根竞争绑定。修正由屏障／交错用例覆盖，复核结论为无剩余阻断；未将静态复核冒充真实系统安装。
+
+| 证据 | 实际结果 |
+|---|---|
+| 受管收口 | `development-apply.log`：development-closed，orchestrator **0.5.0→0.6.0**，最终完整登记检查executed=1／reused=0／git_written=false；其他包未升版，主程序仍13.1.0 |
+| 账本 | 末条hash `sha256:3b5feeef854d9558bc42f1a303cd146c43da015ae506ba92db5cee3b317c7872`，完整orchestrator-unit-integration为passed |
+| 新增边界用例 | 三项恢复单元用例与七项setup集成用例，覆盖外部编辑、部分回滚／提交恢复、两类pending、跨profile竞争、未知安装拒绝、成功后PATH滞后、用户文件及安装来源保护；最终候选由完整登记检查覆盖 |
+| 最终构建与包 | `final-build.log`锁定离线release成功；`final-bundle.json`为0.6.0／十资产；`.build/bridgepilot/portable/current`已切换0.6.0，旧0.5.0保存在preserved-0.5.0 |
+| 隔离真实安装 | `isolated-summary.json`：程序及用户级Skill安装成功，两次preview零写入，本机Git／gh检测ready；空档案revision0、未启动任务 |
+| 独立Skill使用 | 独立Agent按隔离投影中的真实本机绑定执行status所需只读命令，实际报告安装0.6.0、Skill current、零项目／任务、revision0、未配置存档库和custody，无写入或联网 |
+| 本机交付 | `personal-install.json`／`personal-skill-status.json`：既有home升级至0.6.0；用户Skill安装在 `C:\Users\bridg\.codex\skills\bridgepilot`，source仍在BP安装home |
+| 原生发现 | `native-skill-probe.json`：真实skills/list读回bridgepilot、scope=user、enabled=true、准确用户Skill路径；task_turn_started=false，没有创建或恢复模型回合 |
+| 私有档案保护 | `personal-archive-head-before.json`与实际HEAD字节相同；档案仍revision85、原owner，未暂停真实项目、上传新私有修订或接管其他机器 |
+
+原始输出统一位于 `.runtime/tests/bridgepilot-unified-skill/`。本阶段开发与本机试用交付完成，用户验收另行记录；TODO-050整体状态不因此关闭。**Git／gh真实缺失机器上的静默安装、SSO／管理员／重启分支和两台物理电脑的完整换机尚未验证**，这些分支有隔离状态机用例与明确停止行为，不能称为真实冷机验证。GitHub正式资产仍为已发布13.1.0对应的core0.5.0；新core0.6.0及文档未提交、推送或正式发布，新电脑下载安装新版统一入口须等待后续授权发布。
+
+#### 统一入口用户验收（2026-11-01）
+
+用户明确调用 `$summary accept`，验收本阶段统一 bridgepilot Skill 的开发与本机交付，并另以 `$git-sync release` 授权正式发布。本次验收覆盖 init、project add、handoff prepare all、handoff restore、status 五种模式、BP 所有的用户级 Skill 安装与恢复、依赖准备边界及已有 GitHub 引导衔接；依据为上表最终候选收口、完整登记检查、独立复核、隔离安装、本机安装及原生发现回执。最后只读 development-probe 返回 development_verified／task-development-current，目录、指令来源、Skill 元数据、清单及版本检查通过，私有档案 HEAD 原始字节未变。
+
+验收不把模拟用例视为真实缺依赖系统安装，不把隔离恢复视为物理双机接力；真实冷机安装、物理双机、真实双项目业务发布及既有唤醒／旧 cwd 收尾仍保留原验证边界。关联 **TODO-050** 更新为本阶段已验收，整体仍为进行中，文档 lifecycle=active／validation_status=in_progress 不变。上段“尚未发布”为开发交付时状态；本次另获发布授权，正式结果以受管 Git 同步收据和实际 GitHub Release 为准，不能用授权代替成功事实。本次未操作真实项目交接或恢复定时唤醒。
+
+#### 本次发布停止记录
+
+已完成一次受管 preflight、sync-remote 和 release-preview：实际推送目标 origin/main，远端接入后 ahead=0／behind=0，主程序最低兼容新增级别为13.2.0；累计仅orchestrator 0.5.0→0.6.0，版本覆盖引用本阶段schema6收口记录，独立required_checks为空，未补做develop或业务测试。正式调用使用绑定预览的产品分析和项目内message-file。
+
+实际release返回 **blocked**：`automatic write planning failed before apply: generated asset build failed: codex.hooks`，stderr仅显示新版bridgeforge-hook及依赖编译进度，没有Rust诊断或链接错误。实现对timeout与非零退出使用同一错误格式，当前回执不足以确认具体原因，不能直接称为代码编译错误。原始证据位于 `.runtime/bridgepilot-unified-release/release.json`、`release.stderr.log`、`remote.json`、`preview.json`。
+
+失败后独立核对根VERSION仍 **13.1.0**，本地HEAD与实际远端origin/main均为 `b447e6954e59244d08e37cdc9d396ca8718767fd`，暂存区及stash为空，原开发改动和验收文档保留，未提交、推送或创建新版GitHub Release。待发core0.6.0便携包十资产加manifest的SHA256已核对，但未上传。遵循git-sync失败边界停止外层自动重跑；下一步应针对Hook产物构建的真实退出／超时原因处理，再在有效发布分析下重试，不跳过产物闸或以旧二进制代替。
+
+<a id="bp-status-sqlite-plan"></a>
+
+## 15. 第九阶段：status 统一输出、执行事件与 SQLite 唯一状态库迁移（2026-11-01）
+
+### 15.1 已确认需求、范围与本轮权限
+
+本阶段继续关联 **TODO-050**，是该原需求下的产品架构演进，不新增第二份需求卡或重复 TODO。15.1～15.13 保存最初规划合同；当时状态为待执行、未验证，后续授权、执行及工程交付见15.14～15.18。本文件整体仍 `active/in_progress`，未收到本阶段用户验收，不结算TODO。
+
+确认来源为[当前控制对话](codex://threads/01a19535-bab4-7c10-b0ac-1c8f9c263b4f)。用户已明确：
+
+1. `status` 表头及顺序固定为 **序号／项目／任务／阶段／进展／阻点**，由 CLI 统一生成。
+2. 用户查询入口只有 `status`（通过统一 Skill 使用时为 `$bridgepilot status`）；内部路径、格式参数和 JSON 协议不作为用户需要填写的接口。
+3. 在任务管理和状态查询链路中，Agent 只承担“理解目标与授权”和“展示结果并回答追问”。登记、固定编号、记录执行事件与回执、状态转换、查询及渲染由 CLI／执行器和 SQLite 完成。业务开发本身使用模型执行不改变这个管理职责边界。
+4. SQLite 是本机**唯一在线任务状态库**；不保留 JSON 和 SQLite 两套可写任务档案。JSON 可继续作为内部请求／响应或外部原始回执的编码，不等于第二套持久状态。
+5. GitHub 私有存档库保存一致的 SQLite 状态快照，新机下载、校验并恢复 SQLite；不采用“GitHub 保存 JSON、本机转换 SQLite”的常态路径。
+6. 用户选择 **B：完成实际切换**。最终验收包括现有真实个人档案转换、GitHub 私有存档格式切换、本机 BP 与用户级 Skill 更新，以及备份恢复验证，而非只交付迁移工具和测试数据。
+7. 用户规划阶段原文为“选B，按这个范围生成完整开发计划并落盘，先不要实施”。该时点只授权计划；随后已明确批准 autopilot 开工及整体预算，并授权调额后继续，见15.14～15.18。产品源码 Git 提交／推送／正式发布仍未授权，私有档案快照上传属于已批准B范围。
+
+首版其余已确认规则继续有效：不自动接管其他机器，不恢复 Unknown 操作，不推导新业务授权，不修改 Codex 原生数据库、会话或 Memory；不从本阶段范围推导四个下游业务写入、收口、提交或发布权限。
+
+### 15.2 现状依据与需要替换的链路
+
+本轮核对的是当前工作树源码；包版本为 orchestrator `0.6.0`。此前只读核对的真实档案为 revision 85、五个项目、两项只读任务，用户级 BP／Skill 为 0.6.0。这些是迁移调查起点，执行前须重新核验，不把旧 revision、owner、指纹或远端 HEAD 写死。
+
+| 已核实入口 | 当前行为 | 本阶段影响 |
+|---|---|---|
+| [domain.rs](../../../source/orchestrator/domain.rs) | 已有任务随机 ID、spec hash、确认、Run、Operation、暂停／Unknown／交付状态；没有固定人类任务序号及统一进展视图 | 保留任务身份与状态机，增加持久序号、事件和来源关联 |
+| [store.rs](../../../source/orchestrator/store.rs) | `HEAD.json` 选择不可变完整 JSON 修订；读取校验父链；文件锁＋expected revision 提交；索引仍为 `index/tasks.json` | 替换为 SQLite 事务和可查询历史，迁移旧链，不只把完整 State JSON 塞进数据库 |
+| [cli.rs](../../../source/orchestrator/cli.rs)、[main.rs](../../../source/orchestrator/main.rs) | `status` 返回整份状态，main 固定序列化 JSON | 新增同一数据库快照产生的六列视图与确定性展示，兼容并逐步调整机器消费者 |
+| [codex.rs](../../../source/orchestrator/codex.rs) | 已关联 thread／turn 与命令事件；命令回执主要先积累在内存，回合结束才随结果入档 | 将相关事件在接收时可靠记录；崩溃后仍能展示最后已提交进展 |
+| [scheduler.rs](../../../source/orchestrator/scheduler.rs)、[review.rs](../../../source/orchestrator/review.rs)、[delivery.rs](../../../source/orchestrator/delivery.rs) | 调度、报告复核、开发及发布认证分别推进状态 | 统一通过新 Store 事务保存，保留完成门禁，不能由任意进展更新冒充认证 |
+| [sync.rs](../../../source/orchestrator/sync.rs)、[handoff.rs](../../../source/orchestrator/handoff.rs) | 同步显式列举 HEAD／revisions JSON，核对 Git 和档案双重祖先；pending、取消／栅栏及独占接管已有语义 | 改为 SQLite 快照与逻辑修订祖先，保留未知网络结果核销和控制权保护 |
+| [install.rs](../../../source/orchestrator/install.rs)、[user_skill.rs](../../../source/orchestrator/user_skill.rs) | 安装／回退读取实际档案验证兼容；Skill 五文件由 BP 固定资产表管理 | 增加 SQLite 读写能力门禁、旧程序拒绝和本机更新顺序，不绕过所有权 |
+| [BP Skill](../../../source/orchestrator/skills/bridgepilot/SKILL.md) | 本对话曾局部增加由 Agent 查询聊天后汇总的候选流程，尚未完成收口／安装 | 明确替换该临时方案，不能继续让 status 依赖 Agent 临场拼表 |
+
+当前工作树已有 BP 私有源码、配置、账本与文档改动。本阶段执行时先对照既有已验收 0.6.0 收口证据确认同包基线；不 reset、不覆写，不以本次局部修改认证来源不明的整包。另一对话的 Forge 14.0.0 发布与下游升级结果以[其唯一记录](../forge-downstream-upgrade/plan_2026-11-01_four-projects.md)为准，不从本文件旧阶段的发布停止记录推断当前 Forge 状态。
+
+### 15.3 产品流程与职责
+
+```text
+用户给目标
+  → Agent 理解范围、必要人类决定及授权，形成结构化任务输入
+  → CLI 校验／去重／登记 → SQLite 事务分配固定序号与写入任务
+  → CLI／执行器关联实际执行 → 接收事件／回执 → SQLite 事务更新
+  → 用户查询 status → CLI 只读同一数据库快照 → 生成固定六列结果
+  → Agent 原样展示 CLI 的任务表，并回答用户追问
+```
+
+职责约束：
+
+- 第三至第五步不依赖 Agent 每次阅读聊天推断状态、填写百分比或手写“最近进展”。阶段来自状态机与已验证里程碑；进展来自已入库的执行事件，阻点来自确认缺口、依赖、实际错误或用户明确的暂停／暂缓决定。
+- 用户改变目标、暂停范围或发布决定时，仍属于输入端的“理解目标与授权”，经受管 CLI 写入；不是让 Agent 获得任意改状态的入口。
+- 所有新 BP 任务先登记再派发。登记与派发使用来源幂等键，重试不能产生第二个任务或第二个执行；不得只更新计划文档后跳过登记。
+- BP 自管执行与“关联已有对话观察”分别建模。已有对话可以绑定同一任务并由适配器获取真实执行元数据；不能为显示 Running 伪造 BP Run，也不能被调度器重复派发。原生接口无法可靠提供事件时明确显示观察受限／最后确认状态，不推测正在执行。
+- 只处理明确交给 BP 的任务。一次性补录限当前对话及用户已指明的[核查 BridgePilot 状态](codex://threads/01a19487-ef12-7a80-8a5a-a35f4387bf07)等确认来源；不是自动接管所有历史聊天。补录保留“历史回填”来源，不重发已经完成的业务动作。
+- Agent 的业务报告原文可作为证据存档，但不直接触发 Released 或 ReportDelivered。现有报告／开发／发布核验入口仍是正式终态的唯一推进路径。
+
+### 15.4 status 的固定输出合同
+
+| 列名 | 生成规则 |
+|---|---|
+| 序号 | 档案内持久整数任务号；登记事务分配，取消、过滤、排序、重试、换机均不重排、不复用。原 task ID 保留为机器身份。序号可不连续，不是每次输出的临时行号 |
+| 项目 | 已登记项目显示名称；任务必须关联真实项目，跨项目目标按实际子任务／依赖登记，不能由展示层随意合并或拆分 |
+| 任务 | 已确认任务标题；展示层不改写目标，长文本只按统一规则转义与截断 |
+| 阶段 | 状态机中文映射及有证据的子阶段，例如“执行中”“开发验证·受阻”“待发布·暂缓”；内部状态单独保存，不额外增加状态列 |
+| 进展 | 最近已提交、属于本任务当前修订／执行的事件摘要；可展示已完成的登记检查计数，不从命令数量推算整体完成百分比 |
+| 阻点 | 明确用户决定、未满足依赖、待确认请求、失败／Unknown 等结构化原因；没有阻点为“—”，缺证据时说明“待核实”而非报成功 |
+
+默认显示尚未交付的任务，包括待确认、待执行、执行中、Reviewing、待发布、受阻、Unknown、暂停／暂缓；Released、ReportDelivered、Cancelled 默认不占当前清单。阶段分组优先级固定，组内按持久任务号排序，不由 Agent 自行排序。没有当前任务时由 CLI 明确输出空清单结果。
+
+运行完成不等于任务交付；发布暂缓不等于项目已执行暂停。项目暂停、任务暂停、仅发布动作暂缓分别存储及展示，不能因为四下游暂缓 release 就声称其全部进程已停。
+
+查询在一个只读事务中读取任务、当前有效 Run、事件与阻点，并附档案身份、逻辑修订及查询时间。来源链接、核对时间和安装／控制机异常放在表外，固定表格始终只有六列。跨状态字段矛盾时输出诊断，不拼接互相矛盾的多次查询结果。
+
+内部响应保留结构化行与 CLI 生成的展示文本，二者来自同一视图；Agent 只提取并展示，不重新编号或补写正式任务行。内部 JSON／展示编码不对用户形成第二套查询命令，现有安装器等机器消费者按能力门禁适配。
+
+`status` 零写入：不创建数据库／索引、迁移 schema、补登记、刷新回执、重建缓存、联网推送或自动核销。缺库、旧格式未迁移、损坏、版本不兼容和忙超时均给出可区分诊断。不能用只读查询失败作为自动初始化空库的理由，也不能靠扫描聊天掩盖登记链路缺失。
+
+### 15.5 SQLite 数据模型与事务合同
+
+唯一在线库的目标位置为 `<私有工作区>/doc/5_project_knowledgebase/bridgepilot/bridgepilot.sqlite3`，属于用户长期资料，不能放进可清理的 `.runtime/`。本机完整备份也属于受保护资料；构建缓存进入 `.build/`，测试与可丢弃暂存进入 `.runtime/tests/<任务>/`，安装配置继续使用已规定的 `.runtime/config/`。不得为本阶段修改三目录合同或将用户档案纳入产品分发。
+
+采用项目自有 Rust SQLite 绑定，锁定 Cargo.lock，通过受管 Rust 入口构建；不依赖用户手工安装 sqlite3、Python 或额外数据库服务。具体依赖版本在开工时核对工具链、许可证和 Windows 构建兼容，不在计划中编造已经引入的依赖。
+
+| 数据组 | 主要内容与约束 |
+|---|---|
+| 档案元数据与 schema 版本 | archive ID、逻辑 revision、schema version、持久序号分配器、内容／祖先摘要、启用的 reader／writer feature |
+| 项目与本机绑定 | 项目身份、仓库、暂停、机器／路径／原生项目绑定；保留原跨项目别名冲突检查 |
+| 任务、修订与依赖 | 原 task ID、固定 task number、规格修订与 spec hash、人类确认和授权来源、执行模式；外键、唯一约束及依赖无环校验 |
+| Run、Operation 与事件 | 当前／历史执行、thread／turn／item 关联、Attempted／Observed／Unknown、事件唯一键、执行器来源、真实回执和错误 |
+| 状态、进展及决定 | 受管状态机、阶段里程碑、最近事件、结构化阻点、暂停／仅发布暂缓等决定及其作用范围 |
+| 交付与交接 | 报告／开发／发布核验身份、控制机／epoch、代码检查点、换机 transfer 与 continuation、heartbeat 关联 |
+| 历史及迁移凭据 | 全部旧修订的可查询历史、原摘要及父链映射、迁移来源与完整性证明；不能只导入最新状态而丢弃历史 |
+| 本机恢复与同步 outbox | 迁移激活阶段、网络候选身份、预期远端、已尝试／Unknown、必要恢复输入；本机专属字段不得随共享快照外泄 |
+
+规范化表是当前状态的事实源，历史以追加事件和必要历史表表达；不要另存一个完整可写 State JSON blob 当第二事实源。现有 State 可以暂留为内存领域模型／兼容适配器，写入必须落在同一个 SQLite 事务里，`status` 直接查询视图所需表，避免每次重读所有历史。
+
+写事务验证 owner、项目／任务授权、expected revision、schema 能力、状态转换和未决外部操作；事件、状态、序号和 outbox 意图一起提交，成功后才允许触发外部动作。保留 CAS 语义和有界忙等待，不将网络或长工具执行放在 SQLite 写事务内。`PRAGMA foreign_keys` 每个写连接显式启用并核验，不依赖默认值；迁移与恢复使用 integrity／foreign-key 检查和领域不变量复核。
+
+共享任务的逻辑修订／祖先与本机 outbox、安装激活等恢复元数据的事务版本分别管理：本机核销进度不能冒充一次可同步的业务修订，也不能因剔除本机专属表而破坏远端逻辑摘要。共享摘要使用显式表／列的稳定编码；不以 SQLite 页布局或整个文件字节作为领域身份，不另存一份可写 JSON 状态。
+
+本阶段优先采用 rollback journal 与短事务保证严格只读查询和简单单文件离线快照；数据库及 journal 均在受保护数据根内。若实测并发要求采用 WAL，必须先验证只读连接可能涉及的 sidecar 创建、备份和恢复行为，不用 `immutable` 绕过活库一致性；不能未经证据改变 status 零写入合同。进程锁仅辅助迁移／切换，跨机器独占仍靠原 owner／epoch 和远端栅栏，SQLite 本地事务不替代它们。
+
+### 15.6 事件采集、状态归约与异常恢复
+
+1. 登记和来源绑定提交后才启动执行。事件主键绑定 task/spec revision、run、thread、turn 与原生 item；重复或乱序事件按协议核对，旧执行事件不更新新修订任务的当前进展。
+2. 执行器接收启动、命令完成、审批请求、超时、停止、回合终态和受管验证／发布回执时，分批进行短事务持久化；最新已提交事件构成进展，不等整个模型回合结束后才可查询。
+3. 阶段由明确的开始／结束事件和既有核验器推进。普通命令 exit=0 只证明该命令结果；模型 turn completed 仍只进入 Reviewing；缺乏结构化里程碑时显示“执行中”及实际事件，不调用模型猜阶段。
+4. 命令及证据体积沿当前边界保护，截断／缺原文标记必须保留。摘要不能替代核验所需完整证据；失败时不能把截断输出记为通过。外部原始 JSON 回执可作为 SQLite 中的不透明证据载荷保存，不另维护可写 JSON 任务状态。
+5. 意图先入库，外部调用后记录实际回执；进程在中间退出时保留 Attempted／Unknown。重启后只读核销原 native／Git 结果，不以 SQLite 回滚为理由重新创建聊天、执行命令或发布。
+6. 观察已有对话的适配器必须保存实际绑定、核对游标和观察时间；禁止修改原生存储。无法取得可归属事件的任务保留最后证据和观察限制，不把客户端 active／idle 当业务认证。
+
+### 15.7 JSON 退役、历史迁移与回退
+
+退役范围是 BP 在线任务档案 `HEAD.json`、`revisions/*.json`、派生 `index/tasks.json` 及其在 GitHub 当前存档树中的常态传输。BP 关键任务／控制权／同步恢复状态不再以可丢弃 JSON 文件作为唯一来源。本机安装配置、产品机器合同、原生 API 通信、下游业务文件不因扩展名 JSON 被扫描删除或迁移。
+
+采用单向受管迁移，不双写、不自动降级：
+
+1. **只读预检**：核对真实 home、workspace、archive、owner、现有程序能力、全部旧链、未决同步、Run／进程和文件权限，产生转换清单与计数；`status` 不触发本步骤。
+2. **冻结切换窗口**：只有另行开工且到达真实切换阶段，才按已授权范围停止写入；活动／Unknown 未核销、其他机器控制或未决网络结果存在时停止，不能自动清空 pending。单纯迁移本机存储不冒充已完成换机释放。
+3. **保存可恢复原件**：逐字节保存当前 JSON 全链和配置身份、权限及摘要于受保护备份位置；记录迁移恢复输入，不因 cleanup 或程序重启丢失。此原件只用于取证／回退，不能与新库同时服务在线写入。
+4. **构建离线候选**：验证每一旧修订并导入项目、任务、授权、确认、Run、Operation、wakeups、custody、checkpoint 与历史。保留全部旧机器 ID、task/run/op ID、状态、来源和历史摘要，不修饰 Reviewing／Unknown 等未完成状态。按“首次出现在已验证修订中的顺序，同修订内原 ID 排序”一次性分配旧任务序号；不伪造旧创建时间，记录导入时间及来源修订。
+5. **等价性核对**：逐修订或逐历史事件验证领域内容、计数、依赖、确认、状态和证据摘要；新库物理字节不同不构成业务不等价。原始 JSON 字节可作为只读迁移证据纳入库内历史载荷，或保留于一次性旧格式备份；不能把不可解析旧字段静默丢弃，也不能把这种载荷当新状态存储。
+6. **激活**：安装兼容的新 reader／writer 后，在持锁且旧写入停止的窗口原子选择唯一后端，记录切换凭据；中断按凭据继续或恢复，不能凭“看到一个 .sqlite3 文件”猜迁移成功。所有开库入口先识别后端能力，旧程序必须在写入前拒绝已迁移档案。
+7. **切换后回退**：新库尚无新写入及外部动作时，允许按受管恢复流程还原原件；已有新事件／网络结果后禁止直接恢复旧 JSON，以免丢失进度或重复副作用。此时先保存新库、冻结依赖动作，再通过受控 SQLite 恢复／修复或另获批准的数据迁移处理，不能静默退回旧程序。
+8. **退役**：等价性、本机运行、远端快照读回和恢复验证全部通过后，停用旧 JSON writer 和缓存入口。旧文件的实际移除只按实施阶段明确的迁移清单处理，保护原件备份；不改写或清除 Git 旧历史，不新增常驻 JSON 导出任务。
+
+迁移期间新旧软件兼容以能力检测与显式格式版本控制；不允许旧软件把 SQLite 数据当作空档案重新 init。`rebuild-index` 等旧入口要么改为基于 SQL 的受管维护，要么给出明确退役诊断，不能继续写 JSON 或返回虚假成功。旧格式导入器保留可审计的只读兼容，正常新机恢复不反复 JSON→SQLite 转换。
+
+必须用实际旧版程序验证拒绝行为，不能假定已发布旧 reader 会识别新 capability。旧在线 HEAD 位置应保留不含任务数据、令旧读取／init 明确失败的退役保护哨兵，或采用经验证等效的旧入口阻断；它不是第二套 JSON 档案。新入口以 SQLite 格式门禁识别，安装回退和远端旧格式消费者也须 fail closed。不能只移走 HEAD 和 revisions 后留下能被旧版 init 重建的“空档案”现场。
+
+### 15.8 GitHub SQLite 快照、换机与恢复
+
+保留本人既有私有仓库及 main 分支绑定，不另建仓库，不 force push，不按数据库二进制做自动合并。数据库物理 hash 用于传输验真，逻辑 archive／revision／parent／digest 用于祖先和回滚检查，不能把“sqlite 文件不同”直接等同于业务分叉。
+
+本机完整备份可使用 SQLite Backup API 得到一致数据库副本；跨机快照必须按显式表／字段合同只包含可同步任务资料、必要历史和交接元数据。若在线库含本机恢复／同步 outbox 等专属数据，不能直接上传整个在线库：在一致读视图中构造新的 SQLite 快照，只复制白名单数据并复核计数／逻辑摘要；不能复制后 DELETE 敏感行就假定自由页已清除。本机配置、凭据、当前进程所有权材料及 Codex 原生状态不进入远端。
+
+Git 当前树拟仅维护 `doc/5_project_knowledgebase/bridgepilot/bridgepilot.sqlite3` 这一任务快照，schema、archive、revision、祖先、快照来源及需要的 reader 能力存于库内。校验摘要可使用 Git 对象身份／固定格式摘要字段；不再另生成 HEAD／revisions JSON。保留 Git 历史作为历史传输版本，文件名与实际所有权清单由同步模块固定管理，拒绝未知归属路径。
+
+库内字段保存逻辑摘要及来源身份；整个快照文件的物理 SHA-256 放在传输／提交回执中，不能试图把数据库自身的完整文件摘要回写进同一个数据库形成自引用。远端读回同时核对 Git commit、文件摘要和库内逻辑修订；恢复所需退役保护哨兵由受管激活流程在本机创建，不作为另一份远端任务数据。
+
+旧机 prepare all 的顺序仍是：明确全部暂停 → 实际核验停止和无 Unknown → 按各项目既有授权保存并核对代码检查点 → 生成释放控制权的 SQLite 候选快照 → 保存上传意图与准确候选身份 → 条件推送 → 远端读回确认 → 激活本地冻结／已释放结果。不得直接把正在写入的 .db 主文件上传，也不得先释放控制权再猜推送成功。
+
+新机 restore：确认本人 Git／gh／Codex 环境 → 下载完整 Git 历史及准确快照 → 校验 schema、摘要、逻辑祖先与完整性 → 恢复到候选数据库 → 核对真实各项目代码检查点／绑定 → 按既有独占协议远端确认接管 → 激活本机。旧 Run 和历史不改写，任务及 heartbeat 仍暂停，继续执行须遵守原授权和明确 resume 范围。
+
+SQLite 事务不能跨本机与 GitHub 原子提交：同步 outbox 要持久保存预期远端、候选 commit／快照摘要、阶段及核销所需输入。网络期间不长期占用 SQLite 写锁；响应丢失只 reconcile，不能重新上传未知候选。现有 pending 栅栏、取消、竞争接管、分叉拒绝和迟到旧提交保护均须迁移，不能为简化数据库改造删除这些路径。
+
+GitHub 切换使用新格式首次提交承接既有已验证 JSON 远端祖先，旧历史保留。首次 SQLite 下载读取和安装必须具备 reader 能力，新旧格式混合／不支持版本时阻断，不把旧 reader 的失败改成“新空库”。本机可清理缓存不是唯一恢复依据；必要候选身份及恢复数据保存在数据库的本机专属持久表中，缓存丢失后仍能安全核销。
+
+### 15.9 影响文件与传播四问
+
+| 范围 | 已定位文件或拟新增模块 | 修改边界 |
+|---|---|---|
+| 数据库与迁移 | `source/orchestrator/store.rs`；拟新增 `database.rs`／`migration.rs` 及 schema 资源 | 新建 SQLite 存储／历史／事务接口和旧链只读导入器；按职责拆分，不继续扩大单个 Store 文件 |
+| 领域与事件 | `domain.rs`、`codex.rs`、`scheduler.rs`、`owned.rs`、`grouping.rs`、`review.rs`、`delivery.rs`、`wakeup.rs`、`lib.rs`；拟新增事件归约模块 | 保持授权、进程身份、原生项目、暂停、Unknown 和交付核验语义；SQL 事务连接传递与外部调用边界明确 |
+| 查询与入口 | `cli.rs`、`main.rs`；拟新增 `status.rs` | 六列视图、固定序号、阶段映射、统一转义排序、只读错误；既有机器响应按协议升级 |
+| 同步与换机 | `sync.rs`、`handoff.rs`；必要时独立快照模块 | 从 JSON 文件集换为一致 SQLite 传输，保留双祖先与网络未知核销，不能越权接管 |
+| 依赖／安装 | `source/orchestrator/Cargo.toml`、根 `Cargo.lock`、`install.rs`、`user_skill.rs`、`launcher.rs`、本项目原有包登记与 artifact layout | 锁定 SQLite 构建；能力检测、迁移／激活和回退保护、安装资产显式登记；不自动改上游公共模板 |
+| 本地 Skill 与说明 | `source/orchestrator/skills/bridgepilot/SKILL.md` 及四个既有 reference、README、INSTALL、`doc/0_architecture/design/bridgepilot-runtime-protocol.md`、本计划与索引 | 本阶段仅计划；实施后才同步“当前架构”。替换 Agent 拼表候选，沿 BP 自有打包／投影更新用户级副本 |
+| 验证 | `scripts/tests/orchestrator/domain.rs`、`store.rs`、`protocol.rs`、`execute.rs`、`rpc_fixture.rs`、`scheduler.rs`、`delivery.rs`、`portable.rs`、`setup.rs`、`wakeup.rs`；拟新增 SQLite／status／migration 专项用例 | 独立测试仍留在规定目录，报表在 `.runtime/tests/<任务>/`；不让生产运行依赖测试 fixture |
+
+传播四问结论：本次为 **BP 产品层私有能力**，非 Forge 通用能力；需要 orchestrator 子包受管收口及最终产品发布时的版本／CHANGELOG 分析，但本轮不写版本或发布说明。新格式对旧程序不兼容，具体版本判级按真实兼容门禁与现行版本合同分析，不预写目标版本。公共八包投影和 Forge 共享 Skills 不传播；自身 BP 包、用户级 BP Skill、本地安装与产品说明需要同步。Forge 自身源码只在发现确有必要的构建／发布集成缺口后另说明，不借本次计划修改公共模板、AGENTS 或下游项目。
+
+### 15.10 分步任务、依赖与完成标准
+
+下列 BP9 编号是 TODO-050 内部工作分解，不能冒充新库的真实任务号。
+
+| 编号 | 优先级／依赖 | 实施内容 | 验证／完成标准 |
+|---|---|---|---|
+| BP9-01 | P0；首项 | 重验工作树、已验收包基线、home／档案／远端、活动执行及未决操作；冻结六列、状态映射、数据与同步合同 | 明确本阶段差异、受保护输入、唯一后端、旧格式边界和切换检查点；不把旧三小时预算套到新阶段 |
+| BP9-02 | P0；01 | 引入锁定 SQLite 依赖，建立 schema／连接／事务、revision CAS、能力门禁与持久任务序号 | 事务失败零部分提交，序号唯一不复用，外键／依赖校验有效，多进程冲突及有界忙等待可核验 |
+| BP9-03 | P0；02 | 建立旧档案只读预检、全历史导入、等价性核对、激活与恢复协议 | 有效／损坏／重复字段／断链／孤立修订／Unknown fixture 可区分；重复迁移不重复导入，旧 reader 不能写新库 |
+| BP9-04 | P1；02 | 将任务登记、现有 Store 消费者与执行事件持久化迁至 SQL，接入已有对话观察模式 | 中途退出保留已提交进展；重复／乱序事件不重复推进；已绑定对话不被调度器再次派发 |
+| BP9-05 | P1；02、04 | CLI 实现统一 status 视图／渲染，Skill 只调用并展示；删除候选的 Agent 拼表依赖 | 表头恰好六列且固定顺序，同 revision 输出一致；筛选／重启／换机后任务号不变；全文件零写入 |
+| BP9-06 | P1；02、03 | 改造 SQLite 备份、白名单跨机快照、Git 传输、祖先与 outbox 栅栏；接入 release／accept／continue | 传输同源可读回，分叉／过期候选拒绝，网络未知只核销，所有旧故障分支有对应新格式覆盖 |
+| BP9-07 | P1；03～06 | 更新安装／launcher／reader 特性、包资产、Skill 投影及 INSTALL 恢复入口 | 干净安装、旧 JSON 安装升级、未决 journal、旧程序回退拒绝和用户编辑保护均通过；不先坏掉原安装再依赖其迁移 |
+| BP9-08 | P1；03～07 | 稳定候选，执行预定验收集与独立迁移／等价性复核，按影响完成受管子包收口 | 关键迁移缺陷与本轮回归关闭；必要独立证据齐全；收口只覆盖真实受影响包，不触发下游业务回归 |
+| BP9-09 | P2；08及后续明确实施授权 | 执行 B 范围：保护原件、冻结真实切换窗口，迁移本机档案和指定遗漏任务，更新真实 BP／Skill | 保留全部已有身份／状态／历史、控制权和暂停偏好；真实 status 包含当前明确 BP 任务，编号固定，原件可恢复 |
+| BP9-10 | P2；09 | 将既有私有 GitHub 存档的当前格式切为 SQLite，实际读回并做独立目录恢复核验 | 远端确认准确 commit／快照，恢复前后逻辑身份及业务数据等价；隔离恢复不接管真实 owner，不启动业务或 heartbeat |
+| BP9-11 | P2；09、10 | 停用旧在线 JSON／索引，验证本机正常查询与恢复流程，更新唯一文档和证据 | 正常路径不再读写在线任务 JSON；无第二可写事实源；备份及 Git 历史保留；工程交付／用户验收／正式发布分别记录 |
+
+关键依赖为 01→02→03／04，04→05，03＋02→06，03～06→07→08→09→10→11。可以复用有效证据和缓存；不得在迁移／快照规则未稳定时先切真实档案。独立 agent 的使用只在后续明确实施约定及项目迁移独立验证要求下安排，本轮不启动。
+
+### 15.11 验证矩阵与 B 范围验收
+
+| 编号 | 场景 | 必须取得的证据 |
+|---|---|---|
+| V01 | 六列及真实查询 | 固定表头／顺序、中文／换行／竖线转义、长内容、空清单、暂停／受阻／Unknown、已完成默认隐藏；原生入口读回与 CLI 一致 |
+| V02 | 固定序号及事件 | 同时登记唯一、重复提交幂等、任务修订／过滤／取消不改号；重复／乱序／旧 Run 事件不会污染当前任务 |
+| V03 | SQL 事务与只读 | 多进程 CAS 冲突、失败回滚、忙超时、缺库／损坏／未知 schema；status 前后全部受测文件摘要和目录成员不变，不建立 journal／索引／配置 |
+| V04 | JSON 全历史等价迁移 | 原 HEAD 父链逐项验证、全部对象及证据映射相等，历史 task ID 不变；断链／孤立／重复 key／非法字段／截断输入失败不激活 |
+| V05 | 崩溃与回退 | 候选生成、事务提交、后端激活、安装切换、事件入库各阶段故障注入；既有新写入后禁止恢复过时 JSON；权限／链接／占用冲突保护 |
+| V06 | 执行与交付门禁 | 原生进程 owner 与项目绑定、暂停／Unknown、completed→Reviewing、开发／发布核验、观察已有对话不重复执行；原规则不退化 |
+| V07 | 快照隐私与恢复 | 本机完整备份、白名单远端快照、完整性／外键／领域校验；配置／凭据／本机 outbox 不泄漏，快照丢失／篡改／截断拒绝 |
+| V08 | 同步与独占交接 | 快进、回滚／分叉、首次格式切换、网络成功后丢响应、竞争 accept、迟到 push、cancel／fence、未决候选缓存被清理；未确认不释放或接管 |
+| V09 | 安装和冷恢复 | 旧 JSON 档案上安装新 reader、激活迁移、Skill 归属／完整性／原生发现、旧版本回退保护；不把包存在当作入口可用 |
+| V10 | 真实 B 切换 | 本机当前档案逐对象核对、指定任务回填、真实 status、GitHub 私有库准确快照读回、独立目录恢复、暂停和 owner 保持；无真实业务写入／发布副作用 |
+
+必须做迁移与等价性的独立验证，不能只依赖实现者自测。上述验证是待执行安排，不是本轮通过记录。受管检查优先使用现有 orchestrator 的完整登记检查，按实际新增专项补充；数据库／同步广泛改造需要覆盖该包相关集成，但没有依据就不扩成整个 Forge workspace 或下游业务全量回归。
+
+真实性分层：逻辑双机／本机隔离身份验证、真实 GitHub 往返、本机实际安装、两台物理电脑交接分别记录。B 的最低交付包括真实本机迁移／安装、真实远端 SQLite 快照及独立目录恢复；没有第二台物理电脑时不宣称物理双机通过，保留该项环境缺口，不能用模拟证据冒充。实际新机接管或业务 resume 仍需届时对应的用户指令。
+
+性能只作为改造前后同口径检查：记录 status 延迟、事件提交和按任务数／历史数增长的读取成本，区分缓存命中与冷启动。不预设“SQLite 已更快”，不为这轮架构迁移另组织无边界优化或基准框架。
+
+### 15.12 预算、风险与停止点
+
+规模为 **L**：涉及存储架构、全历史迁移、外部副作用恢复、跨机独占与真实交付。本轮仅规划，不沿用初批三小时授权，也不据历史 release 授权实施本阶段。实施前按 confirm 一次约定时间、token、agent 与验证轮次整体预算；当前不新增预算额度、不启动原生 Goal、不自动并行分派。本计划已纳入迁移独立复核成本，不能为预算省略必要验证。
+
+| 风险／停止条件 | 处理原则 |
+|---|---|
+| 旧链损坏、归属不明、活动／Unknown、未决同步或其他机器控制 | 停止激活和真实切换，保留实际状态；先核销已有操作，不重复执行 |
+| 缺失 task 授权／来源、多个任务归属冲突 | 只阻断该项补录或后续执行；不让 Agent 自动认领所有旧聊天 |
+| SQL 与现有领域状态机不等价 | 不部署真实库；先恢复兼容语义，不能删除保护来使测试通过 |
+| 只读连接产生文件、schema 自动升级或活库备份不一致 | 视为验收失败，调整连接／journal／快照实现，不能以可恢复为由放宽只读 |
+| Git 物理快照差异被误当逻辑分叉，或 outbox 恢复输入不可持久保存 | 停止推送／接管，补齐逻辑修订／祖先与持久恢复协议 |
+| 快照包含本机配置／凭据或未授权资料 | 停止上传，修正显式同步白名单；不以“私有库”作为放宽理由 |
+| 网络拒绝／结果未知、用户登录或必要设备不可用 | 仅停止依赖该条件的步骤，精确记录已完成部分；不改远端、提权或模拟成功 |
+| 新库已写入却要求回退旧程序 | 保护最新 SQLite 及外部结果，拒绝丢数据的旧 JSON 恢复；另定受控恢复路径 |
+| 当前候选同包混杂、预算不足或连续实质修复失败 | 按现有 develop／confirm／escalate 规则处理，不扩大范围或无限重测 |
+
+确认结果：三项产品目标、唯一存储及 B 范围已经确认，没有阻断计划落盘的产品问题。后续开工前只补实际实施预算、设备条件和必要权限，不重问 SQLite／JSON 选型、六列表头、用户查询接口或 B 的含义。B 不自动授权产品源码提交／发布、下游业务写入或真正转移到另一台机器的控制权。
+
+### 15.13 文档交付与接续
+
+本轮只增补本唯一计划及 `doc/README.md` 导航，引用既有 TODO-050；不改其原始内容、整体状态或既有验收，不新增重复 TODO。计划内 BP9-01～11 均待执行，未运行迁移测试、构建、业务回归、真实档案改写、GitHub 上传或安装更新。
+
+后续获得明确开工与预算约定后，从 BP9-01 开始，按既有 develop 完成实现、预定验证、必要独立复核和受管子包收口，再完成 B 范围真实交付。各步证据、偏差和恢复输入继续在本文件增量记录，原始测试及收据进入 `.runtime/tests/bridgepilot-status-sqlite/`；关键恢复状态不能只存在可清理日志中。开发完成、工程验证、用户验收和 Git 正式发布仍分别判断。
+
+SQLite 技术依据仅用于实现约束，不代替 BP 验收：[事务语义](https://sqlite.org/lang_transaction.html)、[外键启用及约束](https://sqlite.org/foreignkeys.html)、[一致备份 API](https://sqlite.org/backup.html)。
+
+### 15.14 autopilot 启动准备（2026-11-01，待整体约定确认）
+
+用户后续明确调用 `$autopilot 按照这个计划开始工作吧`。继承 BP9-01～11、固定六列、SQLite 唯一在线状态库及 B 范围，不重做产品需求访谈。前文“只计划”是计划落盘时的历史权限；本次进入启动准备，尚未建立 Goal 或开始业务实施，等待下述整体预算与启动约定一次确认。
+
+- 本次实测：原生 `get_goal` 返回空；工作区为 `D:/Quant/BridgePilot`、分支 main、HEAD `b447e6954e59244d08e37cdc9d396ca8718767fd`，既有脏改动仍保留。Rust/Cargo 1.94.1、Git 2.47.0、gh 2.92.0 可用；受管工厂入口和既有 orchestrator 0.6.0 收口收据存在。实际构建及 SQLite 依赖兼容尚未验证。
+- 真实档案再次只读读回 revision 85、五项目、两任务、零 active／Unknown Run，owner 仍为本机，transport pending 文件不存在。已定位个人 home／workspace／Skill 绑定，未转换或更新它们。
+- `gh auth status` 在受限沙箱中曾报 invalid；经只读系统凭据环境核验为 GitHub 账号 freakybridge 已登录、keyring 可用。未因此要求重新登录或改凭据；具体私有仓库远端及 SQLite 依赖下载仍需在实际步骤读回核验。
+- Hook 注册已读取；入口存在和过去收据不作为本轮自然生命周期 Hook 已触发的证明。当前未手工重放 Hook、安装依赖或运行回归。
+- 拟定整包预算 **200000 token**，包含准备调查、主对话、至多两名子 Agent 的工作、实施、独立复核、最多三轮完整验证、合理修复及收尾。预计 6～10 小时，仅估算不设时间硬上限；阶段不重置预算，不创建定时续跑。子 Agent 保持当前模型／effort，不擅自切换。原生 Goal 的子 Agent 统计覆盖尚未验证，须分别说明统计边界，不将主线程读数冒充整包实测。
+- 本项目 `.runtime/task-budget/weekly-quota.json` 已不存在；指定的旧产品／安装目录也未找到可复用记录。现仅有已读历史需求文档中用户接受的 `40000 token ≈ 0.6%` 参考（见[周额度需求记录](../weekly-quota-budget/requirements_2026-10-02_weekly-quota-budget.md)）；它没有足够字段证明与当前模型／速度同配置。拟经本次用户明确同意后，把它作为当前任务的 provisional 参考，折算整包约 3.0%，不是实测或官方额度承诺。未获同意前不静默套用、不保存为 calibrated 系数。
+- 拟定委派：至多一名按明确文件边界实施的 worker，以及一名独立迁移／等价性 reviewer，主对话整合并执行全部受管操作；不为预检启动子 Agent。正常验证覆盖 V01～V10；三轮按 confirm 的实际闭环口径累计，同一问题连续实质修复失败按现有规则停止盲修。
+- 待批准的启动范围包括源码与文档改造、必要构建／隔离验证／子包收口，以及 B 所需的真实个人档案迁移、本机 BP／Skill 更新、既有 GitHub 私有存档库 SQLite 快照推送及恢复验证。后者是用户档案备份切换，不包含本产品源码的 Git 提交／推送／正式发布；不修改下游业务，不接管第二台机器，不恢复 heartbeat。平台对实际写入路径和网络动作仍按工具权限处理，不绕过拒绝。
+- 用户批准后建立一个原生 Goal，覆盖同一任务包和整体预算，从 BP9-01 顺序接续；不覆盖其他 Goal、不逐阶段另建目标，不把预算阈值当作逐 token 精确截断。当前没有批准的本阶段 token 额度，也没有启动正式 Goal。
+
+### 15.15 第九阶段首次执行与预算限制交接（2026-11-01）
+
+用户随后明确“同意，按这个约定启动，沿用历史参考估算本轮周额度，开始吧”。本阶段已取得 BP9-01～11 实施及 B 范围授权，整体预算 200000 token，历史参考折算约 3.0%，至多两名子 Agent、最多三轮完整验证；不因此取得产品代码 Git 提交／推送／正式发布、下游业务改动或恢复 heartbeat 授权。15.14 中“待确认／未建立 Goal”为启动准备时历史状态。
+
+原生 Goal 已在本控制对话建立，目标引用本节唯一计划及同一任务包。执行约 13 分钟时平台主动报告 budget_limited，触发时读数 697368／200000；最后一次 `get_goal` 实际读回 **status=budgetLimited、tokensUsed=774367、remainingTokens=0、timeUsedSeconds=810**。这是平台原生计数，不是费用账单；目前无法完整验证其主／子用量归集口径。停止新增实质工作，不新建 Goal、不自行追加预算、不把未完成目标标为 complete 或 paused。
+
+#### 已完成的准备与代码草稿
+
+- 原生 Goal、Rust/Cargo/Git/gh、真实档案 revision 85／无活跃 Run／无 pending、本机登录及旧包收口基线均按 15.14 核验。改动前主要文件与真实档案 HEAD 摘要保存在 `.runtime/tests/bridgepilot-status-sqlite/baseline-hashes.json`；该文件是在添加 rusqlite manifest 行后保存的辅助快照，不冒充全部文件的修改前副本。
+- 经用户已批准的协作安排，派出一名 `implementation-worker`，任务名 `/root/sqlite_store`，仅负责 `store.rs`、新增 `database.rs`／`database/`／`migration.rs` 与存储专项测试；主对话负责其余接口整合。预算触发后已发停止消息并调用 interrupt，最后状态为已中断，不继续委派或要求其修复。独立 reviewer 尚未启动。主对话 Cargo 调用已返回退出结果；恢复前仍需核对子 Agent 可能遗留的进程，不认领或终止来源不明进程。
+- SQLite 依赖已通过原生 Cargo 下载并锁定为 `rusqlite = 0.38.0`，features 为 bundled／backup／serialize；最初候选 0.41.1 声明 Rust 1.89，发现与项目 MSRV 1.88 不符后已替换，没有提高项目工具链合同。0.38 源码已核对 deserialize_read_exact 等接口，实际 bundled SQLite 与 rusqlite 编译成功；Rust 1.88 本身尚未实测。
+- worker 已落 SQLite 规范化实体／历史 delta／持久任务号／本机 local_records 表、只读连接、事务与 CAS、候选快照、旧 JSON 导入／激活／恢复主体草稿。State 仍为内存领域模型，新增空值跳过的 tracking 字段；旧 State 序列化需由后续等价性用例证明未漂移。
+- 主对话新增 `tracking.rs`：任务来源／观察模式／暂停与发布暂缓结构、事件载荷摘要及每任务链、注册幂等键、事件与状态同事务接口；新增 `status.rs`：六列确定性视图、固定号、阶段排序／过滤、来源元数据和 CLI 生成的展示文本。`cli.rs` 接入 status、storage-preview／migrate／recover、task-hold 与新能力标签；任务登记改为结构化来源登记；`domain.rs`／`scheduler.rs` 禁止观察模式任务重复派发；`install.rs` 增加按 SQLite reader feature 选择只读迁移预检的候选逻辑。
+
+以上是代码草稿，不是开发完成或功能验证通过。第九阶段源码未执行受管子包收口、升版或产品 Git 同步。
+
+#### 首次编译的实际结果与未完成部分
+
+已执行一次：`cargo check --locked --offline --manifest-path Cargo.toml --target-dir .build/bridgepilot/test-target -p bridgepilot-orchestrator --features test-fixtures`。SQLite C 依赖及 Rust 绑定编译通过，BP 库编译失败（退出码 1），约 50 个诊断主要集中于：
+
+1. rusqlite 0.38 的 `ToSql`／`FromSql` 不直接支持 u64；`database.rs`、`database/entities.rs`／`history.rs` 及主对话 `tracking.rs`／`status.rs` 的 revision、task_no、时间字段需进行**有溢出检查的 i64 转换**。不能用无检查 `as` 或放宽数字校验掩盖问题。
+2. `database/history.rs` 的 `put!` 宏在表达式位置展开尾分号，被现有工具链拒绝；需在所属文件修正。
+3. 完整诊断包含其他接口／类型错误及未使用 mut 警告，恢复后应将编译输出保存到上述任务报告目录再逐项处理，不能只凭本摘要声称所有根因已知。
+
+尚未实质修复后重测；预定 V01～V10 完整验收轮次尚未开始，不能把 cargo check 当作完整第一轮通过。以下均未完成：
+
+- `codex.rs` 的实时事件持久化尚未接线；报告／开发／发布核验事件及 publication hold 的发布门禁也尚未整合。
+- `task-observe` 只出现在 help 清单中，尚无参数路由／原生只读观察适配器，不能对外宣称可用。正式阶段信息不能靠人工填写或模型猜测。
+- `sync.rs`／`handoff.rs` 尚保留旧 JSON 文件集协议，**与新 Store 的单 SQLite 导出不兼容**，必须完成快照、旧远端祖先衔接、local_records outbox 与未知结果核销迁移后才允许真实上传。
+- `status.rs` 声明的 `scripts/tests/orchestrator/status.rs` 尚未创建；旧存储／portable 等测试仍需按真实新协议更新与新增专项。未执行单元／集成、故障注入、只读零写入、全历史等价性或独立复核。
+- Skill 中之前 Agent 拼表的临时候选尚未替换；README／INSTALL／当前架构尚未同步新的已实现行为。安装器兼容性代码只有草稿，未做安装回退保护验证。
+
+#### 文件边界与下一次接续
+
+本次新增／直接修改位于 `source/orchestrator/{Cargo.toml,lib.rs,domain.rs,store.rs,cli.rs,install.rs,scheduler.rs,tracking.rs,status.rs,database.rs,database/,migration.rs}` 与根 Cargo.lock；worker 的存储测试编辑是否已完成以恢复时实际 diff 为准。原先已有的 codex／environment／user_skill、AGENTS、项目配置／账本及其他文档改动保留，不能都计作本阶段成果，也不能 reset。当前分支仍 main，最近保存的基准 HEAD 为 `b447e6954e59244d08e37cdc9d396ca8718767fd`，恢复时重新核验，不把它当作未来提交。
+
+1. 先处理原生 Goal 的 budgetLimited：由用户在受支持入口明确调整／追加预算并恢复，保留同一任务包及累计观察；不要创建新 Goal 清零或未经批准沿用本轮 200000 token。
+2. 读取本节，核对实际文件与记录差异、Agent／进程和真实档案／远端／本机安装基线。确认旧 0.6.0 稳定入口仍可用，不执行迁移探针来冒充验收。
+3. 先修复首次编译问题，补齐 status 专项测试，再完成事件、观察与 sync／handoff／安装协议整合；SQLite 快照验证应使用 `database::inspect_shared_bytes`，不能允许远端带入 local_records。
+4. 按 BP9-08 及 V01～V10 做完整预定验证与独立迁移复核，通过后才做 BP9-09～11 的 B 真实切换及交付。只选择真实受影响包收口，不复用任意旧日志认证当前草稿。
+
+**真实个人档案、GitHub 存档结构及个人 BP／Skill 安装均未切换；没有新上传、提交、推送、正式发布、下游业务改动或 heartbeat 恢复。** 线上仍是既有 JSON／0.6.0 行为。本阶段未完成、未验收；本次仅保存交接，不结算 TODO-050。
+
+#### 用户授权调额至 1000 万及接口阻断（2026-11-01）
+
+用户明确要求“通过app server将token上限修改至1000万然后继续”，指同一 Goal 的总上限 **10000000**，不是新建目标或清零累计。只处理预算管理，预算恢复生效前不恢复代码实现。
+
+已通过本机 Codex 生成的实验协议 schema 核对 `thread/goal/get`／`thread/goal/set`，参数含 threadId、tokenBudget、status 与 origin。使用原生 App Server stdio，以 origin=user、tokenBudget=10000000、status=active 请求修改本控制对话目标，服务返回 `failed to record goal instruction: thread ... already has an active writer`。随即原生 get_goal 读回仍为 budgetLimited／200000，未发生成功调额。
+
+随后尝试官方 `app-server proxy` 连接既有控制入口；只读 `daemon version` 与 proxy 诊断均显示无法连接 `C:/Users/bridg/.codex/app-server-control/app-server-control.sock`，Windows error 10050。没有启动／重启 daemon、抢写原生会话、修改原生数据库或使用自动来源冒充用户调额。最后原生读回仍 budgetLimited，tokenBudget=200000、tokensUsed=800753。接口 schema 位于 `.runtime/tests/bridgepilot-status-sqlite/app-server-schema/`。
+
+继续条件：通过当前持有对话的客户端／可用的受支持控制接口落实用户已批准的 10000000 总上限并恢复同一 Goal，实际读回后接续；不能把用户授权本身当作平台限制已经解除。尚未验证 Goal 面板在本客户端的具体控件位置，不编造界面路径。
+
+### 15.16 调额成功后的实施进展（2026-11-01，进行中）
+
+用户继续明确要求代为修改并接续。原生 App Server 的官方 `thread/goal/set` 请求省略可选 origin 后成功；同一 threadId／createdAt 保留，上限为 10000000、status=active，累计 tokensUsed 未清零。实际 `get_goal` 已独立读回；辅助收据位于 `.runtime/tests/bridgepilot-status-sqlite/goal-budget-update.json`。15.15 的接口失败及暂停为历史状态，已解除，不再要求用户重复调额。
+
+BP9-01～07 已形成候选：SQLite 规范化实体／修订 delta／稳定序号、全旧链原字节导入与恢复、执行事件、固定六列只读 status、绑定聊天的只读观察、共享表白名单快照、SQLite local_records outbox／候选及安装 reader 门禁。Skill 只展示 CLI 的 view.markdown；INSTALL 与当前架构已同步。SQLite 0.38 保持项目 MSRV 合同，未实际运行 Rust 1.88。status 当前仍读取当前实体中的全部 Run／事件来核对摘要，尚未实现仅取最新 Run 列的专用 SQL 投影；不宣称索引查询或性能提升。
+
+已复用一名 worker 完成存储与 portable 专项，并启动一名独立 reviewer。初审发现的暂停决定互相覆盖、Prepared 停止语义、恢复候选合并超限、观察失联展示、大终态载荷及同步读回缺口均已修候选：任务暂停与发布暂缓独立保存；scope 错配拒绝；无尝试 Prepared 可取消，有未知外部尝试保持 Unknown；覆盖前核验完整合并字节；失联保留最后实际观察并显示受限；事件引用同事务完整回执的摘要；发布后实际 fetch 并核对 commit／物理 SHA-256／逻辑 Head。最终复核及整体验证尚未完成。
+
+专项实际结果：此前存储13／迁移5／status5／portable12通过；补充后存储14项中新增超限保护已通过，status8项通过，观察适配器2项通过。一次新增测试错误地在已持 writer 锁的事务中再读取 machine，修正测试取值位置后通过，未改变生产锁保护。首次49项库检查为48通过／1个该测试失败，不能列为全库通过；完整受管检查尚待执行。portable 的沙箱首测受 MSYS 命名对象权限影响，系统环境12项通过，未修改代码绕过权限。
+
+真实个人档案仍为原 revision 85／旧 JSON，BP 与用户级 Skill 仍为原安装，私有远端尚未切换；待最终审查、必要检查及受管收口成功后才执行 B。未提交／推送产品源码、未发布、未改下游业务、未恢复 heartbeat。
+
+### 15.17 首次收口与真实切换窗口（2026-11-01）
+
+受管 `develop --apply --packages orchestrator` 首次返回 development-closed，2组最终候选检查执行通过，orchestrator 0.6.0→0.7.0（旧 JSON 在线协议改为 SQLite 的 0.x breaking minor）；core 因共享锁文件构建覆盖变化仅重验并刷新证据，10.2.0 不变。收据 `development-apply.json`，登记 stdout／stderr 摘要见收口账本；一次验证前因文档漂移拒绝不计通过或完整验收轮次。锁定 Release 构建成功，未提交／推送产品源码。
+
+B 已执行本机 BP 0.7.0 受管安装、真实档案 revision85 的86份旧链迁移、用户级 Skill 更新及原生 skills/list enabled 核验。独立 reviewer 运行只读审计辅助 `scripts/tests/bridgepilot_real_audit.rs`：86份旧文件摘要、完整逻辑 Snapshot、SQL 内保存的原始字节逐项一致，5项目／原2任务／5Run／18Operation、原owner／epoch0／handoff空及wakeup paused保留；数据库字节未变化，见 `independent-live-audit.json`。隔离副本实测旧0.6的status与init均退出2且不改SQLite／不复活revisions；真实install-rollback也拒绝旧reader，当前仍0.7.0。
+
+固定号1、2保留，补登记本BP任务为3，以及来源对话最新重新授权的四下游发布为4～7。原“统一暂缓”已由用户后续“四个下游一起release”及允许Stratus已提交变更的决定覆盖，未重新施加旧hold；均绑定既有控制对话为Observed、不派发或接管。登记／确认来源及耗时见 `real-task-registration.json`，真实在线库推进到revision96；已有任务和历史未改写。
+
+真实观察发现 stdio thread/read 返回 notLoaded，却读到历史 interrupted，当前桌面仍在执行。候选已修：只把实际active的回合当当前状态；其他情况下只读原生Goal，可靠active目标显示“托管目标进行中·观察受限”，无目标显示“观察受限·当前状态未核实”。保留历史回合与计数，不认证停止。新增隔离真实探针已读回本Goal active和历史interrupted，未改真实库；3项观察专项通过。此为兼容修复，待第二轮受管收口及更新安装，尚未上传远端，不能将0.7.0首次检查冒充最终修复验证。
+
+同revision85、同稳定launcher完整进程口径的4次status：旧JSON 963.49／190.95／190.03／222.29ms，新SQLite 54.58／44.51／45.05／47.10ms，数据库逐字节未变。首样本仅进程冷启动，非OS缓存冷启动；本机小档案对比不外推大库性能。5次实际登记（含事件与修订）完整CLI 85.68～107.16ms；后续任务／历史增长后的查询另记，不宣称专用SQL投影优化已完成。
+
+第二轮受管检查及收口通过，候选0.7.1，尚未部署。独立复核进一步指出 active 加历史终态仍不能作为停止证明，以及 Goal active→非active→active 的往返不能被旧事件幂等跳过。最终修正仅允许 active+inProgress；其他保持unknown。观察只对最新事件内容去重，重现旧证据用本次revision生成新事件。3项观察专项已覆盖上述往返、失联恢复后重复零写入与暂停拒绝，最终日志 `observation-final-tests.log`；一轮专项曾因恢复标记字段变化多增一次修订失败，删除该冗余字段后通过。等待独立复核及第三轮最终受管检查后构建最终补丁包，0.7.1仅为中间收口版本，不重复迁移真实档案。
+
+<a id="bp-status-sqlite-delivery"></a>
+
+### 15.18 第九阶段工程交付与接续（2026-11-01，待用户验收）
+
+BP9-01～11 的工程交付及 B 最低范围已完成。原生 Goal 仍沿用本控制对话 ID、createdAt及累计用量，不创建第二目标。共有一名复用 worker 和一名独立 reviewer，未另开用户聊天；三轮受管完整检查均成功，最终候选审查通过。开发完成、用户验收及产品源码发布分别判断，TODO-050及lifecycle不因工程完成自动关闭。
+
+| 范围 | 实际交付与证据 |
+|---|---|
+| BP9-01～07 | SQLite唯一在线库、固定六列及稳定号、事件同事务、全旧链迁移／恢复、共享快照、持久本机outbox、旧reader门禁和Skill单入口均落地。受管生成的锁及dogfood哈希同步保留，Forge公共Rust源码及共享Skill未增加BP依赖。 |
+| BP9-08 | `development-apply.json`、`development-apply-v2.json`、`development-apply-v3.json` 依次 closed：orchestrator 0.6.0→0.7.0→0.7.1→**0.7.2**；core10.2.0仅首轮刷新构建覆盖，版本不变。最终锁定Release构建通过，未组织下游业务回归。 |
+| BP9-09 | 真实home及用户级Skill均0.7.2；原生skills/list enabled。86份旧链、原2任务／5Run／18Operation及控制权／暂停偏好完整保留；新增5项仅Observed。固定任务号1～7，已交付1默认隐藏，实际6行。旧0.6 status/init与真实旧reader回退门禁均拒绝。 |
+| BP9-10～11 | 真实私有库 `freakybridge/BridgePilotData` main 当前树切为唯一SQLite。独立B审计快照为revision101、commit `85f27c881af93ae7b1bc4aa5a2e18a656bdce84b`；完成状态收尾后最终revision102、commit `da393a172b33e467aabc1c130495f898fd26f6cc`、物理SHA-256 `edc2644323224fc307817fc0302eea6fa7d1341d8aafd11ef27a14e4b833e78a`。两批均实际读回及隔离恢复，没有接管、业务执行或heartbeat恢复。旧原件及Git历史保留，在线HEAD仅退役哨兵。 |
+
+独立最终审计 live／restore 的全部86历史逻辑及原始字节一致，当前state SHA-256均 `048f2f7e658adde7218190d5eefc4acdf8540511ac19e362fcf4a7a7490cc455`，task_numbers／custody／wakeups一致。恢复库 local_records=0，本机2行仅为迁移激活和最后同步收据；真实Git blob、恢复库及上传／恢复收据物理摘要一致。两边审计前后数据库字节未变，Run／Operation仍为原5／18，没有重复派发。owner仍 `machine-b8aeb244a33d208bdbfdcfe4`、epoch0，wakeup paused。
+
+最终增长后revision101／7任务的同口径4次status为49.65／42.00／57.47／40.94ms，SQLite字节不变；六列表头／顺序仍固定。这个小档案结果不代表大库或物理换机性能保证。
+
+#### 实际能力边界
+
+- 四项目来源聊天的原生完整历史超过现有4MiB消息上限，CLI已持久记录 `oversized App Server message` 和观察受限，没有由Agent猜写进展。控制对话可核实Goal active，但独立服务仍notLoaded，表中明确当前回合观察受限。status是SQL中最后已提交事实的只读视图，不扫描聊天、不现场补登记或自动刷新观察。
+- 未执行两台物理电脑换机、掉电／网络盘验证或Rust1.88实际工具链测试；隔离新身份恢复与真实GitHub往返不能冒充上述环境。
+- status目前读取当前实体中的历史Run／事件进行完整性核对；未交付仅最新列的专用SQL投影，不宣称该优化或全规模性能提升。当前兼容版本仍0.x，未认证稳定1.0。
+
+#### 证据、原件与接续
+
+原件路径由真实迁移收据确定：个人workspace的 `doc/5_project_knowledgebase/bridgepilot/legacy-json-backup/85-53d776df89070598/`。其HEAD／revisions保存原始字节，原自动README也已原字节备份；仅精确匹配旧自动说明时更新当前README为SQLite导航。不得用旧JSON覆盖已新增事实的SQLite，不删除退役哨兵或在途记录来绕过门禁。
+
+本机证据统一在 `.runtime/tests/bridgepilot-status-sqlite/`：三轮受管收口、final构建／安装／Skill发现、real-migration、old-reader-guard、real-task-registration、observe-final、real-sync-upload、restore-verification、independent-live-final-audit及independent-restore-audit。审计工具源码位于 `scripts/tests/bridgepilot_real_audit.rs`，仅RO连接与SELECT；其产物属于可重建测试工具，不是生产依赖。隔离恢复目录没有复制真实机器身份或配置凭据。
+
+保存时分支main、HEAD `b447e6954e59244d08e37cdc9d396ca8718767fd`，原有混杂改动保留；本轮没有产品源码提交／推送／正式发布，没有下游业务写入、原生数据库／Memory修改或heartbeat恢复。其他对话的Forge14发布及下游工作不并入本轮成果；本checkout未擅自合并它们。新增版本、收口与必要锁／manifest／dogfood哈希由受管事务写入，不能归为手工升版。
+
+后续用户可直接 `$bridgepilot status` 试用六列；用户验收留在当前对话，明确验收后才记录验收／TODO。若需正式产品Git同步或发布，仍需对应明确指令。接续本主题时先读本节，核对当前代码与记录差异，在已有授权内继续；本机证据缺失时如实重建必要部分，不把本节HEAD当作未来同步的最终提交。
+
+#### 原生完成标记与最后元数据
+
+工程目标完成后，原生 `update_goal` 实际返回 **status=complete、tokensUsed=1380927／tokenBudget=10000000、timeUsedSeconds=4971**（约1小时23分）；这是该原生Goal的读数，不把未核实的归集口径改称账单。createdAt仍1793523365，未清零累计或新建目标。
+
+随后仅做完成状态的归档：CLI再次只读原生来源，Goal不再返回active（实际proof的goal_status为null），将先前active观察替换为当前执行未核实，没有将Goal结束认证为业务Released。该一条观察使revision101→102，已条件上传并在既有隔离目录下载核对。最终两边 state SHA-256均 `eb8685eb623dba149b66fd15f322fd9fcd73ac5b38c5265093a5285d0e20a99f`，logical head `578a74e9f1a32760b689548c1d40f85365797ab800038c2c1cb5360d10f21a2f`；86旧修订、全部任务号、原5Run／18Operation、owner／暂停偏好继续一致，恢复local_records仍0。收据为 `goal-completion-observed.json`、`completion-sync-upload.json`、`completion-restore-verification.json` 及两份completion审计；前述独立审计对应101，最后元数据由同一已审RO工具再次核验，没有再改源码、部署或启动业务。
+
+<a id="bp-status-sqlite-acceptance"></a>
+
+### 15.19 第九阶段用户验收与发布授权（2026-11-01）
+
+用户在确认本轮开发和B范围工程验证已完成、已告知观察受限及物理双机边界后，明确调用 `$summary accept`，并调用 `$git-sync rrelease`；结合显式release Skill内容，后者按release处理。用户验收本阶段BP9-01～11及三项改造：CLI固定六列、Agent／CLI／SQLite管理分工、SQLite唯一在线状态库，以及真实本机／私有存档／隔离恢复切换。依据为15.18所列受管检查、独立迁移审计、0.7.2真实安装和最终revision102的恢复比对；本次记录不补跑开发验证、不把验收等同于发布成功。
+
+关联 **TODO-050**：本阶段已验收，更新该唯一条目的进展及本验收链接；原总管需求仍含真实缺依赖冷机、双项目业务发布、物理双机、自然唤醒及旧cwd／旧空根收尾等未完成条件，整体保持进行中，文档lifecycle／validation_status继续active／in_progress。未把原范围缺口另拆事项来强行关闭总需求。
+
+保留实际边界：超4MiB原生完整聊天仍显示观察受限；status读取最后已提交事实；物理双机、掉电／网络盘及Rust1.88未实测，专用最新列SQL投影未交付。用户验收不产生新增验证证据，也不自动恢复heartbeat或授权下游业务操作。
+
+本次已明确授权当前项目受管release，包含接入已发布远端变化、核对累计版本覆盖、必要主程序升版／产物、轻量提交检查和提交推送。原有改动保留，不使用手工Git替代受管事务，不在release中补做develop；真实远端接入及最终发布范围以本次受管收据为准。
+
+### 15.20 本轮release接入远端后停止（2026-11-01）
+
+受管预检确认origin/main推送目标为本人产品仓库 `https://github.com/freakybridge/BridgePilot.git`，已具备所需remote-context／development-closure／version-coverage能力。随后执行工厂 `git-sync --sync-remote`，未手工fetch或stash；工具保存本地改动后快进至远端既有Forge14.0.0提交 `45a51bcb1e0ad95397d1936c597b0568d43443e4`，再恢复自动stash时失败，状态 `autostash-retained`、退出2、push_performed=false。该14.0.0属于其他对话已经发布的远端成果，不是本轮新发布。
+
+只读核对发现4个未解决冲突：`.codex/managed-skeleton.json`、`.codex/package-closures.json`、`bridgeforge-manifest.json`、`doc/README.md`；另有原未跟踪的 `doc/1_delivery/forge-downstream-upgrade/plan_2026-11-01_four-projects.md` 与远端已跟踪同路径文档相撞，两个正文不相同，不能直接选一份覆盖。受管自动stash保留为 `stash@{0}`，固定对象 `1e5f5ef40642d9bf6091d2b1a4ab03d2f501550f`；原未跟踪版本仍在其第三父对象中，其余已恢复文件及未跟踪源码保留。当前HEAD与实际origin/main为0／0，但工作区／暂存区未合并，不是发布成功。
+
+按本次指定git-sync Skill的冲突停止规则保留现场，不自动合并、选边、删除stash或重跑同步。未进入release-preview／主程序升版／新提交／推送阶段；当前VERSION14.0.0来自远端。此前0.7.2开发收口基于旧checkout，远端接入后的最终覆盖尚未核验，不能直接复用旧fingerprint做新release。
+
+验收主记录与TODO-050进展已保存，公共CLI `.build/bridgeforge/bin/bridgeforge.exe check todo --root .` 实际退出0且errors为空；工厂check子命令仅支持factory-version，首次误用已纠正，未将其报错当TODO检查通过。索引doc/README.md仍处于本次恢复冲突，summary的索引收口受此阻断。收据位于 `.runtime/tests/bridgepilot-status-sqlite/release-preflight.json`、`release-remote.json`、`release-remote.stderr.log` 及 `accept-todo-check.json`。
+
+继续条件：先明确处理上述冲突和同路径文档的恢复，完整保留两侧账本历史、远端公共变化及本地BP变更；解决后重新核验受管工具与当前覆盖、生成最终release预览和分析。不得在当前未合并状态直接发布，不以当前上游一致冒充本轮已提交推送。

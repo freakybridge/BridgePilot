@@ -644,6 +644,10 @@
             "scripts/tests/orchestrator/wakeup.rs",
             "scripts/tests/orchestrator/delivery.rs",
             "scripts/tests/orchestrator/portable.rs",
+            "scripts/tests/orchestrator/setup.rs",
+            "scripts/tests/orchestrator/migration.rs",
+            "scripts/tests/orchestrator/status.rs",
+            "scripts/tests/orchestrator/observation.rs",
             "source/orchestrator/skills/bridgepilot/SKILL.md"
           ],
           "args": [

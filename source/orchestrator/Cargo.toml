@@ -1,6 +1,6 @@
 [package]
 name = "bridgepilot-orchestrator"
-version = "0.5.0"
+version = "0.8.0"
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
@@ -23,6 +23,7 @@ serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 toml_edit.workspace = true
+rusqlite = { version = "=0.38.0", features = ["bundled", "backup", "serialize"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_System_Diagnostics_ToolHelp"] }

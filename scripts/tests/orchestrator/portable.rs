@@ -1,6 +1,7 @@
 use super::*;
 use bridgeforge_core::{ProcessRequest, ProcessRunner, SystemProcessRunner};
 use bridgepilot_orchestrator::{handoff, install, sync};
+use rusqlite::OptionalExtension;
 use serde_json::json;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
@@ -109,6 +110,33 @@ fn configured(root: &Path) -> Store {
     store
 }
 
+fn local_record(store: &Store, key: &str) -> Option<Vec<u8>> {
+    store
+        .read_connection()
+        .unwrap()
+        .query_row("SELECT value FROM local_records WHERE key=?1", [key], |r| {
+            r.get(0)
+        })
+        .optional()
+        .unwrap()
+}
+
+fn transport_pending(store: &Store) -> sync::Pending {
+    serde_json::from_slice(&local_record(store, "transport.pending").unwrap()).unwrap()
+}
+
+fn transport_receipt(store: &Store) -> serde_json::Value {
+    serde_json::from_slice(&local_record(store, "transport.last_receipt").unwrap()).unwrap()
+}
+
+fn remove_transport_cache(f: &Fixture) {
+    let cache = f.root.join(".runtime/bridgepilot/transport");
+    let resolved = fs::canonicalize(&cache).unwrap();
+    assert!(resolved.starts_with(fs::canonicalize(&f.root).unwrap()));
+    fs::remove_dir_all(&cache).unwrap();
+    assert!(!cache.exists());
+}
+
 #[test]
 fn private_sync_roundtrip_rejects_an_archive_fork_and_excludes_local_material() {
     let f = Fixture::new("complete");
@@ -127,7 +155,8 @@ fn private_sync_roundtrip_rejects_an_archive_fork_and_excludes_local_material() 
     let remote = bare(&f.root, "archive.git");
     let transport = Transport::new(remote.clone());
     let engine = sync::Engine::new(&f.store, &transport).unwrap();
-    engine.upload().unwrap();
+    let uploaded = engine.upload().unwrap();
+    assert_eq!(uploaded["snapshot_sha256"].as_str().unwrap().len(), 64);
     fs::write(
         f.root.join(".runtime/config/do-not-upload.txt"),
         "private local fixture",
@@ -146,9 +175,14 @@ fn private_sync_roundtrip_rejects_an_archive_fork_and_excludes_local_material() 
     );
     assert!(!files.contains(".runtime"));
     assert!(!files.contains("project/"));
+    assert_eq!(
+        files,
+        "doc/5_project_knowledgebase/bridgepilot/bridgepilot.sqlite3"
+    );
     let target = configured(&f.root.join("machine-b"));
     let target_engine = sync::Engine::new(&target, &transport).unwrap();
-    target_engine.download().unwrap();
+    let downloaded = target_engine.download().unwrap();
+    assert_eq!(uploaded["snapshot_sha256"], downloaded["snapshot_sha256"]);
     assert_eq!(
         f.store.read().unwrap().archive_id,
         target.read().unwrap().archive_id
@@ -408,11 +442,10 @@ fn cancelled_release_keeps_recovery_record_until_fence_is_prepared() {
         )
         .is_err()
     );
-    let pending = f.root.join(".runtime/bridgepilot/transport/pending.json");
-    let before = fs::read(&pending).unwrap();
+    let before = local_record(&f.store, "transport.pending").unwrap();
     transport.fail_prepare_after.store(1, Ordering::SeqCst);
     assert!(engine.cancel_pending_release("test:cancel").is_err());
-    assert_eq!(before, fs::read(&pending).unwrap());
+    assert_eq!(before, local_record(&f.store, "transport.pending").unwrap());
     assert!(
         f.store
             .update(|s| s.resume_projects(&["p".into()]))
@@ -421,7 +454,12 @@ fn cancelled_release_keeps_recovery_record_until_fence_is_prepared() {
     engine
         .cancel_pending_release("test:cancel after connectivity restored")
         .unwrap();
-    assert!(!pending.exists());
+    assert!(local_record(&f.store, "transport.pending").is_none());
+    assert!(
+        !f.root
+            .join(".runtime/bridgepilot/transport/pending.json")
+            .exists()
+    );
     let cancelled = git(
         &f.root,
         &[
@@ -493,27 +531,112 @@ fn initial_sync_with_no_remote_ack_can_be_fenced_without_replaying_original_push
     transport.drop_push.store(true, Ordering::SeqCst);
     assert!(engine.upload().is_err());
     assert!(engine.reconcile().is_err());
-    let before: sync::Pending = serde_json::from_slice(
-        &fs::read(f.root.join(".runtime/bridgepilot/transport/pending.json")).unwrap(),
-    )
-    .unwrap();
+    let before = transport_pending(&f.store);
     engine
         .fence_pending("test:explicitly resolve unpublished initial sync")
         .unwrap();
-    let receipt: serde_json::Value = serde_json::from_slice(
-        &fs::read(
-            f.root
-                .join(".runtime/bridgepilot/transport/last-receipt.json"),
-        )
-        .unwrap(),
-    )
-    .unwrap();
+    let receipt = transport_receipt(&f.store);
     assert_ne!(receipt["operation"]["candidate"], before.candidate);
     assert_eq!(
         receipt["operation"]["superseded"][0]["commit"],
         before.candidate
     );
     assert_eq!(transport.pushes.load(Ordering::SeqCst), 1);
+    engine.upload().unwrap();
+}
+
+#[test]
+fn lost_acknowledgement_is_query_only_reconciled_after_runtime_cache_cleanup() {
+    let f = Fixture::new("complete");
+    f.store.update(|s| s.pause(true, &[])).unwrap();
+    sync::configure(
+        &f.store,
+        sync::Config {
+            repository: "test-owner/BridgePilotData".into(),
+            branch: "main".into(),
+            source: "test:authorized SQLite recovery".into(),
+        },
+    )
+    .unwrap();
+    handoff::enrol(&f.store, f.store.read().unwrap().revision, "test:owner").unwrap();
+    let transport = Transport::new(bare(&f.root, "archive.git"));
+    let engine = sync::Engine::new(&f.store, &transport).unwrap();
+    transport.lose_ack.store(true, Ordering::SeqCst);
+    assert!(engine.upload().is_err());
+    let pending = transport_pending(&f.store);
+    let before = local_record(&f.store, "transport.pending").unwrap();
+    let revision = f.store.read().unwrap().revision;
+    let pushes = transport.pushes.load(Ordering::SeqCst);
+    assert_eq!(pushes, 1);
+    remove_transport_cache(&f);
+    assert_eq!(local_record(&f.store, "transport.pending").unwrap(), before);
+    assert!(
+        f.store
+            .update(|s| {
+                s.projects.get_mut("p").unwrap().name = "forbidden pending write".into();
+                Ok(())
+            })
+            .is_err()
+    );
+    engine.reconcile().unwrap();
+    assert_eq!(transport.pushes.load(Ordering::SeqCst), pushes);
+    assert!(local_record(&f.store, "transport.pending").is_none());
+    assert_eq!(
+        transport_receipt(&f.store)["operation"]["candidate"],
+        pending.candidate
+    );
+    assert_eq!(f.store.read().unwrap().revision, revision);
+    assert!(
+        !f.root
+            .join(".runtime/bridgepilot/transport/pending.json")
+            .exists()
+    );
+    assert!(
+        !f.root
+            .join(".runtime/bridgepilot/transport/last-receipt.json")
+            .exists()
+    );
+}
+
+#[test]
+fn unpublished_candidate_can_be_fenced_after_all_runtime_git_objects_are_removed() {
+    let f = Fixture::new("complete");
+    f.store.update(|s| s.pause(true, &[])).unwrap();
+    sync::configure(
+        &f.store,
+        sync::Config {
+            repository: "test-owner/BridgePilotData".into(),
+            branch: "main".into(),
+            source: "test:authorized SQLite recovery".into(),
+        },
+    )
+    .unwrap();
+    handoff::enrol(&f.store, f.store.read().unwrap().revision, "test:owner").unwrap();
+    let transport = Transport::new(bare(&f.root, "archive.git"));
+    let engine = sync::Engine::new(&f.store, &transport).unwrap();
+    transport.drop_push.store(true, Ordering::SeqCst);
+    assert!(engine.upload().is_err());
+    let pending = transport_pending(&f.store);
+    let key = format!("transport.snapshot.{}", pending.candidate);
+    let snapshot = local_record(&f.store, &key).unwrap();
+    assert!(snapshot.starts_with(b"SQLite format 3\0"));
+    bridgepilot_orchestrator::database::inspect_shared_bytes(&snapshot).unwrap();
+    remove_transport_cache(&f);
+    assert_eq!(local_record(&f.store, &key).unwrap(), snapshot);
+    assert!(engine.reconcile().is_err());
+    assert_eq!(transport_pending(&f.store), pending);
+    engine
+        .fence_pending("test:explicitly abandon old candidate after cache cleanup")
+        .unwrap();
+    assert_eq!(transport.pushes.load(Ordering::SeqCst), 1);
+    assert!(local_record(&f.store, "transport.pending").is_none());
+    assert!(local_record(&f.store, &key).is_none());
+    let receipt = transport_receipt(&f.store);
+    assert_ne!(receipt["operation"]["candidate"], pending.candidate);
+    assert_eq!(
+        receipt["operation"]["superseded"][0]["commit"],
+        pending.candidate
+    );
     engine.upload().unwrap();
 }
 
@@ -783,6 +906,27 @@ fn portable_install_is_read_only_in_preview_preserves_configuration_and_rejects_
     install::install(&package, &home, Some(&f.root), true).unwrap();
     assert!(!home.exists());
     install::install(&package, &home, Some(&f.root), false).unwrap();
+    let upgrade_skill = "source/orchestrator/skills/bridgeforge-update/SKILL.md";
+    let installed_skill = fs::read(home.join(upgrade_skill)).unwrap();
+    assert_eq!(
+        installed_skill,
+        include_bytes!("../../../source/orchestrator/skills/bridgeforge-update/SKILL.md")
+    );
+    let skills = f.root.join("user-skills");
+    bridgepilot_orchestrator::user_skill::install(&home, &skills, true).unwrap();
+    assert!(!skills.join("bridgepilot").exists());
+    bridgepilot_orchestrator::user_skill::install(&home, &skills, false).unwrap();
+    assert_eq!(
+        bridgepilot_orchestrator::user_skill::status(&home, &skills).unwrap()["current"],
+        true
+    );
+    fs::write(home.join(upgrade_skill), "user upgrade customization").unwrap();
+    assert!(install::install(&package, &home, Some(&f.root), false).is_err());
+    assert_eq!(
+        fs::read(home.join(upgrade_skill)).unwrap(),
+        b"user upgrade customization"
+    );
+    fs::write(home.join(upgrade_skill), &installed_skill).unwrap();
     let config = fs::read(home.join(".runtime/config/bridgepilot.json")).unwrap();
     install::install(&package, &home, Some(&f.root), false).unwrap();
     assert_eq!(
@@ -804,4 +948,12 @@ fn portable_install_is_read_only_in_preview_preserves_configuration_and_rejects_
         fs::read_to_string(home.join("AGENTS.md")).unwrap(),
         "user customization"
     );
+    fs::write(
+        package.join("payload/bridgeforge-update-skill.md"),
+        "tampered payload",
+    )
+    .unwrap();
+    let rejected_home = f.root.join("tampered-install");
+    assert!(install::install(&package, &rejected_home, Some(&f.root), true).is_err());
+    assert!(!rejected_home.exists());
 }
