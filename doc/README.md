@@ -8,6 +8,8 @@ delivery_layout: flat
 
 ## 从这里开始
 
+- 发布计划与执行记录：[四个下游骨架升级与 Release Plan](1_delivery/forge-downstream-upgrade/plan_2026-11-01_four-projects.md)（用户已明确 Forge 目标 14.0.0 并授权开始推进；DR-01～03 已完成，DR-04 公共换行规则与 CRS 发布归属、DR-05 Stratus 专项、DR-06 BL 专项按 RL-01～10 推进。只按真实收据报告发布状态，保留未验证项及既有项目修改）。
+
 - 待用户验收：[发布范围判定修复与四个下游骨架升级结果](1_delivery/package-version-lifecycle/requirements_2026-10-31_release-scope-and-four-projects.md#10-正式发布与四项目安装结果2026-10-31)（TODO-051、TODO-052；13.0.3 已由 475b04f 发布推送，lifecycle 0.8.1→0.8.2，12 项最终候选检查与最终工具核验通过；四个下游已逐一安装 13.0.3，保护摘要一致、未提交下游。Stratus 业务发布仍有独立的全局输入与证据缺口；安装后记录尚未另行提交）。
 
 - 已验收：[旧测试目录项目报告保留](0_architecture/design/codex-project-sync.md#用户验收旧测试目录项目报告保留2026-10-31)（core 10.0.2；7 项检查 80 个用例及独立退役 1 项通过，独立复核与最终工具核验通过。HoldemTrainer 只读升级预览已解除原报告阻塞，8 个记录文件摘要不变，未执行下游升级；已授权 Forge release）。

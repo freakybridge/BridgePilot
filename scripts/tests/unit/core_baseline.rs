@@ -82,12 +82,12 @@ fn strict_attribute_inspection_accepts_proven_defaults_and_never_falls_back() {
     for payload in [
         b"# defaults\n* text=auto eol=lf\n".as_slice(),
         b"* eol=lf text=auto\r\n",
+        b"* text=auto eol=lf\n*.bin -text\n",
     ] {
         verify_gitattributes_read_only(payload).unwrap();
     }
     for payload in [
         b"# no rule\n".as_slice(),
-        b"* text=auto eol=lf\n*.bin -text\n",
         b"* text=auto eol=lf\nnested/* -text\n",
         b"[attr]default text=auto eol=lf\n* default\n",
     ] {
@@ -290,6 +290,72 @@ fn gitattributes_uses_effective_git_semantics() {
     verify_gitattributes(b"* text=auto eol=lf\n", Some(&root)).unwrap();
     let error = verify_gitattributes(b"* text=auto eol=lf\n* eol=crlf\n", Some(&root)).unwrap_err();
     assert!(error.contains("overridden"), "{error}");
+}
+
+#[test]
+fn public_attribute_rules_agree_with_git_and_preserve_hook_lf() {
+    let root = factory_repository::from_manifest_dir(env!("CARGO_MANIFEST_DIR"))
+        .join(".runtime/tests/attributes-git-differential");
+    fs::create_dir_all(&root).unwrap();
+    let payload = b"* text=auto eol=lf\n*.bat text eol=crlf\n*.cmd text eol=crlf\n*.ps1 text eol=crlf\n.githooks/** text eol=lf\n";
+    let asset = serde_json::json!({"merge_validation":{"required_rules":[
+        "* text=auto eol=lf", "*.bat text eol=crlf", "*.cmd text eol=crlf"
+    ]}});
+    crate::attributes::verify(payload, &asset).unwrap();
+    fs::write(root.join(".gitattributes"), payload).unwrap();
+    let git = |args: &[&str]| {
+        let mut request = ProcessRequest::new("git", &root);
+        request.args = args.iter().map(Into::into).collect();
+        let result = SystemProcessRunner.run(&request).unwrap();
+        assert_eq!(
+            result.code,
+            0,
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        String::from_utf8(result.stdout).unwrap()
+    };
+    git(&["init", "-q"]);
+    let output = git(&[
+        "-c",
+        "core.attributesFile=NUL",
+        "check-attr",
+        "eol",
+        "--",
+        "probe.bat",
+        "nested/probe.cmd",
+        "probe.ps1",
+        "probe.vbs",
+        ".githooks/pre-commit",
+    ]);
+    for expected in [
+        "probe.bat: eol: crlf",
+        "nested/probe.cmd: eol: crlf",
+        "probe.ps1: eol: crlf",
+        "probe.vbs: eol: lf",
+        ".githooks/pre-commit: eol: lf",
+    ] {
+        assert!(output.contains(expected), "{output}");
+    }
+}
+
+#[test]
+fn ordinary_attribute_check_keeps_git_macro_and_binary_support() {
+    let root = factory_repository::from_manifest_dir(env!("CARGO_MANIFEST_DIR"))
+        .join(".runtime/tests/attributes-full-git");
+    fs::create_dir_all(&root).unwrap();
+    let payload = b"[attr]windows text eol=crlf\n* text=auto eol=lf\n*.bat windows\n*.cmd windows\n*.png binary\n";
+    let asset = serde_json::json!({"merge_validation":{"required_rules":[
+        "* text=auto eol=lf", "*.bat text eol=crlf", "*.cmd text eol=crlf"
+    ]}});
+    assert!(crate::attributes::verify(payload, &asset).is_err());
+    verify_gitattributes_asset(payload, Some(&root), &asset).unwrap();
+    let (_, projected) = crate::attributes::projection(&asset, payload).unwrap();
+    assert!(
+        String::from_utf8(projected)
+            .unwrap()
+            .contains("*.png binary")
+    );
 }
 
 #[test]

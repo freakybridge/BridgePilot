@@ -383,9 +383,9 @@ fn shared_bundle_commit_keeps_components_consistent_when_old_image_is_running() 
 struct Fixture(PathBuf);
 impl Fixture {
     fn new() -> Self {
-        let path = test_artifacts::root(env!("CARGO_MANIFEST_DIR"), "distribution-regressions")
+        let path = test_artifacts::root(env!("CARGO_MANIFEST_DIR"), "distribution")
             .join(format!(
-                "bfc-distribution-{}-{}",
+                "d-{}-{}",
                 std::process::id(),
                 ID.fetch_add(1, Ordering::Relaxed)
             ));

@@ -430,18 +430,7 @@ pub fn render(
                 }
             }
             ("merge", Some(payload)) if asset["merge_policy"] == "git-attributes-default-lf" => {
-                let text = String::from_utf8(payload.to_vec())
-                    .map_err(|_| ".gitattributes is not UTF-8")?;
-                if text.lines().any(|line| line.trim() == "* text=auto eol=lf") {
-                    payload.to_vec()
-                } else {
-                    let mut result = text;
-                    if !result.is_empty() && !result.ends_with('\n') {
-                        result.push('\n');
-                    }
-                    result.push_str("* text=auto eol=lf\n");
-                    result.into_bytes()
-                }
+                crate::attributes::merge(source_payload, payload, asset)?
             }
             ("merge", Some(payload)) => {
                 let required: Value = serde_json::from_slice(source_payload)

@@ -629,19 +629,8 @@ fn ownership_projection(asset: &Value, payload: &[u8]) -> Result<(Value, Value),
             Ok((json!(digest(&managed)), json!(digest(&outside))))
         }
         "merge" if asset["merge_policy"].as_str() == Some("git-attributes-default-lf") => {
-            let mut required = false;
-            let mut project = Vec::new();
-            for line in String::from_utf8_lossy(&git_bytes(payload)).lines() {
-                let fields = line.split_whitespace().collect::<Vec<_>>();
-                if fields.first() == Some(&"*")
-                    && fields.contains(&"text=auto")
-                    && fields.contains(&"eol=lf")
-                {
-                    required = true;
-                } else {
-                    project.extend_from_slice(format!("{line}\n").as_bytes());
-                }
-            }
+            let (required, project) =
+                bridgeforge_skeleton::attributes::projection(asset, &git_bytes(payload))?;
             Ok((json!(required), json!(digest(&project))))
         }
         "merge" => {
@@ -952,6 +941,16 @@ impl PayloadClassifier {
                 ownership_projection(current_asset, &current_payload),
             ) {
                 (Ok((old_public, old_project)), Ok((new_public, new_project))) => {
+                    let old_project = if head_asset["merge_policy"].as_str()
+                        == Some("git-attributes-default-lf")
+                        && current_asset["merge_policy"].as_str()
+                            == Some("git-attributes-default-lf")
+                    {
+                        // Newly public rules may already exist as identical project rules.
+                        ownership_projection(current_asset, &before_payload)?.1
+                    } else {
+                        old_project
+                    };
                     // schema 4 classifies one changed path at a time. A verified
                     // asset relocation is a public change even with identical
                     // bytes; the contract path may not be in this invocation.

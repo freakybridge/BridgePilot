@@ -200,9 +200,10 @@ fn r05_render_asset_special_policy_precedence() {
 
     asset["strategy"] = json!("merge");
     asset["merge_policy"] = json!("git-attributes-default-lf");
+    fs::write(&source, b"* text=auto eol=lf\n").unwrap();
     fs::write(&target, b"custom -text").unwrap();
     let merged = render_asset(&root, &root, &asset, false).unwrap().0;
-    assert_eq!(merged, b"custom -text\n* text=auto eol=lf\n");
+    assert_eq!(merged, b"* text=auto eol=lf\ncustom -text");
     fs::write(&target, &merged).unwrap();
     assert_eq!(render_asset(&root, &root, &asset, false).unwrap().0, merged);
     fs::remove_dir_all(root).unwrap();

@@ -703,6 +703,74 @@ fn region_projection_distinguishes_public_and_project_changes() {
 }
 
 #[test]
+fn attribute_projection_tracks_public_exceptions_without_hiding_project_edits() {
+    let old = json!({"strategy":"merge","merge_policy":"git-attributes-default-lf"});
+    let mut new = old.clone();
+    new["merge_validation"] = json!({"required_rules":[
+        "* text=auto eol=lf", "*.bat text eol=crlf", "*.cmd text eol=crlf"
+    ]});
+    let before = b"* text=auto eol=lf\n*.ps1 text eol=crlf\n";
+    let after =
+        b"* text=auto eol=lf\n*.bat text eol=crlf\n*.cmd text eol=crlf\n*.ps1 text eol=crlf\n";
+    let (old_public, old_project) = ownership_projection(&old, before).unwrap();
+    let (new_public, new_project) = ownership_projection(&new, after).unwrap();
+    assert_ne!(old_public, new_public);
+    assert_eq!(old_project, new_project);
+    let edited =
+        b"* text=auto eol=lf\n*.bat text eol=crlf\n*.cmd text eol=crlf\n*.ps1 text eol=lf\n";
+    assert_ne!(ownership_projection(&new, edited).unwrap().1, new_project);
+}
+
+#[test]
+fn attribute_policy_adoption_does_not_turn_existing_batch_rules_into_business_changes() {
+    let old = json!({"contract_target":".codex/managed-skeleton.json","assets":[{
+        "id":"root.gitattributes","target":".gitattributes","strategy":"merge",
+        "merge_policy":"git-attributes-default-lf"
+    }]});
+    let mut new = old.clone();
+    new["assets"][0]["merge_validation"] = json!({"required_rules":[
+        "* text=auto eol=lf", "*.bat text eol=crlf", "*.cmd text eol=crlf"
+    ]});
+    for existing in [
+        "*.bat text eol=crlf\n",
+        "*.cmd text eol=crlf\n",
+        "*.bat text eol=crlf\n*.cmd text eol=crlf\n",
+    ] {
+        let before = format!("* text=auto eol=lf\n{existing}*.ps1 text eol=crlf\n");
+        let repo = release_repository(
+            "attribute-policy-adoption",
+            &old,
+            &[(".gitattributes", before.as_bytes())],
+        );
+        fs::write(
+            repo.0.join(".codex/managed-skeleton.json"),
+            serde_json::to_vec(&new).unwrap(),
+        )
+        .unwrap();
+        let after =
+            b"* text=auto eol=lf\n*.bat text eol=crlf\n*.cmd text eol=crlf\n*.ps1 text eol=crlf\n";
+        fs::write(repo.0.join(".gitattributes"), after).unwrap();
+        let changed = [
+            ".codex/managed-skeleton.json".into(),
+            ".gitattributes".into(),
+        ];
+        assert_eq!(
+            classify(&repo.0, &changed, &SystemProcessRunner).unwrap(),
+            ReleaseKind::SkeletonOnly
+        );
+        fs::write(
+            repo.0.join(".gitattributes"),
+            String::from_utf8_lossy(after).replace("*.ps1 text eol=crlf", "*.ps1 text eol=lf"),
+        )
+        .unwrap();
+        assert_eq!(
+            classify(&repo.0, &changed, &SystemProcessRunner).unwrap(),
+            ReleaseKind::Business
+        );
+    }
+}
+
+#[test]
 fn hooks_json_projection_preserves_external_handler_ownership() {
     let handler = |command: &str| {
         json!({

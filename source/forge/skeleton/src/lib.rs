@@ -9,6 +9,7 @@ pub use bridgeforge_core::{
     managed_markdown, managed_paths, persistence, release_metrics, runtime, source_projection,
     user_agents,
 };
+pub mod attributes;
 pub mod baseline;
 pub mod content;
 pub mod project_hooks;

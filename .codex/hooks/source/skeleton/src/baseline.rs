@@ -1,13 +1,15 @@
+use crate::SystemProcessRunner;
 use crate::json::parse_unique_json;
 use crate::managed_markdown::{
     projection_rows as table_rows, projection_section as heading_section,
 };
-use crate::{BaselineReport, BaselineState, ProcessRequest, ProcessRunner, SystemProcessRunner};
+use crate::{BaselineReport, BaselineState, ProcessRequest, ProcessRunner};
 use regex::Regex;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsString;
+
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -481,7 +483,9 @@ pub fn validate_contract(value: &Value) -> Result<(), String> {
                 Some("git-attributes-default-lf")
                     if validation["format"].as_str() == Some("git-attributes-default-lf-v1")
                         && validation["required"]
-                            == serde_json::json!({"pattern": "*", "text": "auto", "eol": "lf"}) => {
+                            == serde_json::json!({"pattern": "*", "text": "auto", "eol": "lf"}) =>
+                {
+                    crate::attributes::required(asset)?;
                 }
                 Some("codex-hooks")
                     if validation["format"].as_str() == Some("codex-hooks-current-v1")
@@ -553,9 +557,19 @@ fn load(path: &Path) -> Result<Value, String> {
     Ok(value)
 }
 
-struct TempDirectory(PathBuf);
+#[cfg(all(test, bridgeforge_factory_tests))]
+fn verify_gitattributes_read_only(payload: &[u8]) -> Result<(), String> {
+    crate::attributes::verify(payload, &serde_json::json!({}))
+}
 
-impl Drop for TempDirectory {
+#[cfg(all(test, bridgeforge_factory_tests))]
+fn verify_gitattributes(payload: &[u8], project: Option<&Path>) -> Result<(), String> {
+    verify_gitattributes_asset(payload, project, &serde_json::json!({}))
+}
+
+struct AttributeSandbox(PathBuf);
+
+impl Drop for AttributeSandbox {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.0);
     }
@@ -563,9 +577,9 @@ impl Drop for TempDirectory {
 
 fn isolated_git_request(cwd: &Path, args: &[&str]) -> ProcessRequest {
     let mut request = ProcessRequest::new("git", cwd);
-    request.args = args.iter().map(OsString::from).collect();
+    request.args = args.iter().map(Into::into).collect();
     request.timeout = Duration::from_secs(30);
-    request.env.insert("GIT_ATTR_NOSYSTEM".into(), "1".into());
+    request.env.insert("GIT_CONFIG_NOSYSTEM".into(), "1".into());
     request.env_remove = std::env::vars_os()
         .filter_map(|(key, _)| {
             key.to_string_lossy()
@@ -577,109 +591,69 @@ fn isolated_git_request(cwd: &Path, args: &[&str]) -> ProcessRequest {
     request
 }
 
-fn verify_gitattributes_read_only(payload: &[u8]) -> Result<(), String> {
-    let text = std::str::from_utf8(payload).map_err(|_| ".gitattributes is not valid UTF-8")?;
-    let mut found = false;
-    for line in text.lines() {
-        let line = line.trim_matches([' ', '\t', '\r']);
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        let fields = line.split_ascii_whitespace().collect::<Vec<_>>();
-        if fields.len() != 3
-            || fields[0] != "*"
-            || fields[1..].iter().copied().collect::<BTreeSet<_>>()
-                != BTreeSet::from(["text=auto", "eol=lf"])
-        {
-            return Err("zero-write attribute inspection cannot prove complex syntax; no Git fallback was executed".into());
-        }
-        found = true;
-    }
-    if !found {
-        return Err(".gitattributes default LF policy is missing".into());
-    }
-    Ok(())
-}
-
-fn verify_gitattributes(payload: &[u8], project: Option<&Path>) -> Result<(), String> {
-    std::str::from_utf8(payload).map_err(|_| ".gitattributes is not valid UTF-8".to_string())?;
-    if verify_gitattributes_read_only(payload).is_ok() {
+fn verify_gitattributes_asset(
+    payload: &[u8],
+    project: Option<&Path>,
+    asset: &Value,
+) -> Result<(), String> {
+    if crate::attributes::verify(payload, asset).is_ok() {
         return Ok(());
     }
-    let token = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|error| error.to_string())?
-        .as_nanos();
+    std::str::from_utf8(payload).map_err(|_| ".gitattributes is not valid UTF-8")?;
     let root = if let Some(project) = project {
         bridgeforge_core::artifact_paths::temporary_build(project, "attributes")?
     } else {
-        std::env::temp_dir().join(format!(
+        let token = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|error| error.to_string())?
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
             "bridgeforge-gitattributes-{}-{token}",
             std::process::id()
-        ))
+        ));
+        fs::create_dir(&root).map_err(|error| error.to_string())?;
+        root
     };
-    if project.is_none() {
-        fs::create_dir(&root)
-            .map_err(|error| format!("cannot create attribute sandbox: {error}"))?;
-    }
-    let temporary = TempDirectory(root.clone());
-    fs::write(root.join(".gitattributes"), payload)
-        .map_err(|error| format!("cannot prepare attribute sandbox: {error}"))?;
+    let _sandbox = AttributeSandbox(root.clone());
+    fs::write(root.join(".gitattributes"), payload).map_err(|error| error.to_string())?;
     let global = root.join("global-attributes");
     fs::write(&global, b"").map_err(|error| error.to_string())?;
     let initialized = SystemProcessRunner
         .run(&isolated_git_request(&root, &["init", "-q"]))
-        .map_err(|error| format!("cannot initialize attribute sandbox: {error}"))?;
+        .map_err(|error| error.to_string())?;
     if initialized.code != 0 || initialized.timed_out {
-        return Err(format!(
-            "cannot initialize attribute sandbox: {}",
-            String::from_utf8_lossy(&initialized.stderr).trim()
-        ));
+        return Err("cannot initialize attribute sandbox".into());
     }
-    let probes = [
-        "BRIDGEFORGE_DEFAULT_EOL_PROBE",
-        "nested/BRIDGEFORGE_DEFAULT_EOL_PROBE",
-        ".codex/BRIDGEFORGE_DEFAULT_EOL_PROBE.py",
-        "doc/BRIDGEFORGE_DEFAULT_EOL_PROBE.md",
-    ];
+    let expected = crate::attributes::probes(asset)?;
     let global_arg = format!("core.attributesFile={}", global.display());
     let mut args = vec!["-c", global_arg.as_str(), "check-attr", "text", "eol", "--"];
-    args.extend(probes);
-    let checked = SystemProcessRunner
+    args.extend(expected.keys().map(String::as_str));
+    let output = SystemProcessRunner
         .run(&isolated_git_request(&root, &args))
-        .map_err(|error| format!("cannot evaluate .gitattributes with Git: {error}"))?;
-    drop(temporary);
-    if checked.code != 0 || checked.timed_out {
-        return Err(format!(
-            "cannot evaluate .gitattributes with Git: {}",
-            String::from_utf8_lossy(&checked.stderr).trim()
-        ));
+        .map_err(|error| error.to_string())?;
+    if output.code != 0 || output.timed_out {
+        return Err("cannot evaluate .gitattributes with Git".into());
     }
-    let mut states = probes
-        .iter()
-        .map(|probe| ((*probe).to_string(), BTreeMap::<String, String>::new()))
-        .collect::<BTreeMap<_, _>>();
-    for line in String::from_utf8_lossy(&checked.stdout).lines() {
+    let mut actual = BTreeMap::<String, BTreeMap<String, String>>::new();
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
         let fields = line.rsplitn(3, ": ").collect::<Vec<_>>();
-        if fields.len() != 3 {
+        if fields.len() != 3 || !expected.contains_key(fields[2]) {
             return Err("Git returned an invalid .gitattributes evaluation".into());
         }
-        let (value, attribute, path) = (fields[0], fields[1], fields[2]);
-        let state = states
-            .get_mut(path)
-            .ok_or("Git returned an unknown .gitattributes probe")?;
-        state.insert(attribute.to_string(), value.to_string());
+        actual
+            .entry(fields[2].into())
+            .or_default()
+            .insert(fields[1].into(), fields[0].into());
     }
-    if states.values().all(|state| {
-        state.get("text").map(String::as_str) == Some("auto")
-            && state.get("eol").map(String::as_str) == Some("lf")
-    }) {
+    if expected
+        .iter()
+        .all(|(path, values)| actual.get(path) == Some(values))
+    {
         Ok(())
     } else {
-        Err(".gitattributes default LF policy is missing or overridden".into())
+        Err(".gitattributes policy is missing or overridden".into())
     }
 }
-
 fn canonical_json(value: &Value) -> Value {
     match value {
         Value::Object(object) => Value::Object(
@@ -900,9 +874,9 @@ fn verify_asset_payload_mode(
             }
             Some("git-attributes-default-lf") => {
                 if zero_write {
-                    verify_gitattributes_read_only(payload)?;
+                    crate::attributes::verify(payload, asset)?;
                 } else {
-                    verify_gitattributes(payload, project)?;
+                    verify_gitattributes_asset(payload, project, asset)?;
                 }
             }
             Some("codex-hooks") => verify_hooks(payload, asset)?,
