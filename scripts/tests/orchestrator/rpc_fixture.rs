@@ -18,6 +18,9 @@ fn main() {
         let v: Value = serde_json::from_str(&line.unwrap()).unwrap();
         match v["method"].as_str().unwrap_or("") {
             "initialize" => {
+                if mode == "record-client-version" {
+                    std::fs::write(".bp-fixture-client-version", v["params"]["clientInfo"]["version"].as_str().unwrap()).unwrap();
+                }
                 if mode == "hang-initialize" {
                     std::thread::sleep(std::time::Duration::from_secs(30));
                 }

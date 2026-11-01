@@ -25,7 +25,7 @@ fn github_name(url: &str) -> Result<&str> {
     }
     Ok(name)
 }
-pub(crate) fn verify_rename(
+pub fn verify_rename(
     runner: &dyn ProcessRunner,
     cwd: &Path,
     old: &str,

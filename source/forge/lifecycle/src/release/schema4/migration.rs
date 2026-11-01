@@ -445,6 +445,7 @@ fn prepare(
         "python_environment",
         "development",
         "package_adoptions",
+        "release_withdrawals",
     ] {
         obj.remove(key);
     }

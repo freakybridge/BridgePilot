@@ -64,7 +64,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-cli"
-version = "15.0.0"
+version = "16.0.0"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
@@ -110,7 +110,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-hook"
-version = "15.0.0"
+version = "16.0.0"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
@@ -128,7 +128,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-lifecycle"
-version = "0.8.4"
+version = "0.8.5"
 dependencies = [
  "bridgeforge-core",
  "bridgeforge-skeleton",
@@ -186,16 +186,76 @@ dependencies = [
 ]
 
 [[package]]
-name = "bridgepilot-orchestrator"
-version = "0.8.0"
+name = "bridgepilot-execution"
+version = "0.1.0"
 dependencies = [
  "bridgeforge-core",
+ "bridgepilot-storage",
+ "bridgepilot-tasks",
+ "serde",
+ "serde_json",
+ "toml_edit",
+ "windows-sys",
+]
+
+[[package]]
+name = "bridgepilot-install"
+version = "0.1.0"
+dependencies = [
+ "bridgeforge-core",
+ "bridgepilot-storage",
+ "bridgepilot-tasks",
+ "serde",
+ "serde_json",
+ "toml_edit",
+]
+
+[[package]]
+name = "bridgepilot-orchestrator"
+version = "0.9.0"
+dependencies = [
+ "bridgeforge-core",
+ "bridgepilot-execution",
+ "bridgepilot-install",
+ "bridgepilot-storage",
+ "bridgepilot-tasks",
+ "bridgepilot-transfer",
  "rusqlite",
  "serde",
  "serde_json",
- "sha2",
  "toml_edit",
- "windows-sys",
+]
+
+[[package]]
+name = "bridgepilot-storage"
+version = "0.1.0"
+dependencies = [
+ "bridgeforge-core",
+ "bridgepilot-tasks",
+ "rusqlite",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "bridgepilot-tasks"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "bridgepilot-transfer"
+version = "0.1.0"
+dependencies = [
+ "bridgeforge-core",
+ "bridgepilot-execution",
+ "bridgepilot-storage",
+ "bridgepilot-tasks",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

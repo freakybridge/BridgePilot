@@ -1,9 +1,8 @@
 //! Explicit read-only audit of an already migrated private workspace.
-//! Compile against the locked, tested orchestrator rlib; never activates data.
-use bridgepilot_orchestrator::{
-    database, digest,
-    store::{Snapshot, Store},
-};
+//! Compile against locked, tested BP task/storage rlibs; never activates data.
+use bridgepilot_storage::database;
+use bridgepilot_tasks::digest;
+use bridgepilot_storage::store::{Snapshot, Store};
 use serde_json::json;
 use std::{collections::BTreeMap, fs, path::PathBuf};
 

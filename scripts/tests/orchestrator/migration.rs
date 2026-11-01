@@ -12,7 +12,7 @@ impl Fixture {
     fn new() -> Self {
         let root = std::path::absolute(
             Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../.runtime/tests/bridgepilot-status-sqlite/migration")
+                .join("../../../.runtime/tests/bridgepilot-status-sqlite/migration")
                 .join(crate::new_id("case")),
         )
         .unwrap();

@@ -118,7 +118,7 @@
 
 - `source/forge/templates/**`：下沉到项目的 Codex 公共骨架与公共 `AGENTS.md` 源。
 - `source/forge/**`：工厂 Rust workspace 的唯一维护源，公共八包投影到 `.codex/hooks/source/`，factory 只用于本仓库。
-- `source/orchestrator/**`：BP 私有总管核心与本地交互 Skill；与 `source/forge/` 平行，无额外 `src/`。只依赖 Forge core，不进入公共源码投影或共享 Skill 分发。Forge 不依赖 orchestrator。
+- `source/orchestrator/**`：BP 私有总管，含 tasks（任务模型与规则）、storage（SQLite 与事务）、execution（执行、调度与核验）、transfer（同步换机）、install（安装恢复）、cli（命令组合）六个独立包及本地交互 Skill；与 `source/forge/` 平行，无额外 `src/`。包依赖向 tasks/storage 收敛，transfer 可调用 execution 的必要查询；只依赖 Forge core，不进入公共源码投影或共享 Skill 分发。Forge 不依赖 orchestrator。
 - `source/forge/templates/skills/**`：由用户级分发器安装的通用 Skill 与 bridgeforge-codex 入口。
 - `scripts/**`：Windows 用户级安装与分发入口、独立辅助工具及 `scripts/tests/**` 自动测试；工厂 Rust 命令由 `source/forge/factory/` 实现。
 - `.codex/**`：本仓库 dogfood 镜像与本仓库配置；legacy 项目 Memory 仅在迁移完成前保留，不再作为运行时设施。

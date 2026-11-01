@@ -126,7 +126,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-shared-ski
 
 ## BridgePilot 本地试用与档案恢复
 
-BP 源码在 `source/orchestrator/`，与 Forge 使用同一个锁定的 Rust workspace；也可用独立便携包安装，无需新机编译 Rust。它不替换 Forge 既有安装、公共骨架名称或共享 Skill。普通用户只通过 Codex 对话下达目标，以下命令由当前 Agent 按真实路径准备和恢复。
+BP 源码在 `source/orchestrator/`，按 tasks、storage、execution、transfer、install、cli 六包分工，与 Forge 使用同一个锁定的 Rust workspace；cli 保留原生包名 `bridgepilot-orchestrator` 及 `bp`、`bp-launcher` 入口。也可用独立便携包安装，无需新机编译 Rust。它不替换 Forge 既有安装、公共骨架名称或共享 Skill。普通用户只通过 Codex 对话下达目标，以下命令由当前 Agent 按真实路径准备和恢复。
 
 ### 从 GitHub 在新电脑安装并恢复
 

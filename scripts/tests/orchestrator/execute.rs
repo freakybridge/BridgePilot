@@ -1,4 +1,7 @@
-use bridgepilot_orchestrator::{codex, domain::*, new_id, store::Store};
+use bridgepilot_execution::codex;
+use bridgepilot_tasks::domain::*;
+use bridgepilot_tasks::new_id;
+use bridgepilot_storage::store::Store;
 #[path = "delivery.rs"]
 mod delivery_cases;
 #[path = "grouping.rs"]
@@ -43,7 +46,7 @@ fn wall_limit_includes_handshake_start_and_missing_stop_acknowledgement() {
                     let t = s.tasks.get_mut(&f.task).unwrap();
                     t.input.goal = "bounded input pressure ".repeat(16384);
                     t.spec_hash =
-                        bridgepilot_orchestrator::digest(&serde_json::to_vec(&t.input).unwrap());
+                        bridgepilot_tasks::digest(&serde_json::to_vec(&t.input).unwrap());
                     s.runs.get_mut(&f.run).unwrap().spec_hash = t.spec_hash.clone();
                     Ok(())
                 })
@@ -179,7 +182,7 @@ impl Fixture {
     fn new(mode: &str) -> Self {
         let root = std::path::absolute(
             Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../.runtime/tests/bridgepilot-stage2/execute")
+                .join("../../../.runtime/tests/bridgepilot-stage2/execute")
                 .join(new_id("case")),
         )
         .unwrap();
@@ -441,4 +444,18 @@ fn quoted_or_wrong_operation_markers_cannot_release_unknown_execution() {
                 .any(|op| op.kind == "start_turn" && op.state == OperationState::Unknown)
         );
     }
+}
+
+#[test]
+fn native_handshake_uses_cli_version_after_package_split() {
+    let f = Fixture::new("record-client-version");
+    let cli = env!("CARGO_BIN_EXE_bp");
+    let status = std::process::Command::new(cli).arg("self-test").output().unwrap();
+    assert!(status.status.success());
+    let status: serde_json::Value = serde_json::from_slice(&status.stdout).unwrap();
+    let root = f.root.join("project");
+    let probe = std::process::Command::new(cli).args(["project-probe", "--codex", Fixture::executable().to_str().unwrap(), "--project-root", root.to_str().unwrap()]).output().unwrap();
+    assert!(probe.status.success(), "{}", String::from_utf8_lossy(&probe.stderr));
+    let actual = fs::read_to_string(root.join(".bp-fixture-client-version")).unwrap();
+    assert_eq!(actual, status["version"].as_str().unwrap());
 }

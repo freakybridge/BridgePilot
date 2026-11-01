@@ -127,14 +127,14 @@ $refactor-scan 扫描当前项目，允许现有定向测试和离线性能基�
 
 ```text
 BridgePilot/
-├── Cargo.toml / Cargo.lock  # Forge 九包与 BP orchestrator 的受管 Rust workspace
+├── Cargo.toml / Cargo.lock  # Forge 九包与 BP 六包的受管 Rust workspace
 ├── source/
 │   ├── forge/               # 九个工程包的唯一维护源
 │   │   ├── core/skeleton/lifecycle/workflow/memory/checks/factory/cli/hook
 │   │   └── templates/       # 分发资产与通用 Skills
 │   └── orchestrator/        # 总管，与 forge 平行，无 src 中间层
-│       ├── lib.rs / main.rs / cli.rs
-│       ├── domain.rs / store.rs / codex.rs
+│       ├── tasks/ storage/ execution/
+│       ├── transfer/ install/ cli/
 │       └── skills/bridgepilot/SKILL.md  # 本项目入口，不下发
 ├── .codex/                  # 本仓库 dogfood 配置、公共源码投影与生成资产
 ├── scripts/                 # PowerShell 用户级安装入口

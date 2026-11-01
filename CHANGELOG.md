@@ -15,6 +15,29 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [16.0.0] - 2026-11-02
+
+### Changed
+
+- [product][repo][meta] 拆分 BP 总管职责包并修复受管登记 **BREAKING:**
+
+### Release analysis
+
+- Product: 将原 bridgepilot-orchestrator 大包拆为六个独立私有 Cargo 包，Rust 导入和包职责边界不兼容；保留 bp/bp-launcher 命令、档案格式和安装合同，同时修复 Forge 配置迁移被撤回历史阻断的问题。已验收的拆分及显式 split 生命周期要求稳定主程序升级至16.0.0。
+- `bp-execution`: unreleased -> 0.1.0 (First independently registered crate extracted from the former BP monolith; preserve runtime and serialized contracts with explicit Rust import boundaries.)
+- `bp-install`: unreleased -> 0.1.0 (First independently registered crate extracted from the former BP monolith; preserve runtime and serialized contracts with explicit Rust import boundaries.)
+- `bp-storage`: unreleased -> 0.1.0 (First independently registered crate extracted from the former BP monolith; preserve runtime and serialized contracts with explicit Rust import boundaries.)
+- `bp-tasks`: unreleased -> 0.1.0 (First independently registered crate extracted from the former BP monolith; preserve runtime and serialized contracts with explicit Rust import boundaries.)
+- `bp-transfer`: unreleased -> 0.1.0 (First independently registered crate extracted from the former BP monolith; preserve runtime and serialized contracts with explicit Rust import boundaries.)
+- `checks`: 0.2.2 -> 0.2.2 (Refresh unchanged package coverage after the shared Cargo workspace membership and private BP dependency declarations changed; no package source or interface change.)
+- `core`: 10.2.0 -> 10.2.0 (Refresh unchanged package coverage after the shared Cargo workspace membership and private BP dependency declarations changed; no package source or interface change.)
+- `factory`: 0.10.1 -> 0.10.1 (Refresh unchanged package coverage after the shared Cargo workspace membership and private BP dependency declarations changed; no package source or interface change.)
+- `lifecycle`: 0.8.4 -> 0.8.5 (Fix configuration migration adapter filtering of verified release withdrawal declarations, preserving complete candidate history.)
+- `memory`: 0.1.1 -> 0.1.1 (Refresh build coverage for shared workspace membership changes only; memory source, dependency component and native version are unchanged. Preserve 0.1.1.)
+- `orchestrator`: 0.8.0 -> 0.9.0 (Extract BP services into five independent crates; retain command package identity and binary interface while Rust module imports move to their owning crates.)
+- `skeleton`: 0.6.0 -> 0.6.0 (Refresh unchanged package coverage after the shared Cargo workspace membership and private BP dependency declarations changed; no package source or interface change.)
+- `workflow`: 0.9.2 -> 0.9.2 (Refresh unchanged package coverage after the shared Cargo workspace membership and private BP dependency declarations changed; no package source or interface change.)
+
 ## [15.0.0] - 2026-11-02
 
 ### Added

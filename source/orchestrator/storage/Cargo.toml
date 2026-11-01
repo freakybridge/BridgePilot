@@ -1,0 +1,16 @@
+[package]
+name = "bridgepilot-storage"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+bridgepilot-tasks.workspace = true
+bridgeforge-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rusqlite = { version = "=0.38.0", features = ["bundled", "backup", "serialize"] }

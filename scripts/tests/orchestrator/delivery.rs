@@ -1,8 +1,6 @@
 use super::*;
-use bridgepilot_orchestrator::{
-    delivery::{self, DevelopmentReview, PublicationReview},
-    digest,
-};
+use bridgepilot_execution::delivery::{self, DevelopmentReview, PublicationReview};
+use bridgepilot_tasks::digest;
 use serde_json::{Value, json};
 
 fn git_test(root: &Path, args: &[&str]) -> String {

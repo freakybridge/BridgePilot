@@ -246,37 +246,43 @@ fn assets() -> Vec<(
             "bp.controller.skill",
             "payload/bridgepilot-skill.md",
             "source/orchestrator/skills/bridgepilot/SKILL.md",
-            Some(include_bytes!("skills/bridgepilot/SKILL.md")),
+            Some(include_bytes!("../skills/bridgepilot/SKILL.md")),
         ),
         (
             "bp.controller.skill.init",
             "payload/bridgepilot-init.md",
             "source/orchestrator/skills/bridgepilot/references/init.md",
-            Some(include_bytes!("skills/bridgepilot/references/init.md")),
+            Some(include_bytes!("../skills/bridgepilot/references/init.md")),
         ),
         (
             "bp.controller.skill.projects",
             "payload/bridgepilot-projects.md",
             "source/orchestrator/skills/bridgepilot/references/projects.md",
-            Some(include_bytes!("skills/bridgepilot/references/projects.md")),
+            Some(include_bytes!(
+                "../skills/bridgepilot/references/projects.md"
+            )),
         ),
         (
             "bp.controller.skill.handoff",
             "payload/bridgepilot-handoff.md",
             "source/orchestrator/skills/bridgepilot/references/handoff.md",
-            Some(include_bytes!("skills/bridgepilot/references/handoff.md")),
+            Some(include_bytes!(
+                "../skills/bridgepilot/references/handoff.md"
+            )),
         ),
         (
             "bp.controller.skill.execution",
             "payload/bridgepilot-execution.md",
             "source/orchestrator/skills/bridgepilot/references/execution.md",
-            Some(include_bytes!("skills/bridgepilot/references/execution.md")),
+            Some(include_bytes!(
+                "../skills/bridgepilot/references/execution.md"
+            )),
         ),
         (
             "bp.controller.skill.forge-update",
             "payload/bridgeforge-update-skill.md",
             "source/orchestrator/skills/bridgeforge-update/SKILL.md",
-            Some(include_bytes!("skills/bridgeforge-update/SKILL.md")),
+            Some(include_bytes!("../skills/bridgeforge-update/SKILL.md")),
         ),
     ]
 }
@@ -410,18 +416,23 @@ fn workspace(home: &Path, requested: Option<&Path>) -> Result<Option<PathBuf>> {
 }
 fn reader_check(core: &Path, workspace: Option<&Path>) -> Result<()> {
     if let Some(workspace) = workspace {
-        let capability=probe(core,&["self-test".into()])?;
-        let sqlite_reader=capability["archive_reader_features"].as_array()
-            .is_some_and(|features|features.iter().any(|f|f=="sqlite-v1"));
+        let capability = probe(core, &["self-test".into()])?;
+        let sqlite_reader = capability["archive_reader_features"]
+            .as_array()
+            .is_some_and(|features| features.iter().any(|f| f == "sqlite-v1"));
         let result = probe(
             core,
             &[
-                if sqlite_reader {"storage-preview".into()} else {"status".into()},
+                if sqlite_reader {
+                    "storage-preview".into()
+                } else {
+                    "status".into()
+                },
                 "--workspace".into(),
                 workspace.to_str().ok_or("invalid workspace path")?.into(),
             ],
         )?;
-        if !matches!(result["schema"].as_u64(),Some(1|2)) {
+        if !matches!(result["schema"].as_u64(), Some(1 | 2)) {
             return Err("candidate program cannot read the actual configured archive".into());
         }
     }
@@ -878,7 +889,7 @@ mod recovery_tests {
     #[test]
     fn interrupted_asset_recovery_preserves_external_edits_and_restores_owned_bytes() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.runtime/tests/bridgepilot-stage5/install-recovery")
+            .join("../../../.runtime/tests/bridgepilot-stage5/install-recovery")
             .join(crate::new_id("case"));
         fs::create_dir_all(root.join(".runtime/bridgepilot-install")).unwrap();
         let asset = root.join("AGENTS.md");

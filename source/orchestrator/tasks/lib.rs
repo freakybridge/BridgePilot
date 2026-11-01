@@ -1,23 +1,7 @@
-//! Personal project orchestration. Forge remains independent of this crate.
-pub mod cli;
-pub mod codex;
-pub mod delivery;
+//! Shared BP task state and authorization rules. No storage or process dependencies.
+pub mod custody;
 pub mod domain;
-pub mod environment;
-pub mod grouping;
-pub mod handoff;
-pub mod install;
-mod owned;
-mod repository;
-pub mod review;
-pub mod scheduler;
-pub mod status;
-pub mod store;
 pub mod tracking;
-pub mod database;
-pub mod migration;
-pub mod sync;
-pub mod user_skill;
 pub mod wakeup;
 
 pub type Result<T> = std::result::Result<T, String>;

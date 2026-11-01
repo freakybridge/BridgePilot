@@ -1,6 +1,8 @@
 use super::*;
 use bridgeforge_core::{ProcessOutput, ProcessRequest, ProcessRunner};
-use bridgepilot_orchestrator::{environment, install, user_skill};
+use bridgepilot_install::environment;
+use bridgepilot_install::install;
+use bridgepilot_install::user_skill;
 use std::sync::{
     Mutex,
     atomic::{AtomicBool, AtomicUsize, Ordering},

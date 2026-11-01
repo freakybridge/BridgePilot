@@ -6,10 +6,9 @@ use crate::{
     new_id,
     store::{Store, ordinary},
     sync::{Engine, changed_files, head_from_files},
-    valid_id,
 };
 use bridgeforge_core::{ProcessRequest, ProcessRunner, SystemProcessRunner, persistence};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -18,103 +17,8 @@ use std::{
     time::Duration,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Checkpoint {
-    pub project: String,
-    pub commit: String,
-    pub branch: String,
-    pub remote: String,
-    pub reference: String,
-    pub repository: String,
-    pub source: String,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Transfer {
-    pub id: String,
-    pub from: String,
-    pub source: String,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Continuation {
-    pub previous_run: String,
-    pub previous_phase: TaskState,
-    pub source: String,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Custody {
-    pub epoch: u64,
-    pub owner: Option<String>,
-    pub handoff: Option<Transfer>,
-    pub checkpoints: BTreeMap<String, Checkpoint>,
-    pub verified_bindings: BTreeMap<String, String>,
-    pub continuations: BTreeMap<String, Continuation>,
-    pub source: String,
-}
-pub fn validate(s: &State) -> Result<()> {
-    let Some(c) = &s.custody else {
-        return Ok(());
-    };
-    if c.source.trim().is_empty()
-        || c.owner.as_deref().is_some_and(|m| !valid_id(m))
-        || c.owner.is_none() != c.handoff.is_some()
-    {
-        return Err("invalid archive custody".into());
-    }
-    if let Some(t) = &c.handoff {
-        if !valid_id(&t.id) || !valid_id(&t.from) || t.source.trim().is_empty() {
-            return Err("invalid handoff identity".into());
-        }
-    }
-    for (id, p) in &c.checkpoints {
-        if id != &p.project
-            || !s.projects.contains_key(id)
-            || !commit_id(&p.commit)
-            || p.source.trim().is_empty()
-            || !p.reference.starts_with("refs/heads/")
-        {
-            return Err("invalid code checkpoint".into());
-        }
-    }
-    for (task, k) in &c.continuations {
-        let r = s
-            .runs
-            .get(&k.previous_run)
-            .ok_or("continuation source run missing")?;
-        if !s.tasks.contains_key(task) || &r.task != task || k.source.trim().is_empty() {
-            return Err("invalid continuation record".into());
-        }
-    }
-    Ok(())
-}
-pub fn require_owner(s: &State, machine: &str) -> Result<()> {
-    if let Some(c) = &s.custody {
-        if c.owner.as_deref() != Some(machine) || c.handoff.is_some() {
-            return Err(
-                "archive is frozen or owned by another machine; explicit handoff required".into(),
-            );
-        }
-    }
-    Ok(())
-}
-pub fn binding_key(binding: &Binding) -> String {
-    digest(&serde_json::to_vec(binding).expect("binding JSON"))
-}
-pub fn require_binding(s: &State, project: &str, binding: &Binding) -> Result<()> {
-    if let Some(c) = &s.custody {
-        if c.checkpoints.contains_key(project)
-            && c.verified_bindings.get(project) != Some(&binding_key(binding))
-        {
-            return Err(
-                "new-machine project binding has not passed checkpoint verification".into(),
-            );
-        }
-    }
-    Ok(())
-}
+pub use bridgepilot_tasks::custody::*;
+
 pub fn enrol(s: &Store, expected: u64, source: &str) -> Result<Value> {
     if source.trim().is_empty() {
         return Err("actual user enrolment source required".into());
@@ -174,9 +78,9 @@ fn stopped(store: &Store, s: &State, machine: &str) -> Result<()> {
                     .filter(|v| v[pid_key] == pid)
                     .and_then(|v| v[key].as_str());
                 let alive = if let Some(identity) = identity {
-                    crate::owned::same_process(pid, identity)?
+                    bridgepilot_execution::handoff_probe::same_process(pid, identity)?
                 } else {
-                    crate::codex::pid_exists(pid, &r.binding.root)?
+                    bridgepilot_execution::handoff_probe::pid_exists(pid, &r.binding.root)?
                 };
                 if alive && !(key == "server_identity" && legacy_server_proven(store, s, r)?) {
                     return Err("original execution process is still alive".into());
@@ -212,7 +116,7 @@ fn legacy_eligible(s: &State, r: &Run) -> Result<()> {
         );
     }
     let owner = r.owner_pid.ok_or("legacy owner PID missing")?;
-    if crate::codex::pid_exists(owner, &r.binding.root)? {
+    if bridgepilot_execution::handoff_probe::pid_exists(owner, &r.binding.root)? {
         return Err("legacy original owner still exists; no PID exception".into());
     }
     Ok(())
@@ -293,10 +197,10 @@ fn legacy_server_proven(store: &Store, s: &State, r: &Run) -> Result<bool> {
     {
         return Err("legacy historical source changed".into());
     }
-    Ok(
-        crate::owned::image_name(r.server_pid.ok_or("legacy server PID missing")?)?
-            .is_none_or(|current| !current.eq_ignore_ascii_case(expected)),
-    )
+    Ok(bridgepilot_execution::handoff_probe::image_name(
+        r.server_pid.ok_or("legacy server PID missing")?,
+    )?
+    .is_none_or(|current| !current.eq_ignore_ascii_case(expected)))
 }
 /// Independent read-only proof for early, already-reconciled records lacking a
 /// birth identity. It never rewrites a Run or grants an Unknown-run exception.
@@ -353,14 +257,20 @@ pub fn legacy_server_probe(
     {
         return Err("historical native receipt does not prove this original run was reconciled before dispatch".into());
     }
-    let image = crate::owned::image_name(run.server_pid.ok_or("legacy server PID missing")?)?;
+    let image = bridgepilot_execution::handoff_probe::image_name(
+        run.server_pid.ok_or("legacy server PID missing")?,
+    )?;
     if image
         .as_ref()
         .is_some_and(|n| n.eq_ignore_ascii_case(expected))
     {
         return Err("server PID still has the Codex image; remain blocked".into());
     }
-    let native = crate::codex::read_idle_thread(executable, &run.binding.root, thread)?;
+    let native = bridgepilot_execution::handoff_probe::read_idle_thread(
+        executable,
+        &run.binding.root,
+        thread,
+    )?;
     let proof = json!({"schema":1,"archive":snapshot.archive_id,"machine":machine,"run":run.id,"run_key":legacy_key(&snapshot.state,run)?,"server_pid":run.server_pid,"observed_image":image,"executable":executable,"executable_sha256":digest(&fs::read(executable).map_err(|e|e.to_string())?),"historical_receipt":historical,"historical_receipt_sha256":digest(&historical_bytes),"launch_evidence":launch,"launch_evidence_sha256":digest(&fs::read(launch).map_err(|e|e.to_string())?),"supervisor_log":supervisor,"supervisor_log_sha256":digest(&fs::read(supervisor).map_err(|e|e.to_string())?),"native_read_sha256":digest(&serde_json::to_vec(&native).map_err(|e|e.to_string())?),"source":source});
     persistence::atomic_write_json(&legacy_path(store, id), &proof).map_err(|e| e.to_string())?;
     Ok(
@@ -437,9 +347,6 @@ fn git(runner: &dyn ProcessRunner, root: &Path, args: &[&str]) -> Result<String>
     let mut all = vec!["--no-optional-locks".into()];
     all.extend(args.iter().map(|a| a.to_string()));
     command(runner, root, Path::new("git"), &all)
-}
-fn commit_id(s: &str) -> bool {
-    matches!(s.len(), 40 | 64) && s.bytes().all(|b| b.is_ascii_hexdigit())
 }
 fn repo_key(s: &str) -> String {
     s.trim_end_matches('/')

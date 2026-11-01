@@ -308,7 +308,7 @@ mod intent_tests {
     #[test]
     fn regression_concurrent_intents_recheck_identity_without_replaying_external_writes() {
         let root = std::path::absolute(
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.runtime/tests/bp-native-intent"),
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../.runtime/tests/bp-native-intent"),
         )
         .unwrap()
         .join(new_id("case"));

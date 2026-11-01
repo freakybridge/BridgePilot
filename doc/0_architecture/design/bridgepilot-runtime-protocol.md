@@ -12,23 +12,18 @@ validation_status: in_progress
 ```text
 source/
 ├─ forge/                         # 九包、模板、通用工程流程
-└─ orchestrator/                  # 与 forge 平行，无 src 中间层
-   ├─ lib.rs / main.rs / cli.rs   # Rust 库、JSON CLI、严格参数
-   ├─ domain.rs                  # 项目、机器绑定、任务、确认、Run、操作意图
-   ├─ store.rs / database/       # SQLite 实体、历史、CAS、本机锁
-   ├─ migration.rs / status.rs   # 旧链转换、只读六列视图
-   ├─ codex.rs                   # 自管 stdio、停止、未知结果核对
-   ├─ owned.rs                   # 自有进程树、单调期限、Windows 创建身份
-   ├─ scheduler.rs               # 有限时长常驻调度、跨项目并行与待办观察
-   ├─ review.rs                  # 真实命令与文件核验、项目归属交付闸门
-   ├─ grouping.rs                # desktop 旧 ID 到 server ID、原生赋值与成员核对
-   ├─ wakeup.rs                  # 原生 heartbeat 登记、读回与明确范围
-   ├─ delivery.rs                # 受管开发证据、固定发布提交与实际 push URL 核对
-   └─ skills/bridgepilot/         # 当前 Codex 对话的本地入口
+└─ orchestrator/                  # BP 六包，与 forge 平行，无 src 中间层
+   ├─ tasks/                     # 项目、任务、授权、控制权、唤醒与进度类型和规则
+   ├─ storage/                   # SQLite 实体、历史、CAS、事件及本机同步事务
+   ├─ execution/                 # stdio、进程、调度、归类、状态视图与交付核验
+   ├─ transfer/                  # 档案同步、换机及受核验的项目绑定
+   ├─ install/                   # 便携安装、依赖准备、Skill、恢复与回退
+   ├─ cli/                       # 参数、服务调用、JSON 输出，bp 与 bp-launcher
+   └─ skills/                    # BP 私有交互入口与骨架升级 Skill
 scripts/tests/orchestrator/       # 域、存储、子进程夹具与故障测试
 ```
 
-依赖方向：orchestrator → forge/core，Forge 不依赖总管。公共安装只投影原公共八包，factory 九包单独准备；orchestrator 不进入公共模板、共享 Skill 或 `.codex/hooks/source/`。通用 core 变化只公开既有 ProcessTree API，复用 Windows 无控制台、启动时 Job 归属及 Drop 停止机制。
+依赖方向：storage → tasks；execution → storage/tasks；transfer → execution/storage/tasks；install → storage/tasks；cli 组合各服务。BP 对 Forge 仅依赖 forge/core，Forge 不依赖总管。CLI 包延续 bridgepilot-orchestrator 原生名称和 orchestrator 身份，其余包分别登记私有独立版本。包登记不赋予公共分发资格；六包均不进入 public-members。拆分进展和实际证据见 [六包拆分记录](../../1_delivery/bridgepilot-package-split/plan_2026-11-02_package-split.md)。公共安装只投影原公共八包，factory 九包单独准备；orchestrator 不进入公共模板、共享 Skill 或 `.codex/hooks/source/`。通用 core 变化只公开既有 ProcessTree API，复用 Windows 无控制台、启动时 Job 归属及 Drop 停止机制。
 
 ## 2. 用户工作流与执行接入
 

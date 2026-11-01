@@ -408,7 +408,7 @@ mod tests {
     use super::*;
     fn fixture(old_present: bool, complete: bool) -> (PathBuf, PathBuf, PathBuf, Journal) {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.runtime/tests/bridgepilot-user-skill")
+            .join("../../../.runtime/tests/bridgepilot-user-skill")
             .join(crate::new_id("recovery"));
         let home = root.join("home");
         let skills = root.join("profile");

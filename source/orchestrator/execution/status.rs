@@ -1,7 +1,7 @@
 //! A deterministic, read-only task view. Every displayed cell is produced here,
 //! rather than reconstructed from chat history by the caller.
 use crate::{
-    Result, database,
+    Result,
     domain::*,
     store::Store,
     tracking::{ExecutionMode, HoldScope, TaskTracking},
@@ -206,24 +206,7 @@ pub fn render(rows: &[Row]) -> String {
 }
 
 pub fn query(store: &Store) -> Result<Value> {
-    let mut conn = store.read_connection()?;
-    let tx = conn.transaction().map_err(|e| e.to_string())?;
-    let snapshot = database::read_snapshot(&tx)?;
-    let mut statement = tx
-        .prepare("SELECT id,task_no FROM task_numbers")
-        .map_err(|e| e.to_string())?;
-    let numbers = statement
-        .query_map([], |row| {
-            let value: i64 = row.get(1)?;
-            Ok((
-                row.get::<_, String>(0)?,
-                u64::try_from(value)
-                    .map_err(|_| rusqlite::Error::IntegralValueOutOfRange(1, value))?,
-            ))
-        })
-        .map_err(|e| e.to_string())?
-        .collect::<rusqlite::Result<BTreeMap<_, _>>>()
-        .map_err(|e| e.to_string())?;
+    let (snapshot, numbers) = bridgepilot_storage::store::status_snapshot(store)?;
     let s = &snapshot.state;
     let mut rows = Vec::new();
     for task in s
@@ -270,5 +253,5 @@ pub fn query(store: &Store) -> Result<Value> {
 }
 
 #[cfg(test)]
-#[path = "../../scripts/tests/orchestrator/status.rs"]
+#[path = "../../../scripts/tests/orchestrator/status.rs"]
 mod tests;

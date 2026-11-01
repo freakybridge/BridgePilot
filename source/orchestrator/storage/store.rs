@@ -261,14 +261,14 @@ impl Store {
         Ok(snapshot)
     }
 
-    pub(crate) fn head(&self) -> Result<Head> {
+    pub fn head(&self) -> Result<Head> {
         if !self.database_path().exists() {
             return read_json(&self.archive.join("HEAD.json"));
         }
         database::head(&self.read_connection()?)
     }
 
-    pub(crate) fn writer_lock(&self) -> Result<FileLock> {
+    pub fn writer_lock(&self) -> Result<FileLock> {
         ordinary(&self.runtime)?;
         let path = self.runtime.join("locks/writer.lock");
         ordinary(&path)?;
@@ -278,7 +278,7 @@ impl Store {
         FileLock::acquire(&path)
     }
 
-    pub(crate) fn archive_files(&self) -> Result<BTreeMap<String, Vec<u8>>> {
+    pub fn archive_files(&self) -> Result<BTreeMap<String, Vec<u8>>> {
         let conn = self.read_connection()?;
         let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
         let bytes = database::snapshot_bytes(&tx)?;
@@ -286,13 +286,13 @@ impl Store {
         Ok(BTreeMap::from([(database::FILE.into(), bytes)]))
     }
 
-    pub(crate) fn derived(&self, state: State) -> Result<(Head, Vec<u8>)> {
+    pub fn derived(&self, state: State) -> Result<(Head, Vec<u8>)> {
         let files = self.archive_files()?;
         database::derive_bytes(files.get(database::FILE).ok_or("snapshot missing")?, state)
     }
 
     /// Caller owns writer_lock. Exported snapshots cannot overwrite local outbox.
-    pub(crate) fn install_transport(&self, files: &BTreeMap<String, Vec<u8>>) -> Result<()> {
+    pub fn install_transport(&self, files: &BTreeMap<String, Vec<u8>>) -> Result<()> {
         self.install_transport_inner(files, database::MAX_BYTES)
     }
 
@@ -463,5 +463,28 @@ impl Store {
 }
 
 #[cfg(test)]
-#[path = "../../scripts/tests/orchestrator/store.rs"]
+#[path = "../../../scripts/tests/orchestrator/store.rs"]
 mod tests;
+
+/// Read archive state and permanent task numbers from the same SQLite snapshot.
+pub fn status_snapshot(store: &Store) -> Result<(Snapshot, BTreeMap<String, u64>)> {
+    let mut conn = store.read_connection()?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    let snapshot = database::read_snapshot(&tx)?;
+    let mut statement = tx
+        .prepare("SELECT id,task_no FROM task_numbers")
+        .map_err(|e| e.to_string())?;
+    let numbers = statement
+        .query_map([], |row| {
+            let value: i64 = row.get(1)?;
+            Ok((
+                row.get::<_, String>(0)?,
+                u64::try_from(value)
+                    .map_err(|_| rusqlite::Error::IntegralValueOutOfRange(1, value))?,
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<rusqlite::Result<BTreeMap<_, _>>>()
+        .map_err(|e| e.to_string())?;
+    Ok((snapshot, numbers))
+}

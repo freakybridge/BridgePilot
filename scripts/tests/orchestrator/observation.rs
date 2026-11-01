@@ -1,5 +1,6 @@
 use super::*;
-use bridgepilot_orchestrator::{scheduler, tracking};
+use bridgepilot_execution::scheduler;
+use bridgepilot_execution::tracking;
 use serde_json::json;
 
 fn observed() -> Fixture {
@@ -72,7 +73,7 @@ fn observe_is_read_only_native_and_updates_only_for_new_receipts() {
         )
         .is_err()
     );
-    let status = bridgepilot_orchestrator::status::query(&f.store).unwrap();
+    let status = bridgepilot_execution::status::query(&f.store).unwrap();
     assert_eq!(status["view"]["rows"][0]["phase"], "观察受限·保留最后读回");
     assert_eq!(
         f.store.read().unwrap().state.tracking[&f.task]
@@ -94,7 +95,7 @@ fn observe_is_read_only_native_and_updates_only_for_new_receipts() {
             .is_none()
     );
     assert_eq!(
-        bridgepilot_orchestrator::status::query(&f.store).unwrap()["view"]["rows"][0]["phase"],
+        bridgepilot_execution::status::query(&f.store).unwrap()["view"]["rows"][0]["phase"],
         "观察执行中"
     );
     let recovered = f.store.read().unwrap().revision;
@@ -143,25 +144,25 @@ fn unloaded_server_does_not_treat_historical_terminal_as_current_desktop_state()
     };
     assert_eq!(read()["proof"]["last_recorded_turn_status"], "interrupted");
     assert_eq!(
-        bridgepilot_orchestrator::status::query(&f.store).unwrap()["view"]["rows"][0]["phase"],
+        bridgepilot_execution::status::query(&f.store).unwrap()["view"]["rows"][0]["phase"],
         "观察受限·当前状态未核实"
     );
     fs::write(f.root.join(".bp-fixture-mode"), "observer-goal-active").unwrap();
     read();
     assert_eq!(
-        bridgepilot_orchestrator::status::query(&f.store).unwrap()["view"]["rows"][0]["phase"],
+        bridgepilot_execution::status::query(&f.store).unwrap()["view"]["rows"][0]["phase"],
         "托管目标进行中·观察受限"
     );
     fs::write(f.root.join(".bp-fixture-mode"), "observer-goal-paused").unwrap();
     read();
     assert_eq!(
-        bridgepilot_orchestrator::status::query(&f.store).unwrap()["view"]["rows"][0]["phase"],
+        bridgepilot_execution::status::query(&f.store).unwrap()["view"]["rows"][0]["phase"],
         "观察受限·当前状态未核实"
     );
     fs::write(f.root.join(".bp-fixture-mode"), "observer-goal-active").unwrap();
     read();
     assert_eq!(
-        bridgepilot_orchestrator::status::query(&f.store).unwrap()["view"]["rows"][0]["phase"],
+        bridgepilot_execution::status::query(&f.store).unwrap()["view"]["rows"][0]["phase"],
         "托管目标进行中·观察受限"
     );
     let revision = f.store.read().unwrap().revision;

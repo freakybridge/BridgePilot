@@ -7,7 +7,7 @@ struct Fixture {
 impl Fixture {
     fn new() -> Self {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.runtime/tests/bridgepilot-status-sqlite/store")
+            .join("../../../.runtime/tests/bridgepilot-status-sqlite/store")
             .join(new_id("case"));
         let root = std::path::absolute(root).unwrap();
         let store = Store::init(&root).unwrap();
@@ -145,8 +145,8 @@ fn read_status_does_not_recreate_runtime_or_lock_files() {
 fn product_repository_cannot_become_user_archive() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
-        .nth(2)
-        .unwrap();
+        .find(|p| p.join("bridgeforge-manifest.json").is_file())
+        .expect("product repository root");
     assert!(Store::init(root).is_err());
 }
 

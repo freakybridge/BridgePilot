@@ -58,7 +58,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-cli"
-version = "15.0.0"
+version = "16.0.0"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
@@ -87,7 +87,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-hook"
-version = "15.0.0"
+version = "16.0.0"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
@@ -105,7 +105,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-lifecycle"
-version = "0.8.4"
+version = "0.8.5"
 dependencies = [
  "bridgeforge-core",
  "bridgeforge-skeleton",

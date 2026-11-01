@@ -1,5 +1,5 @@
 use super::*;
-use bridgepilot_orchestrator::grouping;
+use bridgepilot_execution::grouping;
 
 #[test]
 fn grouping_does_not_treat_a_reused_owner_pid_as_the_current_execution() {

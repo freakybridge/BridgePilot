@@ -74,6 +74,48 @@ fn declare(root: &Path, declaration: Value) {
 }
 
 #[test]
+fn configuration_update_preserves_verified_withdrawal_history() {
+    let (r, record) = withdrawn(false);
+    declare(&r.0, record);
+    git(&r.0, &["add", CONFIG]);
+    git(&r.0, &["commit", "-m", "record verified fixture withdrawal"]);
+    let before = fs::read(r.0.join(CONFIG)).unwrap();
+    let ledger = fs::read(r.0.join(development::RECORD)).unwrap();
+    let previous: Value = serde_json::from_slice(&before).unwrap();
+    let mut proposal = previous.clone();
+    proposal.as_object_mut().unwrap().remove("baseline");
+    proposal["development"]["a"]["checks"][0]["inputs"] =
+        json!(["CHANGELOG.md", "README.md"]);
+    let proposal_path = ".runtime/withdrawal-config-proposal.json";
+    write(&r.0, proposal_path, &serde_json::to_vec(&proposal).unwrap());
+    let plan = configuration_plan(&r.0, &Checks::new(), Some(proposal_path), None);
+    assert_eq!(plan.code, 0, "{}", plan.stderr);
+    let plan = plan.receipt.unwrap();
+    assert_eq!(fs::read(r.0.join(CONFIG)).unwrap(), before);
+    assert_eq!(plan["configuration"]["baseline"], previous["baseline"]);
+    assert_eq!(
+        plan["configuration"]["release_withdrawals"],
+        previous["release_withdrawals"]
+    );
+    let applied = configuration_apply(
+        &r.0,
+        &Checks::new(),
+        Some(proposal_path),
+        None,
+        plan["fingerprint"].as_str().unwrap(),
+        true,
+    );
+    assert_eq!(applied.code, 0, "{}", applied.stderr);
+    let current: Value = serde_json::from_slice(&fs::read(r.0.join(CONFIG)).unwrap()).unwrap();
+    assert_eq!(current["baseline"], previous["baseline"]);
+    assert_eq!(current["release_withdrawals"], previous["release_withdrawals"]);
+    assert_eq!(current["development"], proposal["development"]);
+    assert_eq!(fs::read(r.0.join(development::RECORD)).unwrap(), ledger);
+    let preview = development::preview(&r.0, &Request::default(), &Checks::new());
+    assert_eq!(preview.code, 0, "{}", preview.stderr);
+}
+
+#[test]
 fn withdrawal_restores_content_keeps_published_floors_and_survives_next_release() {
     let (r, record) = withdrawn(false);
     let runner = Checks::new();

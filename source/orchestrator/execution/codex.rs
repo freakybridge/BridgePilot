@@ -102,7 +102,7 @@ impl Rpc {
             next: 1,
             stderr,
         };
-        rpc.call("initialize", json!({"clientInfo":{"name":"bridgepilot","title":"BridgePilot","version":env!("CARGO_PKG_VERSION")},"capabilities":{"experimentalApi":true}}))?;
+        rpc.call("initialize", json!({"clientInfo":{"name":"bridgepilot","title":"BridgePilot","version":crate::program_version()},"capabilities":{"experimentalApi":true}}))?;
         rpc.send(&json!({"method":"initialized"}))?;
         Ok(rpc)
     }
@@ -422,7 +422,7 @@ fn observe_task_inner(
 pub fn execute(store: &Store, run_id: &str, executable: &Path, timeout: u64) -> Result<Value> {
     execute_with_launch(store, run_id, executable, timeout, None)
 }
-pub(crate) fn execute_with_launch(
+pub fn execute_with_launch(
     store: &Store,
     run_id: &str,
     executable: &Path,
@@ -1053,7 +1053,7 @@ pub fn probe(executable: &Path, root: &Path) -> Result<Value> {
     )
 }
 
-pub(crate) fn pid_exists(pid: u32, cwd: &Path) -> Result<bool> {
+pub fn pid_exists(pid: u32, cwd: &Path) -> Result<bool> {
     use bridgeforge_core::{ProcessRequest, ProcessRunner, SystemProcessRunner};
     #[cfg(windows)]
     {
@@ -1101,7 +1101,7 @@ pub(crate) fn pid_exists(pid: u32, cwd: &Path) -> Result<bool> {
     }
 }
 
-pub(crate) fn read_idle_thread(executable: &Path, cwd: &Path, id: &str) -> Result<Value> {
+pub fn read_idle_thread(executable: &Path, cwd: &Path, id: &str) -> Result<Value> {
     let mut rpc = Rpc::start_limited(
         executable,
         cwd,
@@ -1303,5 +1303,5 @@ pub fn reconcile(store: &Store, id: &str, executable: &Path) -> Result<Value> {
 }
 
 #[cfg(test)]
-#[path = "../../scripts/tests/orchestrator/protocol.rs"]
+#[path = "../../../scripts/tests/orchestrator/protocol.rs"]
 mod tests;

@@ -399,5 +399,5 @@ pub fn legacy_files(files: &BTreeMap<String, Vec<u8>>) -> Result<(Snapshot, Head
 }
 
 #[cfg(test)]
-#[path = "../../scripts/tests/orchestrator/migration.rs"]
+#[path = "../../../scripts/tests/orchestrator/migration.rs"]
 mod tests;

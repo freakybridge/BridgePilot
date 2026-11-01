@@ -5,7 +5,7 @@ use crate::{
     store::{Head, Snapshot, Store, ordinary, read_json},
 };
 use bridgeforge_core::{ProcessRequest, ProcessRunner, SystemProcessRunner, persistence};
-use rusqlite::{OptionalExtension, params};
+use bridgepilot_storage::transport;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, fs, path::PathBuf, time::Duration};
@@ -118,13 +118,7 @@ impl<'a> Engine<'a> {
         })
     }
     fn local(&self, key: &str) -> Result<Option<Vec<u8>>> {
-        self.store
-            .read_connection()?
-            .query_row("SELECT value FROM local_records WHERE key=?1", [key], |r| {
-                r.get(0)
-            })
-            .optional()
-            .map_err(|e| e.to_string())
+        transport::local_record(self.store, key)
     }
     fn pending(&self) -> Result<Pending> {
         let bytes = self
@@ -137,18 +131,7 @@ impl<'a> Engine<'a> {
         Ok(self.local("transport.pending")?.is_some())
     }
     fn save_pending(&self, pending: &Pending, files: &Files) -> Result<()> {
-        let mut conn = self.store.write_connection()?;
-        let tx = conn
-            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
-            .map_err(|e| e.to_string())?;
-        let bytes = serde_json::to_vec(pending).map_err(|e| e.to_string())?;
-        let snapshot = files
-            .get(database::FILE)
-            .ok_or("new transport intent requires a SQLite snapshot")?;
-        tx.execute("INSERT INTO local_records(key,value) VALUES('transport.pending',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value",[bytes]).map_err(|e|e.to_string())?;
-        tx.execute("INSERT INTO local_records(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-            params![format!("transport.snapshot.{}",pending.candidate),snapshot]).map_err(|e|e.to_string())?;
-        tx.commit().map_err(|e| e.to_string())
+        transport::save_intent(self.store, pending, &pending.candidate, files)
     }
     pub(crate) fn call(&self, program: &str, args: &[String], stdin: Vec<u8>) -> Result<Vec<u8>> {
         let mut request = ProcessRequest::new(program, &self.store.workspace);
@@ -486,25 +469,7 @@ impl<'a> Engine<'a> {
         )
     }
     fn finish(&self, pending: &Pending, readback: Value) -> Result<()> {
-        let mut conn = self.store.write_connection()?;
-        let tx = conn.transaction().map_err(|e| e.to_string())?;
-        let actual: Vec<u8> = tx
-            .query_row(
-                "SELECT value FROM local_records WHERE key='transport.pending'",
-                [],
-                |r| r.get(0),
-            )
-            .map_err(|e| e.to_string())?;
-        if serde_json::from_slice::<Pending>(&actual).map_err(|e| e.to_string())? != *pending {
-            return Err("pending intent changed during confirmation".into());
-        }
-        let receipt = serde_json::to_vec(
-            &json!({"status":"confirmed","operation":pending,"readback":readback}),
-        )
-        .map_err(|e| e.to_string())?;
-        tx.execute("INSERT INTO local_records(key,value) VALUES('transport.last_receipt',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value",[receipt]).map_err(|e|e.to_string())?;
-        tx.execute("DELETE FROM local_records WHERE key='transport.pending' OR key LIKE 'transport.snapshot.%'",[]).map_err(|e|e.to_string())?;
-        tx.commit().map_err(|e| e.to_string())
+        transport::finish_intent(self.store, pending, readback)
     }
     pub fn reconcile(&self) -> Result<Value> {
         let _lock = self.store.writer_lock()?;
@@ -611,16 +576,7 @@ impl<'a> Engine<'a> {
         c.handoff = None;
         c.source = source.into();
         let cancellation = derive_files(files, snapshot.state)?;
-        self.store
-            .write_connection()?
-            .execute(
-                "INSERT OR REPLACE INTO local_records(key,value) VALUES(?1,?2)",
-                params![
-                    format!("transport.abandoned.{}", pending.candidate),
-                    serde_json::to_vec(&pending).map_err(|e| e.to_string())?
-                ],
-            )
-            .map_err(|e| e.to_string())?;
+        transport::abandon_intent(self.store, &pending.candidate, &pending)?;
         // This sibling Git commit fences any delayed old release push. Local
         // activation remains frozen until the cancellation is confirmed remotely.
         // Keep the original recovery record until the new candidate is completely

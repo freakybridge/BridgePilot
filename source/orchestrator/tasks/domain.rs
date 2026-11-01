@@ -167,7 +167,7 @@ pub struct State {
     #[serde(default)]
     pub wakeups: BTreeMap<String, crate::wakeup::Wakeup>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub custody: Option<crate::handoff::Custody>,
+    pub custody: Option<crate::custody::Custody>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tracking: BTreeMap<String, crate::tracking::TaskTracking>,
 }
@@ -175,7 +175,7 @@ pub struct State {
 impl State {
     pub fn validate(&self) -> Result<()> {
         crate::tracking::validate_state(self)?;
-        crate::handoff::validate(self)?;
+        crate::custody::validate(self)?;
         crate::wakeup::validate(self)?;
         for (id, p) in &self.projects {
             if id != &p.id
@@ -347,7 +347,7 @@ impl State {
 
     pub fn prepare_run(&mut self, task_id: &str, machine: &str) -> Result<String> {
         self.validate()?;
-        crate::handoff::require_owner(self, machine)?;
+        crate::custody::require_owner(self, machine)?;
         if self.tracking.get(task_id).is_some_and(|t| {
             t.mode == crate::tracking::ExecutionMode::Observed
                 || t.hold
@@ -394,7 +394,7 @@ impl State {
             return Err("project already has active or unknown execution".into());
         }
         let binding = self.bindings[&format!("{machine}:{}", p.id)].clone();
-        crate::handoff::require_binding(self, &p.id, &binding)?;
+        crate::custody::require_binding(self, &p.id, &binding)?;
         let previous = self
             .runs
             .values()
@@ -676,5 +676,5 @@ fn same_root(left: &std::path::Path, right: &std::path::Path) -> bool {
 }
 
 #[cfg(test)]
-#[path = "../../scripts/tests/orchestrator/domain.rs"]
+#[path = "../../../scripts/tests/orchestrator/domain.rs"]
 mod tests;

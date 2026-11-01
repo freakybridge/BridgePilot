@@ -105,7 +105,7 @@ pub(crate) fn current_identity() -> Result<Option<String>> {
 
 /// A process snapshot exposes image names even for protected processes whose
 /// full path or birth time cannot be opened. Query only; never terminate by PID.
-pub(crate) fn image_name(pid: u32) -> Result<Option<String>> {
+pub fn image_name(pid: u32) -> Result<Option<String>> {
     #[cfg(windows)]
     {
         use std::os::windows::io::{FromRawHandle, OwnedHandle};
@@ -156,7 +156,7 @@ pub(crate) fn image_name(pid: u32) -> Result<Option<String>> {
 }
 
 /// Query only. A reused numeric PID is never treated as the original owner.
-pub(crate) fn same_process(pid: u32, expected: &str) -> Result<bool> {
+pub fn same_process(pid: u32, expected: &str) -> Result<bool> {
     #[cfg(windows)]
     {
         use std::os::windows::io::{FromRawHandle, OwnedHandle};

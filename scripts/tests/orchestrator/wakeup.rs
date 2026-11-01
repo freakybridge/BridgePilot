@@ -1,5 +1,5 @@
 use super::*;
-use bridgepilot_orchestrator::wakeup::{self, BindWakeup, WakeRequest};
+use bridgepilot_execution::wakeup::{self, BindWakeup, WakeRequest};
 use serde_json::json;
 
 fn native_registration(f: &Fixture, id: &str, status: &str) {

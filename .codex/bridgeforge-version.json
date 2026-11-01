@@ -44,6 +44,210 @@
     "source_schema": 4
   },
   "development": {
+    "bp-execution": {
+      "checks": [
+        {
+          "args": [
+            "test",
+            "--quiet",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "Cargo.toml",
+            "--target-dir",
+            ".build/bridgepilot/cargo",
+            "-p",
+            "bridgepilot-execution",
+            "--lib",
+            "--",
+            "--test-threads=1"
+          ],
+          "id": "bp-execution-unit",
+          "inputs": [
+            "scripts/tests/orchestrator/delivery.rs",
+            "scripts/tests/orchestrator/domain.rs",
+            "scripts/tests/orchestrator/execute.rs",
+            "scripts/tests/orchestrator/grouping.rs",
+            "scripts/tests/orchestrator/migration.rs",
+            "scripts/tests/orchestrator/observation.rs",
+            "scripts/tests/orchestrator/portable.rs",
+            "scripts/tests/orchestrator/protocol.rs",
+            "scripts/tests/orchestrator/rpc_fixture.rs",
+            "scripts/tests/orchestrator/scheduler.rs",
+            "scripts/tests/orchestrator/setup.rs",
+            "scripts/tests/orchestrator/status.rs",
+            "scripts/tests/orchestrator/store.rs",
+            "scripts/tests/orchestrator/wakeup.rs"
+          ],
+          "program": "cargo",
+          "timeout_seconds": 600
+        }
+      ]
+    },
+    "bp-install": {
+      "checks": [
+        {
+          "args": [
+            "test",
+            "--quiet",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "Cargo.toml",
+            "--target-dir",
+            ".build/bridgepilot/cargo",
+            "-p",
+            "bridgepilot-install",
+            "--lib",
+            "--",
+            "--test-threads=1"
+          ],
+          "id": "bp-install-unit",
+          "inputs": [
+            "scripts/tests/orchestrator/delivery.rs",
+            "scripts/tests/orchestrator/domain.rs",
+            "scripts/tests/orchestrator/execute.rs",
+            "scripts/tests/orchestrator/grouping.rs",
+            "scripts/tests/orchestrator/migration.rs",
+            "scripts/tests/orchestrator/observation.rs",
+            "scripts/tests/orchestrator/portable.rs",
+            "scripts/tests/orchestrator/protocol.rs",
+            "scripts/tests/orchestrator/rpc_fixture.rs",
+            "scripts/tests/orchestrator/scheduler.rs",
+            "scripts/tests/orchestrator/setup.rs",
+            "scripts/tests/orchestrator/status.rs",
+            "scripts/tests/orchestrator/store.rs",
+            "scripts/tests/orchestrator/wakeup.rs"
+          ],
+          "program": "cargo",
+          "timeout_seconds": 600
+        }
+      ]
+    },
+    "bp-storage": {
+      "checks": [
+        {
+          "args": [
+            "test",
+            "--quiet",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "Cargo.toml",
+            "--target-dir",
+            ".build/bridgepilot/cargo",
+            "-p",
+            "bridgepilot-storage",
+            "--lib",
+            "--",
+            "--test-threads=1"
+          ],
+          "id": "bp-storage-unit",
+          "inputs": [
+            "scripts/tests/orchestrator/delivery.rs",
+            "scripts/tests/orchestrator/domain.rs",
+            "scripts/tests/orchestrator/execute.rs",
+            "scripts/tests/orchestrator/grouping.rs",
+            "scripts/tests/orchestrator/migration.rs",
+            "scripts/tests/orchestrator/observation.rs",
+            "scripts/tests/orchestrator/portable.rs",
+            "scripts/tests/orchestrator/protocol.rs",
+            "scripts/tests/orchestrator/rpc_fixture.rs",
+            "scripts/tests/orchestrator/scheduler.rs",
+            "scripts/tests/orchestrator/setup.rs",
+            "scripts/tests/orchestrator/status.rs",
+            "scripts/tests/orchestrator/store.rs",
+            "scripts/tests/orchestrator/wakeup.rs"
+          ],
+          "program": "cargo",
+          "timeout_seconds": 600
+        }
+      ]
+    },
+    "bp-tasks": {
+      "checks": [
+        {
+          "args": [
+            "test",
+            "--quiet",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "Cargo.toml",
+            "--target-dir",
+            ".build/bridgepilot/cargo",
+            "-p",
+            "bridgepilot-tasks",
+            "--lib",
+            "--",
+            "--test-threads=1"
+          ],
+          "id": "bp-tasks-unit",
+          "inputs": [
+            "scripts/tests/orchestrator/delivery.rs",
+            "scripts/tests/orchestrator/domain.rs",
+            "scripts/tests/orchestrator/execute.rs",
+            "scripts/tests/orchestrator/grouping.rs",
+            "scripts/tests/orchestrator/migration.rs",
+            "scripts/tests/orchestrator/observation.rs",
+            "scripts/tests/orchestrator/portable.rs",
+            "scripts/tests/orchestrator/protocol.rs",
+            "scripts/tests/orchestrator/rpc_fixture.rs",
+            "scripts/tests/orchestrator/scheduler.rs",
+            "scripts/tests/orchestrator/setup.rs",
+            "scripts/tests/orchestrator/status.rs",
+            "scripts/tests/orchestrator/store.rs",
+            "scripts/tests/orchestrator/wakeup.rs"
+          ],
+          "program": "cargo",
+          "timeout_seconds": 600
+        }
+      ]
+    },
+    "bp-transfer": {
+      "checks": [
+        {
+          "args": [
+            "test",
+            "--quiet",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "Cargo.toml",
+            "--target-dir",
+            ".build/bridgepilot/cargo",
+            "-p",
+            "bridgepilot-orchestrator",
+            "--features",
+            "test-fixtures",
+            "--test",
+            "orchestration",
+            "portable_cases",
+            "--",
+            "--test-threads=1"
+          ],
+          "id": "bp-transfer-integration",
+          "inputs": [
+            "scripts/tests/orchestrator/delivery.rs",
+            "scripts/tests/orchestrator/domain.rs",
+            "scripts/tests/orchestrator/execute.rs",
+            "scripts/tests/orchestrator/grouping.rs",
+            "scripts/tests/orchestrator/migration.rs",
+            "scripts/tests/orchestrator/observation.rs",
+            "scripts/tests/orchestrator/portable.rs",
+            "scripts/tests/orchestrator/protocol.rs",
+            "scripts/tests/orchestrator/rpc_fixture.rs",
+            "scripts/tests/orchestrator/scheduler.rs",
+            "scripts/tests/orchestrator/setup.rs",
+            "scripts/tests/orchestrator/status.rs",
+            "scripts/tests/orchestrator/store.rs",
+            "scripts/tests/orchestrator/wakeup.rs"
+          ],
+          "program": "cargo",
+          "timeout_seconds": 600
+        }
+      ]
+    },
     "checks": {
       "checks": [
         {
@@ -351,8 +555,6 @@
           "timeout_seconds": 3600
         },
         {
-          "id": "factory-distribution",
-          "program": "cargo",
           "args": [
             "test",
             "--locked",
@@ -368,6 +570,7 @@
             "--logfile",
             "../../.runtime/tests/development/factory-distribution.log"
           ],
+          "id": "factory-distribution",
           "inputs": [
             "scripts/tests/Cargo.toml",
             "scripts/tests/Cargo.lock",
@@ -383,6 +586,7 @@
             "scripts/install-shared-skills.ps1",
             "bridgeforge-manifest.json"
           ],
+          "program": "cargo",
           "timeout_seconds": 600
         }
       ]
@@ -482,6 +686,75 @@
         }
       ]
     },
+    "orchestrator": {
+      "checks": [
+        {
+          "args": [
+            "test",
+            "--quiet",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "Cargo.toml",
+            "--target-dir",
+            ".build/bridgepilot/cargo",
+            "-p",
+            "bridgepilot-orchestrator",
+            "--features",
+            "test-fixtures",
+            "--",
+            "--skip",
+            "portable_cases::",
+            "--test-threads=1"
+          ],
+          "id": "orchestrator-unit-integration",
+          "inputs": [
+            "scripts/tests/orchestrator/delivery.rs",
+            "scripts/tests/orchestrator/domain.rs",
+            "scripts/tests/orchestrator/execute.rs",
+            "scripts/tests/orchestrator/grouping.rs",
+            "scripts/tests/orchestrator/migration.rs",
+            "scripts/tests/orchestrator/observation.rs",
+            "scripts/tests/orchestrator/portable.rs",
+            "scripts/tests/orchestrator/protocol.rs",
+            "scripts/tests/orchestrator/rpc_fixture.rs",
+            "scripts/tests/orchestrator/scheduler.rs",
+            "scripts/tests/orchestrator/setup.rs",
+            "scripts/tests/orchestrator/status.rs",
+            "scripts/tests/orchestrator/store.rs",
+            "scripts/tests/orchestrator/wakeup.rs"
+          ],
+          "program": "cargo",
+          "timeout_seconds": 600
+        },
+        {
+          "args": [
+            "build",
+            "--locked",
+            "--offline",
+            "--release",
+            "--manifest-path",
+            "Cargo.toml",
+            "--target-dir",
+            ".build/bridgepilot/cargo",
+            "-p",
+            "bridgepilot-orchestrator",
+            "--bin",
+            "bp",
+            "--bin",
+            "bp-launcher"
+          ],
+          "artifacts": [
+            ".build/bridgepilot/cargo/release/bp.exe",
+            ".build/bridgepilot/cargo/release/bp-launcher.exe"
+          ],
+          "id": "orchestrator-build",
+          "inputs": [],
+          "program": "cargo",
+          "timeout_seconds": 600
+        }
+      ]
+    },
     "skeleton": {
       "checks": [
         {
@@ -568,8 +841,6 @@
           "timeout_seconds": 3600
         },
         {
-          "id": "workflow-settings-preservation",
-          "program": "cargo",
           "args": [
             "test",
             "--locked",
@@ -584,6 +855,7 @@
             "--logfile",
             "../../.runtime/tests/development/workflow-settings-preservation.log"
           ],
+          "id": "workflow-settings-preservation",
           "inputs": [
             "scripts/tests/Cargo.toml",
             "scripts/tests/Cargo.lock",
@@ -594,11 +866,10 @@
             "source/forge/templates/config.toml",
             "scripts/tests/support/product_manifest.rs"
           ],
+          "program": "cargo",
           "timeout_seconds": 600
         },
         {
-          "id": "workflow-hook-independence",
-          "program": "cargo",
           "args": [
             "test",
             "--locked",
@@ -614,6 +885,7 @@
             "--logfile",
             "../../.runtime/tests/development/workflow-hook-independence.log"
           ],
+          "id": "workflow-hook-independence",
           "inputs": [
             "scripts/tests/Cargo.toml",
             "scripts/tests/Cargo.lock",
@@ -625,49 +897,8 @@
             "source/forge/templates/hooks.json",
             "scripts/tests/support/product_manifest.rs"
           ],
+          "program": "cargo",
           "timeout_seconds": 900
-        }
-      ]
-    },
-    "orchestrator": {
-      "checks": [
-        {
-          "timeout_seconds": 600,
-          "inputs": [
-            "scripts/tests/orchestrator/domain.rs",
-            "scripts/tests/orchestrator/store.rs",
-            "scripts/tests/orchestrator/protocol.rs",
-            "scripts/tests/orchestrator/execute.rs",
-            "scripts/tests/orchestrator/rpc_fixture.rs",
-            "scripts/tests/orchestrator/scheduler.rs",
-            "scripts/tests/orchestrator/grouping.rs",
-            "scripts/tests/orchestrator/wakeup.rs",
-            "scripts/tests/orchestrator/delivery.rs",
-            "scripts/tests/orchestrator/portable.rs",
-            "scripts/tests/orchestrator/setup.rs",
-            "scripts/tests/orchestrator/migration.rs",
-            "scripts/tests/orchestrator/status.rs",
-            "scripts/tests/orchestrator/observation.rs",
-            "source/orchestrator/skills/bridgepilot/SKILL.md"
-          ],
-          "args": [
-            "test",
-            "--quiet",
-            "--locked",
-            "--offline",
-            "--manifest-path",
-            "Cargo.toml",
-            "--target-dir",
-            ".build/bridgepilot/test-target",
-            "-p",
-            "bridgepilot-orchestrator",
-            "--features",
-            "test-fixtures",
-            "--",
-            "--test-threads=1"
-          ],
-          "id": "orchestrator-unit-integration",
-          "program": "cargo"
         }
       ]
     }
@@ -677,6 +908,235 @@
     "schema": 1,
     "selection": "independent"
   },
+  "lifecycle": [
+    {
+      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
+      "compatibility": "compatible",
+      "from": [
+        {
+          "id": "core",
+          "language": "rust",
+          "manifest": "source/core/Cargo.toml",
+          "name": "bridgeforge-core",
+          "workspace": "Cargo.toml"
+        }
+      ],
+      "id": "bp-forge-layout-core",
+      "operation": "move",
+      "to": [
+        {
+          "id": "core",
+          "language": "rust",
+          "manifest": "source/forge/core/Cargo.toml",
+          "name": "bridgeforge-core",
+          "workspace": "Cargo.toml"
+        }
+      ]
+    },
+    {
+      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
+      "compatibility": "compatible",
+      "from": [
+        {
+          "id": "skeleton",
+          "language": "rust",
+          "manifest": "source/skeleton/Cargo.toml",
+          "name": "bridgeforge-skeleton",
+          "workspace": "Cargo.toml"
+        }
+      ],
+      "id": "bp-forge-layout-skeleton",
+      "operation": "move",
+      "to": [
+        {
+          "id": "skeleton",
+          "language": "rust",
+          "manifest": "source/forge/skeleton/Cargo.toml",
+          "name": "bridgeforge-skeleton",
+          "workspace": "Cargo.toml"
+        }
+      ]
+    },
+    {
+      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
+      "compatibility": "compatible",
+      "from": [
+        {
+          "id": "lifecycle",
+          "language": "rust",
+          "manifest": "source/lifecycle/Cargo.toml",
+          "name": "bridgeforge-lifecycle",
+          "workspace": "Cargo.toml"
+        }
+      ],
+      "id": "bp-forge-layout-lifecycle",
+      "operation": "move",
+      "to": [
+        {
+          "id": "lifecycle",
+          "language": "rust",
+          "manifest": "source/forge/lifecycle/Cargo.toml",
+          "name": "bridgeforge-lifecycle",
+          "workspace": "Cargo.toml"
+        }
+      ]
+    },
+    {
+      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
+      "compatibility": "compatible",
+      "from": [
+        {
+          "id": "workflow",
+          "language": "rust",
+          "manifest": "source/workflow/Cargo.toml",
+          "name": "bridgeforge-workflow",
+          "workspace": "Cargo.toml"
+        }
+      ],
+      "id": "bp-forge-layout-workflow",
+      "operation": "move",
+      "to": [
+        {
+          "id": "workflow",
+          "language": "rust",
+          "manifest": "source/forge/workflow/Cargo.toml",
+          "name": "bridgeforge-workflow",
+          "workspace": "Cargo.toml"
+        }
+      ]
+    },
+    {
+      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
+      "compatibility": "compatible",
+      "from": [
+        {
+          "id": "memory",
+          "language": "rust",
+          "manifest": "source/memory/Cargo.toml",
+          "name": "bridgeforge-memory",
+          "workspace": "Cargo.toml"
+        }
+      ],
+      "id": "bp-forge-layout-memory",
+      "operation": "move",
+      "to": [
+        {
+          "id": "memory",
+          "language": "rust",
+          "manifest": "source/forge/memory/Cargo.toml",
+          "name": "bridgeforge-memory",
+          "workspace": "Cargo.toml"
+        }
+      ]
+    },
+    {
+      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
+      "compatibility": "compatible",
+      "from": [
+        {
+          "id": "checks",
+          "language": "rust",
+          "manifest": "source/checks/Cargo.toml",
+          "name": "bridgeforge-checks",
+          "workspace": "Cargo.toml"
+        }
+      ],
+      "id": "bp-forge-layout-checks",
+      "operation": "move",
+      "to": [
+        {
+          "id": "checks",
+          "language": "rust",
+          "manifest": "source/forge/checks/Cargo.toml",
+          "name": "bridgeforge-checks",
+          "workspace": "Cargo.toml"
+        }
+      ]
+    },
+    {
+      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
+      "compatibility": "compatible",
+      "from": [
+        {
+          "id": "factory",
+          "language": "rust",
+          "manifest": "source/factory/Cargo.toml",
+          "name": "bridgeforge-factory",
+          "workspace": "Cargo.toml"
+        }
+      ],
+      "id": "bp-forge-layout-factory",
+      "operation": "move",
+      "to": [
+        {
+          "id": "factory",
+          "language": "rust",
+          "manifest": "source/forge/factory/Cargo.toml",
+          "name": "bridgeforge-factory",
+          "workspace": "Cargo.toml"
+        }
+      ]
+    },
+    {
+      "base": "972443d6c58f684e4ed6743a23375974e689169b",
+      "compatibility": "breaking",
+      "from": [
+        {
+          "id": "orchestrator",
+          "language": "rust",
+          "manifest": "source/orchestrator/Cargo.toml",
+          "name": "bridgepilot-orchestrator",
+          "workspace": "Cargo.toml"
+        }
+      ],
+      "id": "bp-orchestrator-six-package-split",
+      "operation": "split",
+      "to": [
+        {
+          "id": "orchestrator",
+          "language": "rust",
+          "manifest": "source/orchestrator/cli/Cargo.toml",
+          "name": "bridgepilot-orchestrator",
+          "workspace": "Cargo.toml"
+        },
+        {
+          "id": "bp-tasks",
+          "language": "rust",
+          "manifest": "source/orchestrator/tasks/Cargo.toml",
+          "name": "bridgepilot-tasks",
+          "workspace": "Cargo.toml"
+        },
+        {
+          "id": "bp-storage",
+          "language": "rust",
+          "manifest": "source/orchestrator/storage/Cargo.toml",
+          "name": "bridgepilot-storage",
+          "workspace": "Cargo.toml"
+        },
+        {
+          "id": "bp-execution",
+          "language": "rust",
+          "manifest": "source/orchestrator/execution/Cargo.toml",
+          "name": "bridgepilot-execution",
+          "workspace": "Cargo.toml"
+        },
+        {
+          "id": "bp-transfer",
+          "language": "rust",
+          "manifest": "source/orchestrator/transfer/Cargo.toml",
+          "name": "bridgepilot-transfer",
+          "workspace": "Cargo.toml"
+        },
+        {
+          "id": "bp-install",
+          "language": "rust",
+          "manifest": "source/orchestrator/install/Cargo.toml",
+          "name": "bridgepilot-install",
+          "workspace": "Cargo.toml"
+        }
+      ]
+    }
+  ],
   "package_adoptions": [
     {
       "id": "core",
@@ -742,11 +1202,46 @@
       "workspace": "Cargo.toml"
     },
     {
-      "name": "bridgepilot-orchestrator",
-      "workspace": "Cargo.toml",
-      "language": "rust",
       "id": "orchestrator",
-      "manifest": "source/orchestrator/Cargo.toml"
+      "language": "rust",
+      "manifest": "source/orchestrator/cli/Cargo.toml",
+      "name": "bridgepilot-orchestrator",
+      "workspace": "Cargo.toml"
+    },
+    {
+      "id": "bp-tasks",
+      "language": "rust",
+      "manifest": "source/orchestrator/tasks/Cargo.toml",
+      "name": "bridgepilot-tasks",
+      "workspace": "Cargo.toml"
+    },
+    {
+      "id": "bp-storage",
+      "language": "rust",
+      "manifest": "source/orchestrator/storage/Cargo.toml",
+      "name": "bridgepilot-storage",
+      "workspace": "Cargo.toml"
+    },
+    {
+      "id": "bp-execution",
+      "language": "rust",
+      "manifest": "source/orchestrator/execution/Cargo.toml",
+      "name": "bridgepilot-execution",
+      "workspace": "Cargo.toml"
+    },
+    {
+      "id": "bp-transfer",
+      "language": "rust",
+      "manifest": "source/orchestrator/transfer/Cargo.toml",
+      "name": "bridgepilot-transfer",
+      "workspace": "Cargo.toml"
+    },
+    {
+      "id": "bp-install",
+      "language": "rust",
+      "manifest": "source/orchestrator/install/Cargo.toml",
+      "name": "bridgepilot-install",
+      "workspace": "Cargo.toml"
     }
   ],
   "product_inputs": [
@@ -774,10 +1269,10 @@
   ],
   "release_model": "product-packages",
   "release_policy": "explicit_release",
-  "schema_version": 4,
-  "strategy": "independent",
   "release_withdrawals": [
     {
+      "reason": "User explicitly approved verified withdrawal recognition and managed package development closure on 2026-10-30; no commit, push or release.",
+      "restored_release": "31d1451ca5f32a6c4ed129e439e9fb5f9f210070",
       "retained_documentation": [
         "CHANGELOG.md",
         "doc/0_architecture/TODO-INDEX.md",
@@ -785,179 +1280,9 @@
         "doc/README.md"
       ],
       "rollback": "47bc1903fd91e26d60011417863d59ef87027941",
-      "restored_release": "31d1451ca5f32a6c4ed129e439e9fb5f9f210070",
-      "reason": "User explicitly approved verified withdrawal recognition and managed package development closure on 2026-10-30; no commit, push or release.",
       "withdrawn_release": "35b5ad7ad1829ceae8805d78abdb759065c6b645"
     }
   ],
-  "lifecycle": [
-    {
-      "from": [
-        {
-          "id": "core",
-          "workspace": "Cargo.toml",
-          "language": "rust",
-          "manifest": "source/core/Cargo.toml",
-          "name": "bridgeforge-core"
-        }
-      ],
-      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
-      "compatibility": "compatible",
-      "to": [
-        {
-          "name": "bridgeforge-core",
-          "language": "rust",
-          "manifest": "source/forge/core/Cargo.toml",
-          "id": "core",
-          "workspace": "Cargo.toml"
-        }
-      ],
-      "operation": "move",
-      "id": "bp-forge-layout-core"
-    },
-    {
-      "from": [
-        {
-          "id": "skeleton",
-          "workspace": "Cargo.toml",
-          "language": "rust",
-          "manifest": "source/skeleton/Cargo.toml",
-          "name": "bridgeforge-skeleton"
-        }
-      ],
-      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
-      "compatibility": "compatible",
-      "to": [
-        {
-          "name": "bridgeforge-skeleton",
-          "language": "rust",
-          "manifest": "source/forge/skeleton/Cargo.toml",
-          "id": "skeleton",
-          "workspace": "Cargo.toml"
-        }
-      ],
-      "operation": "move",
-      "id": "bp-forge-layout-skeleton"
-    },
-    {
-      "from": [
-        {
-          "id": "lifecycle",
-          "workspace": "Cargo.toml",
-          "language": "rust",
-          "manifest": "source/lifecycle/Cargo.toml",
-          "name": "bridgeforge-lifecycle"
-        }
-      ],
-      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
-      "compatibility": "compatible",
-      "to": [
-        {
-          "name": "bridgeforge-lifecycle",
-          "language": "rust",
-          "manifest": "source/forge/lifecycle/Cargo.toml",
-          "id": "lifecycle",
-          "workspace": "Cargo.toml"
-        }
-      ],
-      "operation": "move",
-      "id": "bp-forge-layout-lifecycle"
-    },
-    {
-      "from": [
-        {
-          "id": "workflow",
-          "workspace": "Cargo.toml",
-          "language": "rust",
-          "manifest": "source/workflow/Cargo.toml",
-          "name": "bridgeforge-workflow"
-        }
-      ],
-      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
-      "compatibility": "compatible",
-      "to": [
-        {
-          "name": "bridgeforge-workflow",
-          "language": "rust",
-          "manifest": "source/forge/workflow/Cargo.toml",
-          "id": "workflow",
-          "workspace": "Cargo.toml"
-        }
-      ],
-      "operation": "move",
-      "id": "bp-forge-layout-workflow"
-    },
-    {
-      "from": [
-        {
-          "id": "memory",
-          "workspace": "Cargo.toml",
-          "language": "rust",
-          "manifest": "source/memory/Cargo.toml",
-          "name": "bridgeforge-memory"
-        }
-      ],
-      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
-      "compatibility": "compatible",
-      "to": [
-        {
-          "name": "bridgeforge-memory",
-          "language": "rust",
-          "manifest": "source/forge/memory/Cargo.toml",
-          "id": "memory",
-          "workspace": "Cargo.toml"
-        }
-      ],
-      "operation": "move",
-      "id": "bp-forge-layout-memory"
-    },
-    {
-      "from": [
-        {
-          "id": "checks",
-          "workspace": "Cargo.toml",
-          "language": "rust",
-          "manifest": "source/checks/Cargo.toml",
-          "name": "bridgeforge-checks"
-        }
-      ],
-      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
-      "compatibility": "compatible",
-      "to": [
-        {
-          "name": "bridgeforge-checks",
-          "language": "rust",
-          "manifest": "source/forge/checks/Cargo.toml",
-          "id": "checks",
-          "workspace": "Cargo.toml"
-        }
-      ],
-      "operation": "move",
-      "id": "bp-forge-layout-checks"
-    },
-    {
-      "from": [
-        {
-          "id": "factory",
-          "workspace": "Cargo.toml",
-          "language": "rust",
-          "manifest": "source/factory/Cargo.toml",
-          "name": "bridgeforge-factory"
-        }
-      ],
-      "base": "475b04f691e6789e1c5169ae2a4f3e2f795cd621",
-      "compatibility": "compatible",
-      "to": [
-        {
-          "name": "bridgeforge-factory",
-          "language": "rust",
-          "manifest": "source/forge/factory/Cargo.toml",
-          "id": "factory",
-          "workspace": "Cargo.toml"
-        }
-      ],
-      "operation": "move",
-      "id": "bp-forge-layout-factory"
-    }
-  ]
+  "schema_version": 4,
+  "strategy": "independent"
 }

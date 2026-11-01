@@ -1,6 +1,8 @@
 use super::*;
 use bridgeforge_core::{ProcessRequest, ProcessRunner, SystemProcessRunner};
-use bridgepilot_orchestrator::{handoff, install, sync};
+use bridgepilot_transfer::handoff;
+use bridgepilot_install::install;
+use bridgepilot_transfer::sync;
 use rusqlite::OptionalExtension;
 use serde_json::json;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -620,7 +622,7 @@ fn unpublished_candidate_can_be_fenced_after_all_runtime_git_objects_are_removed
     let key = format!("transport.snapshot.{}", pending.candidate);
     let snapshot = local_record(&f.store, &key).unwrap();
     assert!(snapshot.starts_with(b"SQLite format 3\0"));
-    bridgepilot_orchestrator::database::inspect_shared_bytes(&snapshot).unwrap();
+    bridgepilot_storage::database::inspect_shared_bytes(&snapshot).unwrap();
     remove_transport_cache(&f);
     assert_eq!(local_record(&f.store, &key).unwrap(), snapshot);
     assert!(engine.reconcile().is_err());
@@ -913,11 +915,11 @@ fn portable_install_is_read_only_in_preview_preserves_configuration_and_rejects_
         include_bytes!("../../../source/orchestrator/skills/bridgeforge-update/SKILL.md")
     );
     let skills = f.root.join("user-skills");
-    bridgepilot_orchestrator::user_skill::install(&home, &skills, true).unwrap();
+    bridgepilot_install::user_skill::install(&home, &skills, true).unwrap();
     assert!(!skills.join("bridgepilot").exists());
-    bridgepilot_orchestrator::user_skill::install(&home, &skills, false).unwrap();
+    bridgepilot_install::user_skill::install(&home, &skills, false).unwrap();
     assert_eq!(
-        bridgepilot_orchestrator::user_skill::status(&home, &skills).unwrap()["current"],
+        bridgepilot_install::user_skill::status(&home, &skills).unwrap()["current"],
         true
     );
     fs::write(home.join(upgrade_skill), "user upgrade customization").unwrap();

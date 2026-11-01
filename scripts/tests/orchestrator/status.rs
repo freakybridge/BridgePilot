@@ -10,7 +10,7 @@ impl Fixture {
     fn new() -> Self {
         let root = std::path::absolute(
             PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("../../.runtime/tests/bridgepilot-status-sqlite/status")
+                .join("../../../.runtime/tests/bridgepilot-status-sqlite/status")
                 .join(new_id("case")),
         )
         .unwrap();

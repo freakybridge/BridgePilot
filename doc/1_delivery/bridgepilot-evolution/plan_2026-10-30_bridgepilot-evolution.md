@@ -884,13 +884,13 @@ Skill 负责明确模式、授权及流程协调，Rust 内核继续负责停止
 
 | 已核实入口 | 当前行为 | 本阶段影响 |
 |---|---|---|
-| [domain.rs](../../../source/orchestrator/domain.rs) | 已有任务随机 ID、spec hash、确认、Run、Operation、暂停／Unknown／交付状态；没有固定人类任务序号及统一进展视图 | 保留任务身份与状态机，增加持久序号、事件和来源关联 |
-| [store.rs](../../../source/orchestrator/store.rs) | `HEAD.json` 选择不可变完整 JSON 修订；读取校验父链；文件锁＋expected revision 提交；索引仍为 `index/tasks.json` | 替换为 SQLite 事务和可查询历史，迁移旧链，不只把完整 State JSON 塞进数据库 |
-| [cli.rs](../../../source/orchestrator/cli.rs)、[main.rs](../../../source/orchestrator/main.rs) | `status` 返回整份状态，main 固定序列化 JSON | 新增同一数据库快照产生的六列视图与确定性展示，兼容并逐步调整机器消费者 |
-| [codex.rs](../../../source/orchestrator/codex.rs) | 已关联 thread／turn 与命令事件；命令回执主要先积累在内存，回合结束才随结果入档 | 将相关事件在接收时可靠记录；崩溃后仍能展示最后已提交进展 |
-| [scheduler.rs](../../../source/orchestrator/scheduler.rs)、[review.rs](../../../source/orchestrator/review.rs)、[delivery.rs](../../../source/orchestrator/delivery.rs) | 调度、报告复核、开发及发布认证分别推进状态 | 统一通过新 Store 事务保存，保留完成门禁，不能由任意进展更新冒充认证 |
-| [sync.rs](../../../source/orchestrator/sync.rs)、[handoff.rs](../../../source/orchestrator/handoff.rs) | 同步显式列举 HEAD／revisions JSON，核对 Git 和档案双重祖先；pending、取消／栅栏及独占接管已有语义 | 改为 SQLite 快照与逻辑修订祖先，保留未知网络结果核销和控制权保护 |
-| [install.rs](../../../source/orchestrator/install.rs)、[user_skill.rs](../../../source/orchestrator/user_skill.rs) | 安装／回退读取实际档案验证兼容；Skill 五文件由 BP 固定资产表管理 | 增加 SQLite 读写能力门禁、旧程序拒绝和本机更新顺序，不绕过所有权 |
+| [domain.rs](../../../source/orchestrator/tasks/domain.rs) | 已有任务随机 ID、spec hash、确认、Run、Operation、暂停／Unknown／交付状态；没有固定人类任务序号及统一进展视图 | 保留任务身份与状态机，增加持久序号、事件和来源关联 |
+| [store.rs](../../../source/orchestrator/storage/store.rs) | `HEAD.json` 选择不可变完整 JSON 修订；读取校验父链；文件锁＋expected revision 提交；索引仍为 `index/tasks.json` | 替换为 SQLite 事务和可查询历史，迁移旧链，不只把完整 State JSON 塞进数据库 |
+| [cli.rs](../../../source/orchestrator/cli/cli.rs)、[main.rs](../../../source/orchestrator/cli/main.rs) | `status` 返回整份状态，main 固定序列化 JSON | 新增同一数据库快照产生的六列视图与确定性展示，兼容并逐步调整机器消费者 |
+| [codex.rs](../../../source/orchestrator/execution/codex.rs) | 已关联 thread／turn 与命令事件；命令回执主要先积累在内存，回合结束才随结果入档 | 将相关事件在接收时可靠记录；崩溃后仍能展示最后已提交进展 |
+| [scheduler.rs](../../../source/orchestrator/execution/scheduler.rs)、[review.rs](../../../source/orchestrator/execution/review.rs)、[delivery.rs](../../../source/orchestrator/execution/delivery.rs) | 调度、报告复核、开发及发布认证分别推进状态 | 统一通过新 Store 事务保存，保留完成门禁，不能由任意进展更新冒充认证 |
+| [sync.rs](../../../source/orchestrator/transfer/sync.rs)、[handoff.rs](../../../source/orchestrator/transfer/handoff.rs) | 同步显式列举 HEAD／revisions JSON，核对 Git 和档案双重祖先；pending、取消／栅栏及独占接管已有语义 | 改为 SQLite 快照与逻辑修订祖先，保留未知网络结果核销和控制权保护 |
+| [install.rs](../../../source/orchestrator/install/install.rs)、[user_skill.rs](../../../source/orchestrator/install/user_skill.rs) | 安装／回退读取实际档案验证兼容；Skill 五文件由 BP 固定资产表管理 | 增加 SQLite 读写能力门禁、旧程序拒绝和本机更新顺序，不绕过所有权 |
 | [BP Skill](../../../source/orchestrator/skills/bridgepilot/SKILL.md) | 本对话曾局部增加由 Agent 查询聊天后汇总的候选流程，尚未完成收口／安装 | 明确替换该临时方案，不能继续让 status 依赖 Agent 临场拼表 |
 
 当前工作树已有 BP 私有源码、配置、账本与文档改动。本阶段执行时先对照既有已验收 0.6.0 收口证据确认同包基线；不 reset、不覆写，不以本次局部修改认证来源不明的整包。另一对话的 Forge 14.0.0 发布与下游升级结果以[其唯一记录](../forge-downstream-upgrade/plan_2026-11-01_four-projects.md)为准，不从本文件旧阶段的发布停止记录推断当前 Forge 状态。
@@ -1243,3 +1243,7 @@ BP9-01～11 的工程交付及 B 最低范围已完成。原生 Goal 仍沿用�
 验收主记录与TODO-050进展已保存，公共CLI `.build/bridgeforge/bin/bridgeforge.exe check todo --root .` 实际退出0且errors为空；工厂check子命令仅支持factory-version，首次误用已纠正，未将其报错当TODO检查通过。索引doc/README.md仍处于本次恢复冲突，summary的索引收口受此阻断。收据位于 `.runtime/tests/bridgepilot-status-sqlite/release-preflight.json`、`release-remote.json`、`release-remote.stderr.log` 及 `accept-todo-check.json`。
 
 继续条件：先明确处理上述冲突和同路径文档的恢复，完整保留两侧账本历史、远端公共变化及本地BP变更；解决后重新核验受管工具与当前覆盖、生成最终release预览和分析。不得在当前未合并状态直接发布，不以当前上游一致冒充本轮已提交推送。
+
+## 当前源码拆包接续（2026-11-02）
+
+初期单包设计和各阶段描述保留为历史记录。当前已授权的六包拆分及实际验证、收口进展统一见 [BP 六包职责拆分](../bridgepilot-package-split/plan_2026-11-02_package-split.md)；本文件源码导航已指向迁移后的职责包。该重构不变更公共骨架分发范围。

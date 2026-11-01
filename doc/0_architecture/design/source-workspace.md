@@ -2,7 +2,7 @@
 
 工程 Rust 唯一维护源位于根 workspace 的 `source/forge/`。目录使用简短职责名，Cargo 原生包名仍为 `bridgeforge-*`。`.codex/hooks/` 是由受管生成器产生的公共运行时投影，不作为第二份维护源。
 
-2026-10-31 正在实施 BridgePilot 首批目录归组；后续总管位于平行的 `source/orchestrator/`，不依赖该总管即可使用工程能力。本文记录当前代码组织，验证与未完成项以 [TODO-050 计划](../../1_delivery/bridgepilot-evolution/plan_2026-10-30_bridgepilot-evolution.md)为准，不代表首批已验收。
+BP 总管位于平行的 `source/orchestrator/`，按 tasks、storage、execution、transfer、install、cli 六个独立包组织；不依赖该总管即可使用 Forge 工程能力。BP 包不进入公共源码投影，受管版本登记与公共分发名单分别管理。拆分验证与收口状态以 [六包拆分记录](../../1_delivery/bridgepilot-package-split/plan_2026-11-02_package-split.md)为准，产品整体进展见 [TODO-050 计划](../../1_delivery/bridgepilot-evolution/plan_2026-10-30_bridgepilot-evolution.md)。
 
 | 目录 | 职责 | 主要边界 |
 |---|---|---|
