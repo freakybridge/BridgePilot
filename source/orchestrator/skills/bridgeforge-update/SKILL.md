@@ -1,11 +1,15 @@
 ---
 name: bridgeforge-update
 description: BP 私有的单项目或多项目骨架升级编排，组织范围核对、dry-run、问题解释与处理、正式升级，并在本次已有明确 release 授权时衔接发布。
+user_invocable: true
+argument: 项目目录或项目集合，以及 dry-run、升级或本轮已授权的发布范围
 ---
 
 # bridgeforge-update
 
 由 BP 主对话编排整轮骨架升级，沿用 [BP 入口](../bridgepilot/SKILL.md) 的项目绑定、控制权和任务核验。实际维护、开发收口和发布分别使用当前可用的 bridgeforge-codex、develop、git-sync；能力缺失时报告具体缺口，不另造执行器。
+
+本入口由 BP 独立安装和维护，不进入 Forge 共享分发。用户级安装时，先读取本 Skill 目录的 `bridgepilot-local.json`，以实际 `home` 定位 `.build/bridgepilot/bin/bp.exe`，通过 `skill-status --home <home> --skills-root <实际根>` 核验两个入口的归属与完整性，再读取该 home 下 `source/orchestrator/skills/bridgepilot/SKILL.md`。源码候选没有本机绑定时，先按 BP 入口核对当前项目根与实际安装，不猜 home；本入口被选择不等于获准 apply 或发布。
 
 ## 1. 确定批次
 

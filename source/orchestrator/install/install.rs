@@ -27,9 +27,9 @@ const GUIDE: &[u8] = r#"# BridgePilot 安装与恢复
 
 0.6.0起包另含四个Skill模式引用，均由BP固定资产表核验。程序install无需Git／gh；先安装程序，再由 `environment-check --context <已有目录>` 核对必要依赖，缺失时经本次授权用 `environment-install --home <已安装home> --scope user --source <来源>` 静默准备Git／GitHub CLI。状态与锁固定在home，用户级不支持或结果未知时报告，不自动提权或换目录重发；机器级scope只在明确授权后使用。登录本人完成，PATH未刷新不重复安装。
 
-程序安装后，通过 `skill-install-preview --home <home> --skills-root <本机CODEX_HOME/skills>` 再 `skill-install` 安装用户级bridgepilot，`skill-status`核验。源码仍归BP，不进入Forge共享分发；拒绝覆盖同名未知或用户编辑的Skill。中断先 `skill-recover`，与程序install-recover分别核销，不能绕过pending升级程序。已安装用户级Skill时，回退目标须支持bp-user-skill-v1，否则拒绝。仅恢复档案不等于接管，显式handoff restore才包含接管授权。
+程序安装后，通过 `skill-install-preview --home <home> --skills-root <本机CODEX_HOME/skills>` 再 `skill-install` 安装用户级bridgepilot及bridgeforge-update两个入口，`skill-status`逐项核验。源码仍归BP，不进入Forge共享分发；拒绝覆盖同名未知或用户编辑的Skill。中断先 `skill-recover`，与程序install-recover分别核销，不能绕过pending升级程序。已安装用户级Skill时，回退目标须支持bp-user-skill-v1；安装独立升级入口后还须支持bp-independent-update-skill-v1，否则拒绝。仅恢复档案不等于接管，显式handoff restore才包含接管授权。
 
-0.8.0起包另含 bridgeforge-update-skill.md，由固定资产表安装到 home 的 source/orchestrator/skills/bridgeforge-update/SKILL.md。用户通过 BP 发起骨架升级，由 BP 入口定位实际 home 并读取；此 Skill 不单独进入 Forge 共享分发，安装本身不授权下游维护或发布。
+0.8.0起包另含 bridgeforge-update-skill.md，由固定资产表安装到 home 的 source/orchestrator/skills/bridgeforge-update/SKILL.md。支持bp-independent-update-skill-v1的core通过skill-install同时安装两个用户级入口，可直接选择bridgeforge-update发起骨架升级；此 Skill 不进入 Forge 共享分发，安装本身不授权下游维护或发布。
 
 包包含 payload/bp-core.exe、payload/bp-launcher.exe 和 package.json。新机准备 Git、GitHub CLI 与 Codex 登录，无需编译 Rust。先初始化独立私有工作区：`bp-core.exe init --workspace <绝对路径>`。用 `install-preview --bundle <包目录> --home <独立绝对目录> --workspace <工作区>` 零写入检查，再将命令换成 install。在 Codex 打开 home；稳定入口是 `.build/bridgepilot/bin/bp.exe`，从 home/.runtime/config/bridgepilot.json 定位档案。
 
@@ -529,6 +529,16 @@ fn install_before_lock(
             .is_some_and(|v| v.iter().any(|x| x == "bp-user-skill-v1"))
         {
             return Err("rollback target cannot maintain the installed BP user Skill".into());
+        }
+        let marker: Value = read_json(&skill_marker)?;
+        if marker["independent_update"] == true
+            && !candidate["capabilities"]
+                .as_array()
+                .is_some_and(|v| v.iter().any(|x| x == "bp-independent-update-skill-v1"))
+        {
+            return Err(
+                "rollback target cannot maintain the independent bridgeforge-update Skill".into(),
+            );
         }
     }
     let rel = format!(

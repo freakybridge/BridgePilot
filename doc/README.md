@@ -12,7 +12,7 @@ delivery_layout: flat
 
 - 已验收：[BP 第九阶段：status 六列与 SQLite 唯一状态库](1_delivery/bridgepilot-evolution/plan_2026-10-30_bridgepilot-evolution.md#bp-status-sqlite-acceptance)（2026-11-01用户验收TODO-050内部阶段并授权release；BP／用户级Skill **0.7.2**，真实档案及私有GitHub SQLite切换、旧86份历史等价审计和隔离恢复通过。超4MiB来源观察受限、物理双机未验证等边界保留，heartbeat仍暂停；发布结果以实际收据为准）。
 
-- 发布计划与执行记录：[四个下游骨架升级与 Release Plan](1_delivery/forge-downstream-upgrade/plan_2026-11-01_four-projects.md)（DR 编号、最新执行结果、发布边界和继续条件以该记录为准）。 最终仅保留BP私有 `bridgeforge-update`：BP 0.8.0收口和安装验证有效，额外BF能力与升版已撤回，见2026-11-02最终结果。
+- 发布计划与执行记录：[四个下游骨架升级与 Release Plan](1_delivery/forge-downstream-upgrade/plan_2026-11-01_four-projects.md)（DR 编号、最新执行结果、发布边界和继续条件以该记录为准）。BP私有 [bridgeforge-update 独立入口](1_delivery/forge-downstream-upgrade/plan_2026-11-01_four-projects.md#独立入口交付与用户验收2026-11-02)已于2026-11-02验收，BP0.10.0／install0.2.0收口、本机双入口安装及原生发现通过；不进入Forge共享分发，已授权本轮release，正式结果以收据为准。此前额外BF能力与升版撤回的历史保持。
 
 - 待用户验收：[发布范围判定修复与四个下游骨架升级结果](1_delivery/package-version-lifecycle/requirements_2026-10-31_release-scope-and-four-projects.md#10-正式发布与四项目安装结果2026-10-31)（TODO-051、TODO-052；13.0.3 已由 475b04f 发布推送，lifecycle 0.8.1→0.8.2，12 项最终候选检查与最终工具核验通过；四个下游已逐一安装 13.0.3，保护摘要一致、未提交下游。Stratus 业务发布仍有独立的全局输入与证据缺口；安装后记录尚未另行提交）。
 

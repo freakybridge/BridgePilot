@@ -3,6 +3,7 @@ use bridgeforge_core::{ProcessOutput, ProcessRequest, ProcessRunner};
 use bridgepilot_install::environment;
 use bridgepilot_install::install;
 use bridgepilot_install::user_skill;
+use serde_json::{Value, json};
 use std::sync::{
     Mutex,
     atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -175,6 +176,19 @@ fn user_skill_projection_is_previewable_idempotent_and_preserves_user_edits() {
     assert!(!skills.exists());
     user_skill::install(&home, &skills, false).unwrap();
     assert_eq!(user_skill::status(&home, &skills).unwrap()["current"], true);
+    for name in ["bridgepilot", "bridgeforge-update"] {
+        let source = home.join(format!("source/orchestrator/skills/{name}/SKILL.md"));
+        assert_eq!(
+            fs::read(source).unwrap(),
+            fs::read(skills.join(name).join("SKILL.md")).unwrap()
+        );
+        let binding: Value = serde_json::from_slice(
+            &fs::read(skills.join(name).join("bridgepilot-local.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(binding["product"], "BridgePilot");
+        assert_eq!(binding["home"], json!(fs::canonicalize(&home).unwrap()));
+    }
     let entry = skills.join("bridgepilot/SKILL.md");
     let original = fs::read(&entry).unwrap();
     user_skill::install(&home, &skills, false).unwrap();
@@ -184,6 +198,54 @@ fn user_skill_projection_is_previewable_idempotent_and_preserves_user_edits() {
     fs::write(&entry, b"user customization").unwrap();
     assert!(user_skill::install(&home, &skills, false).is_err());
     assert_eq!(fs::read(&entry).unwrap(), b"user customization");
+}
+#[test]
+fn user_skill_adds_independent_entry_to_legacy_install_and_preserves_conflicts() {
+    let f = Fixture::new("complete");
+    f.store.update(|s| s.pause(true, &[])).unwrap();
+    let home = installed(&f, "independent");
+    let skills = f.root.join("independent-skills");
+    user_skill::install(&home, &skills, false).unwrap();
+    let update = skills.join("bridgeforge-update");
+    // The original single-entry installation has the same primary ownership binding.
+    fs::remove_file(update.join("SKILL.md")).unwrap();
+    fs::remove_file(update.join("bridgepilot-local.json")).unwrap();
+    fs::remove_dir(&update).unwrap();
+    let before = fs::read(skills.join("bridgepilot/bridgepilot-local.json")).unwrap();
+    assert_eq!(
+        user_skill::status(&home, &skills).unwrap()["current"],
+        false
+    );
+    user_skill::install(&home, &skills, true).unwrap();
+    assert!(!update.exists());
+    user_skill::install(&home, &skills, false).unwrap();
+    assert_eq!(user_skill::status(&home, &skills).unwrap()["current"], true);
+    assert_eq!(
+        before,
+        fs::read(skills.join("bridgepilot/bridgepilot-local.json")).unwrap()
+    );
+    fs::write(update.join("SKILL.md"), b"user update workflow").unwrap();
+    assert!(user_skill::install(&home, &skills, false).is_err());
+    assert!(user_skill::status(&home, &skills).is_err());
+    assert_eq!(
+        fs::read(update.join("SKILL.md")).unwrap(),
+        b"user update workflow"
+    );
+
+    let conflict = f.root.join("conflicting-skills");
+    fs::create_dir_all(conflict.join("bridgeforge-update")).unwrap();
+    fs::write(
+        conflict.join("bridgeforge-update/SKILL.md"),
+        b"unowned workflow",
+    )
+    .unwrap();
+    let other = installed(&f, "unowned-independent");
+    assert!(user_skill::install(&other, &conflict, false).is_err());
+    assert!(!conflict.join("bridgepilot").exists());
+    assert_eq!(
+        fs::read(conflict.join("bridgeforge-update/SKILL.md")).unwrap(),
+        b"unowned workflow"
+    );
 }
 #[test]
 fn user_skill_does_not_adopt_unowned_skill_or_modified_installed_source() {

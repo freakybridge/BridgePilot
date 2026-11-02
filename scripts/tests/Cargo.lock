@@ -107,7 +107,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-hook"
-version = "16.0.0"
+version = "16.1.0"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",

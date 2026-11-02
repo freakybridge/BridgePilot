@@ -15,6 +15,29 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [16.1.0] - 2026-11-02
+
+### Added
+
+- [product][repo][meta] 提供 BP 私有骨架升级独立入口
+
+### Release analysis
+
+- Product: 新增 BP 私有 bridgeforge-update 独立入口，由 BP 统一维护双入口的安装、绑定、内容校验与中断恢复；保留原有入口、安装格式和升级编排，增加旧版回退保护，不进入 Forge 共享分发。属于兼容新增，主程序升级至16.1.0；子包已受管收口，不重复升版。
+- `bp-execution`: 0.1.0 -> 0.1.0 (no_package_version_change)
+- `bp-install`: 0.1.0 -> 0.2.0 (Add a BP-owned independently discoverable upgrade skill with joint install, recovery and rollback protection)
+- `bp-storage`: 0.1.0 -> 0.1.0 (no_package_version_change)
+- `bp-tasks`: 0.1.0 -> 0.1.0 (no_package_version_change)
+- `bp-transfer`: 0.1.0 -> 0.1.0 (no_package_version_change)
+- `checks`: 0.2.2 -> 0.2.2 (no_package_version_change)
+- `core`: 10.2.0 -> 10.2.0 (no_package_version_change)
+- `factory`: 0.10.1 -> 0.10.1 (no_package_version_change)
+- `lifecycle`: 0.8.5 -> 0.8.5 (no_package_version_change)
+- `memory`: 0.1.1 -> 0.1.1 (no_package_version_change)
+- `orchestrator`: 0.9.0 -> 0.10.0 (Expose independent upgrade skill capability and validate the two-entry installation lifecycle)
+- `skeleton`: 0.6.0 -> 0.6.0 (no_package_version_change)
+- `workflow`: 0.9.2 -> 0.9.2 (no_package_version_change)
+
 ## [16.0.0] - 2026-11-02
 
 ### Changed

@@ -11,7 +11,7 @@ argument: init、project add <项目目录>、handoff prepare all、handoff rest
 
 ## 先定位本机入口
 
-安装到用户级 Skills 后，读取本 Skill 目录的 bridgepilot-local.json，以其实际 home 定位稳定入口 .build/bridgepilot/bin/bp.exe，通过 skill-status --home <home> --skills-root <实际根> 验证所有权与完整文件。以 home 的 .runtime/config/bridgepilot.json 定位私有 workspace；不把发行包或他人存档库当个人配置。
+安装到用户级 Skills 后，读取本 Skill 目录的 bridgepilot-local.json，以其实际 home 定位稳定入口 .build/bridgepilot/bin/bp.exe，通过 skill-status --home <home> --skills-root <实际根> 验证 bridgepilot 与 bridgeforge-update 两个入口的所有权与完整文件。两个入口均由 BP 的 skill-install 管理，不进入 Forge 共享分发。以 home 的 .runtime/config/bridgepilot.json 定位私有 workspace；不把发行包或他人存档库当个人配置。
 
 源码／安装 home 中的候选入口没有该本机绑定文件：先核对当前项目根及实际安装，不猜机器 ID 或编造路径。源码产物为 .build/bridgepilot/cargo/release/bp.exe。先使用 self-test／help 核验真实版本和能力；Skill 未安装／过旧／中断时沿 INSTALL 处理，不用旧程序冒充新命令。全新电脑尚无 BP 时，从用户指定产品仓库正式 Release 的引导开始。
 

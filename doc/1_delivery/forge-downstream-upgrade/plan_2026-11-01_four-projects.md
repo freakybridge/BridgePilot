@@ -251,3 +251,26 @@ BF源码、模板和专用测试已恢复为已发布提交 `45a51bcb1e0ad95397d
 BP现有0.8.0安装没有降级或重装。重新收口记录的content、dependencies和build身份与原已安装0.8.0对应记录完全一致；实际home中新Skill与源码一致，9项受管内容校验通过，用户级入口原生状态为 `user_skill_current`、`current:true`。原配置、SQLite档案等4文件字节未变，40个BP Rust源文件保护哈希未变，安装事务无pending。HEAD、原始stash保持不变，未解决索引为空。
 
 本机演练、一次性计划、原始收据和独立核验位于当前发布worktree `.runtime/tests/bridgeforge-update/bp-only-recovery/`，包括 `rehearsal-verification.json`、`live-restore-receipt.json`、`bp-only-develop-result.json`、`final-verification.json`、`final-bp-current.json`。没有进行新的真实下游升级或完整桌面/升级流程行为验收。当前结果是BP Skill新增与必要接入完成，BF没有新增长期能力；未提交、推送或发布。
+
+### 独立入口交付与用户验收（2026-11-02）
+
+用户要求在斜杠命令清单直接选择 `/bridgeforge-update`，并明确仍由 BP 管理、不进入 Forge 共享分发；本节是该新增范围的当前结果，前文由 BP 统一入口间接加载的说明保留为历史。随后用户显式调用 `$summary accept`，确认本次独立入口交付符合需求，并调用 `$git-sync release` 授权当前项目受管提交、推送和正式发布。用户验收与发布结果分别判断，实际发布以本轮受管收据为准。
+
+实现位于 BP 私有 install 包和两个本地 Skill：`skill-install-preview` / `skill-install` 在同一事务中处理 `bridgepilot` 与 `bridgeforge-update`，每个入口保存自己的 `bridgepilot-local.json`，以真实 home 定位 BP。`skill-status` 逐项报告安装和内容一致性；旧单入口可以原位补齐，旧单入口恢复日志仍可读取。未知归属、用户修改、跨 home 争用和中断后的外部修改均保留；两个入口的中断恢复共用原有锁与日志。新增 `bp-independent-update-skill-v1` 能力，已安装独立入口后拒绝回退到无法维护它的 core。未修改 Forge 公共模板、共享 Skill 登记或公共源码投影。
+
+| 包 | 开发前 | 收口后 | 原因 |
+|---|---|---|---|
+| bridgepilot-install | 0.1.0 | 0.2.0 | 独立 Skill 投影、双入口事务与校验、恢复及回退保护 |
+| bridgepilot-orchestrator | 0.9.0 | 0.10.0 | 声明独立入口能力并覆盖双入口安装生命周期 |
+
+受管入口 `.build/bridgeforge/bin/bridgeforge-factory.exe develop --apply --root . --packages bp-install,orchestrator --analysis-file .runtime/tests/bridgeforge-update/analysis.json` 返回 `development-closed`，最终候选实际执行3项检查、复用0项，`git_written=false`；主程序仍为16.0.0。正式账本 `.codex/package-closures.json` 的本次两条记录 hash 分别为 `sha256:802bf00383ad4068c80555396599407cdb9b7f3219ce55c69cd2b872aaed3af9`、`sha256:707ac4b691ae70091f3e1eab344ff646ff5e757d3845358f914b3cb6161389d0`。版本仍处于0.x，原因是两包没有配置稳定验收合同。
+
+实际验证包括 install 单元5项、`setup_cases::` 安装集成8项和 BP core／launcher Release 构建。覆盖首次安装、单入口补齐、幂等、来源与用户编辑保护、归属争用、两个安装日志的互斥，以及双入口8次文件写入的所有中断边界和外部编辑保护。公共 CLI 的 `check skill-metadata --root . --skill-root source/orchestrator/skills` 返回 issues／warnings均为空；`git diff --check` 通过。未重跑 Forge 全仓或下游业务回归。
+
+本机已通过 BP 自有 `bundle`、`install-preview` / `install`、`skill-install-preview` / `skill-install` 更新 `C:/Users/bridg/Documents/Codex/BridgePilot` 至0.10.0并安装两个用户级入口。安装回执为 `installation_current`、`archive_migrated:false`、`legacy_forge_unchanged:true`，Skill回执为 `user_skill_installed`、`shared_forge_skills_changed:false`；随后 `skill-status` 为 `user_skill_current`，两个入口 installed／current均为true。真实 SQLite 档案安装前后只读检查均为 archive `archive-df1b25cda65f9bf5a0ff8c35`、revision102，未迁移档案或恢复任务／heartbeat。
+
+已通过原生 `skill-probe` 调用 Codex `skills/list`（forceReload=true），在当前项目观察到 `bridgeforge-update` 与 `bridgepilot` 均为 user scope、enabled=true、errors为空，未创建聊天或启动任务回合。原始发现回执保存于 `.runtime/tests/bridgeforge-update/native-discovery.json`；本轮分析及预览同在该忽略目录。该证据证明原生发现与启用，未实际点选桌面命令菜单、执行新的骨架升级或验证完整下游发布流程。
+
+相关 **TODO-050** 仅增加本次独立入口已验收进展，整体总管需求仍为进行中，既有真实冷机、双项目业务发布、物理双机及自然唤醒等未完成范围保持原记录。本次不新增独立待办、不归档历史主题。
+
+可复用经验：源码目录存在 SKILL.md 不代表已注册为独立可发现入口；须经 BP 自有安装、归属与 hash 校验，再用原生 skills/list 验证。受管 develop 的严格环境指纹会使跨沙箱边界的分析失效，本轮重新核对相同两包范围后在同一执行环境生成分析并 apply；没有仅替换旧 fingerprint 或降低检查要求。

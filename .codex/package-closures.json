@@ -17893,6 +17893,180 @@
         "content": "sha256:7a67e6199e9893ee2a47b1e9173f8c95224fa118855c35584a1ea34489e4018f",
         "dependencies": "sha256:b9e1da77c94a6975b4fa307d59194c0faf4715b5346c52e27660bc2865a1290d"
       }
+    },
+    {
+      "id": "bp-install",
+      "before": "0.1.0",
+      "after": "0.2.0",
+      "content": "sha256:4af584ab67abe659d6a5bdece945de26e7aa595be8943631dce9b6ad9b2037d5",
+      "evidence": "sha256:d4a657ec526122c49a1b94ed832a6d393eb549bf9c8bfb815a23b5f324b4c72f",
+      "level": 2,
+      "compatibility": "compatible",
+      "acceptance": null,
+      "reason": "Add a BP-owned independently discoverable upgrade skill with joint install, recovery and rollback protection",
+      "stability": "stability contract is not configured",
+      "checks": [
+        {
+          "id": "bp-install-unit",
+          "status": "passed",
+          "command": {
+            "id": "bp-install-unit",
+            "program": "cargo",
+            "args": [
+              "test",
+              "--quiet",
+              "--locked",
+              "--offline",
+              "--manifest-path",
+              "Cargo.toml",
+              "--target-dir",
+              ".build/bridgepilot/cargo",
+              "-p",
+              "bridgepilot-install",
+              "--lib",
+              "--",
+              "--test-threads=1"
+            ],
+            "timeout_seconds": 600,
+            "artifacts": [],
+            "inputs": [
+              "scripts/tests/orchestrator/delivery.rs",
+              "scripts/tests/orchestrator/domain.rs",
+              "scripts/tests/orchestrator/execute.rs",
+              "scripts/tests/orchestrator/grouping.rs",
+              "scripts/tests/orchestrator/migration.rs",
+              "scripts/tests/orchestrator/observation.rs",
+              "scripts/tests/orchestrator/portable.rs",
+              "scripts/tests/orchestrator/protocol.rs",
+              "scripts/tests/orchestrator/rpc_fixture.rs",
+              "scripts/tests/orchestrator/scheduler.rs",
+              "scripts/tests/orchestrator/setup.rs",
+              "scripts/tests/orchestrator/status.rs",
+              "scripts/tests/orchestrator/store.rs",
+              "scripts/tests/orchestrator/wakeup.rs"
+            ],
+            "kind": ""
+          },
+          "stdout_sha256": "sha256:eddcd28e7184b1ed70e1cefde2d807a4d164f6d7dff33a7fb1d34c470ef4c30e",
+          "stderr_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "artifacts": {},
+      "previous": "sha256:f631f94875fd1ceb380dd3a546e29622d9b383c4918f500722d056d18c57adbc",
+      "hash": "sha256:802bf00383ad4068c80555396599407cdb9b7f3219ce55c69cd2b872aaed3af9",
+      "evidence_schema": 6,
+      "evidence_components": {
+        "build": "sha256:284067e1afd7fe9ef4cdf195ad0bd45dc01040401f52496c707c869ac2cfa57d",
+        "content": "sha256:4af584ab67abe659d6a5bdece945de26e7aa595be8943631dce9b6ad9b2037d5",
+        "dependencies": "sha256:3c8f8980b7d0feceb9a39b1d658ad2bb4b6af3570c6291e098e9843d7661b0a2"
+      }
+    },
+    {
+      "id": "orchestrator",
+      "before": "0.9.0",
+      "after": "0.10.0",
+      "content": "sha256:5367d44b1effcca8309d6f42ad808fe4396f3d6a4112bfc33ead5c47df80d1fb",
+      "evidence": "sha256:610a420203e9f97a2ba51635512ee03dbebc859759b55daa787b1c0e12dac379",
+      "level": 2,
+      "compatibility": "compatible",
+      "acceptance": null,
+      "reason": "Expose independent upgrade skill capability and validate the two-entry installation lifecycle",
+      "stability": "stability contract is not configured",
+      "checks": [
+        {
+          "id": "orchestrator-unit-integration",
+          "status": "passed",
+          "command": {
+            "id": "orchestrator-unit-integration",
+            "program": "cargo",
+            "args": [
+              "test",
+              "--quiet",
+              "--locked",
+              "--offline",
+              "--manifest-path",
+              "Cargo.toml",
+              "--target-dir",
+              ".build/bridgepilot/cargo",
+              "-p",
+              "bridgepilot-orchestrator",
+              "--features",
+              "test-fixtures",
+              "setup_cases::",
+              "--",
+              "--skip",
+              "portable_cases::",
+              "--test-threads=1"
+            ],
+            "timeout_seconds": 600,
+            "artifacts": [],
+            "inputs": [
+              "scripts/tests/orchestrator/delivery.rs",
+              "scripts/tests/orchestrator/domain.rs",
+              "scripts/tests/orchestrator/execute.rs",
+              "scripts/tests/orchestrator/grouping.rs",
+              "scripts/tests/orchestrator/migration.rs",
+              "scripts/tests/orchestrator/observation.rs",
+              "scripts/tests/orchestrator/portable.rs",
+              "scripts/tests/orchestrator/protocol.rs",
+              "scripts/tests/orchestrator/rpc_fixture.rs",
+              "scripts/tests/orchestrator/scheduler.rs",
+              "scripts/tests/orchestrator/setup.rs",
+              "scripts/tests/orchestrator/status.rs",
+              "scripts/tests/orchestrator/store.rs",
+              "scripts/tests/orchestrator/wakeup.rs"
+            ],
+            "kind": ""
+          },
+          "stdout_sha256": "sha256:78c5c5121d6a8298627198122fe5a2ca4ad6e9f3da9d6d1e25dd30dcc51752eb",
+          "stderr_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "id": "orchestrator-build",
+          "status": "passed",
+          "command": {
+            "id": "orchestrator-build",
+            "program": "cargo",
+            "args": [
+              "build",
+              "--locked",
+              "--offline",
+              "--release",
+              "--manifest-path",
+              "Cargo.toml",
+              "--target-dir",
+              ".build/bridgepilot/cargo",
+              "-p",
+              "bridgepilot-orchestrator",
+              "--bin",
+              "bp",
+              "--bin",
+              "bp-launcher"
+            ],
+            "timeout_seconds": 600,
+            "artifacts": [
+              ".build/bridgepilot/cargo/release/bp.exe",
+              ".build/bridgepilot/cargo/release/bp-launcher.exe"
+            ],
+            "inputs": [],
+            "kind": ""
+          },
+          "stdout_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_sha256": "sha256:9a09e42d850866110b82044c9b2cb89e1e79d06ea7a5f4aaa9fe13a7222867d9"
+        }
+      ],
+      "artifacts": {
+        ".build/bridgepilot/cargo/release/bp-launcher.exe": "sha256:a75ca91864f949dcd9ef38c85ed4ee5a09a023f86e970d3aea62785902c0ecc7",
+        ".build/bridgepilot/cargo/release/bp.exe": "sha256:2a8fd3f360d4fc15c9028e9d310800bc75c5ed9ad78dcb7286bfd96852259be4"
+      },
+      "previous": "sha256:802bf00383ad4068c80555396599407cdb9b7f3219ce55c69cd2b872aaed3af9",
+      "hash": "sha256:707ac4b691ae70091f3e1eab344ff646ff5e757d3845358f914b3cb6161389d0",
+      "evidence_schema": 6,
+      "evidence_components": {
+        "build": "sha256:0a094adc1fc8f0698d7fe19a90b55f942f175f676f7f04599321f98372fb7f60",
+        "content": "sha256:5367d44b1effcca8309d6f42ad808fe4396f3d6a4112bfc33ead5c47df80d1fb",
+        "dependencies": "sha256:39479eb42789268b8f24fb12986ea535e341386f01a99251d3958a6cf382aa45"
+      }
     }
   ]
 }

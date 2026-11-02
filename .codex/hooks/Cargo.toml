@@ -3,7 +3,7 @@ members = ["source/core", "source/skeleton", "source/checks", "source/workflow",
 resolver = "3"
 
 [workspace.package]
-version = "16.0.0"
+version = "16.1.0"
 edition = "2024"
 rust-version = "1.88"
 publish = false

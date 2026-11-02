@@ -5,7 +5,7 @@
 BridgePilot（BP）接收项目目标，保存确认、任务与执行历史，协调不同项目的开发和交付。
 日常直接在 Codex 的 BP 对话中指定项目和目标；复杂任务先 confirm，重要方向再由你判断。
 `source/forge/` 提供工程骨架与受管工具，`source/orchestrator/` 提供总管能力。
-单项目或多项目骨架升级由 BP 私有 [bridgeforge-update](source/orchestrator/skills/bridgeforge-update/SKILL.md) 编排，覆盖 dry-run、问题处理、升级及本轮已有授权的发布。
+单项目或多项目骨架升级可直接选择 `/bridgeforge-update`（或输入 `$bridgeforge-update`），由 BP 私有 [bridgeforge-update](source/orchestrator/skills/bridgeforge-update/SKILL.md) 编排，覆盖 dry-run、问题处理、升级及本轮已有授权的发布。该独立入口仍由 BP 安装与维护，不进入 Forge 共享分发。
 Forge 维护入口仍为 `$bridgeforge-codex`，现有下游入口的迁移另行处理。
 
 Forge 工程子系统负责：
