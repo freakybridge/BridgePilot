@@ -1,9 +1,17 @@
 ---
-lifecycle: active
-validation_status: in_progress
+lifecycle: completed
+validation_status: verified
 ---
 
 # 单入口完整发布修复
+
+## 用户验收与正式发布2026-11-03
+
+用户在本轮修复与真实发布交付后显式调用 `summary accept`，确认 TODO-054 单入口完整发布修复符合需求，包括自动版本准备、提交推送前的版本占用检查、失败接续、固定提交及旧发布保护。TODO-054 按本次工程和真实发布证据记为已完成；历史过程与失败记录保留。
+
+真实发布由同一次受管 `git-sync release --publication-required` 完成，CLI 自动将 BP 1.1.1 升至 1.2.0，未手动改写根 VERSION。最终收据为 `status=released`、`publication_verified=true`，固定提交 `7d9825c2bf2166c452d050d7f379e2bb19889f33`，标签 `bp-v1.2.0`，[正式 Release](https://github.com/freakybridge/BridgePilot/releases/tag/bp-v1.2.0) 的 14 项资产全部核验通过。构建调用两次，fetch、push、upload 各一次；旧失败尝试已保留，原 `bp-v1.1.1` 未覆盖。组件版本变化见下节，均已纳入该正式发布。
+
+验收依据为 29 项定向验证、独立复核、三个受管产物及清单／原生版本检查，加上述真实 BP 发布收据。本轮没有运行真实下游发布、下游 runtime smoke 或用户环境安装，用户级共享 Skill 本轮未另行分发；这些不记为已验证。随后用户再次授权当前 BP release，用于同步本次验收文档增量，其结果以新一轮实际收据为准，不把该授权预记为发布完成。
 
 ## 2026-11-03 自动升版与旧版本误用修复
 
