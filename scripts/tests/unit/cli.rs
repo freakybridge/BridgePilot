@@ -229,7 +229,7 @@ fn cleanup_factory_routing_requires_the_private_tool_before_deleting_anything() 
     fs::create_dir_all(root.join("templates")).unwrap();
     fs::create_dir_all(root.join(".build")).unwrap();
     fs::write(root.join("source/factory/Cargo.toml"), b"factory marker").unwrap();
-    fixture_product::write(root.join("bridgeforge-manifest.json"), b"{}").unwrap();
+    fixture_product::write(root.join("source/forge/bridgeforge-manifest.json"), b"{}").unwrap();
     fs::write(root.join(".build/sample.bin"), b"preserved on failure").unwrap();
     let result = run(&[
         "cleanup".into(),
@@ -324,7 +324,7 @@ fn factory_relay_requires_current_source_binary_and_receipt_before_running() {
         .unwrap();
     }
     fs::write(root.join("VERSION"), b"6.0.0\n").unwrap();
-    fixture_product::write(root.join("bridgeforge-manifest.json"), b"{}").unwrap();
+    fixture_product::write(root.join("source/forge/bridgeforge-manifest.json"), b"{}").unwrap();
     let binary = root.join(format!(
         ".build/bridgeforge/bin/bridgeforge-factory{}",
         std::env::consts::EXE_SUFFIX
@@ -571,7 +571,7 @@ fn factory_skill_metadata_checks_nested_template_sources() {
     let root = test_artifacts::root(env!("CARGO_MANIFEST_DIR"), "cli")
         .join(format!("nested-skill-metadata-{}", std::process::id()));
     fs::create_dir_all(root.join("source/forge/templates/skills/broken")).unwrap();
-    fs::write(root.join("bridgeforge-manifest.json"), b"{}").unwrap();
+    fs::write(root.join("source/forge/bridgeforge-manifest.json"), b"{}").unwrap();
     fs::write(root.join("source/forge/templates/skills/broken/SKILL.md"), b"invalid skill metadata\n").unwrap();
     let result = run(&["check".into(), "skill-metadata".into(), "--root".into(), root.to_string_lossy().into_owned()]);
     assert_ne!(result.code, 0, "invalid source skill must not silently disappear after regrouping");

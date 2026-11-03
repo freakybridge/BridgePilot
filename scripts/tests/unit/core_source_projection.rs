@@ -148,7 +148,7 @@ fn source_projection_is_idempotent_and_ignores_factory_only_changes() {
 
 #[test]
 fn actual_public_projection_builds_locked_without_factory_or_factory_test_sources() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("bridgeforge-manifest.json").is_file()).expect("factory repository");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("source/forge/bridgeforge-manifest.json").is_file()).expect("factory repository");
     assert!(root.join(physical_path(root, "source/factory/Cargo.toml")).is_file());
     for public in [true, false] {
     let before = render(root, public).unwrap();

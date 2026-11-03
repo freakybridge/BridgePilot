@@ -89,7 +89,7 @@ Skills 由产品管理，避免覆盖来源不明或被人工修改的 Skill 文
 
 ## 统一清单格式的入口刷新
 
-产品根清单已统一为 `bridgeforge-manifest.json`，包含 `user_instructions`、`shared_skills` 和 `project_skeleton`。三个旧源清单不再保留；该清单仅作为工具侧事实源，下游不再生成 `.codex/managed-skeleton.json`。
+Forge 分发清单位于 `source/forge/bridgeforge-manifest.json`，包含 `user_instructions`、`shared_skills` 和 `project_skeleton`。清单内的源码路径仍相对 BridgePilot 仓库根解析，命令仍从仓库根执行；根目录不保留清单副本。该清单仅作为工具侧事实源，下游不再生成 `.codex/managed-skeleton.json`。旧版 updater 若因根目录清单缺失而退出，从本节的 `install-shared-skills.ps1` 安装入口重试，由新克隆中的 updater 接续；不要手动复制清单回根目录。
 
 此前已安装的薄入口仍查找 `bridgeforge-codex-manifest.json`，首次更新到统一清单版本可能报“Missing root distribution manifest”。这不是下游项目文件损坏。请从可信的产品仓库运行现有安装入口，完成一次用户级入口刷新：
 

@@ -33,6 +33,7 @@ pub fn write(path: impl AsRef<Path>, bytes: impl AsRef<[u8]>) -> io::Result<()> 
 
 pub fn write_section(path: impl AsRef<Path>, name: &str, bytes: impl AsRef<[u8]>) -> io::Result<()> {
     let path = path.as_ref();
+    fs::create_dir_all(path.parent().ok_or_else(|| io::Error::other("fixture manifest parent missing"))?)?;
     let mut value = match fs::read(path) {
         Ok(bytes) => serde_json::from_slice::<Value>(&bytes).map_err(io::Error::other)?,
         Err(error) if error.kind() == io::ErrorKind::NotFound => json!({"schema_version":1,"user_instructions":{},"shared_skills":{},"project_skeleton":{}}),

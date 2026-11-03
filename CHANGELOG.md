@@ -15,6 +15,30 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [BP 1.0.1] - 2026-11-03
+
+- [repo] Forge 分发清单迁至 `source/forge/bridgeforge-manifest.json`；清单源码路径仍相对 BridgePilot 仓库根解析，分发目标、资产身份与历史哈希语义保持不变。
+- [repo] 同步 BP 仓库识别、安装与档案隔离保护；旧根清单只保留防覆盖识别，不作为清单读取回退。
+- [meta] 更新安装恢复说明：旧 updater 从原生安装入口获取新源码，不复制清单回根目录。
+- 组合版本：BP 1.0.0 → 1.0.1，BF 17.0.0 → 17.0.1，orchestrator 0.14.0 → 0.14.1。内部路径迁移与保护修复不改变命令接口和分发格式；本条不代表已经发布或安装。
+
+## [17.0.1] - 2026-11-03
+
+- [product][repo] 统一 Forge 清单路径，更新生成、运行时识别、Hook 触发和共享安装的内容漂移检查；同步公共源码 dogfood。
+
+| Package | Before | After | Reason |
+|---|---|---|---|
+| bridgeforge-core | 11.0.0 | 11.0.1 | 统一清单路径、旧布局保护识别与运行时定位 |
+| bridgeforge-skeleton | 0.7.0 | 0.7.1 | 工厂基线与暂存树识别同步新路径 |
+| bridgeforge-lifecycle | 0.8.6 | 0.8.7 | 保留既有入口的工厂识别语义 |
+| bridgeforge-workflow | 0.11.0 | 0.11.1 | Git 工作流工厂识别同步新路径 |
+| bridgeforge-factory | 0.11.0 | 0.11.1 | 工厂入口与受管准备识别同步新路径 |
+| bridgeforge-cli | 17.0.0 | 17.0.1 | CLI 委派与 Skill 检查识别同步新路径 |
+| bridgeforge-hook | 17.0.0 | 17.0.1 | 新清单路径触发指令检查 |
+| bridgepilot-storage | 0.1.0 | 0.1.1 | 新旧源码布局均拒绝作为用户档案库 |
+| bridgepilot-install | 0.5.0 | 0.5.1 | 新路径配置与新旧源码安装覆盖保护 |
+| bridgepilot-orchestrator | 0.14.0 | 0.14.1 | 纳入安装与档案保护修复 |
+
 ## [BP 1.0.0] - 2026-11-03
 
 首次 BP 主产品源码发布，组件组合为 BF17.0.0／orchestrator0.14.0。既有16.x谱系归BF，不作为BP的前一版本；用户级安装和下游部署另行执行。

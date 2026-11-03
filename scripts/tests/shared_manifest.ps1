@@ -8,7 +8,7 @@ if ($errors.Count) { throw ($errors | Out-String) }
 foreach ($function in $ast.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst]}, $true)) {
     if ($function.Name -ne 'Invoke-Main') { . ([scriptblock]::Create($function.Extent.Text)) }
 }
-$ManifestName = 'bridgeforge-manifest.json'
+$ManifestName = 'source/forge/bridgeforge-manifest.json'
 $CanonicalRemote = 'https://github.com/freakybridge/BridgePilot.git'
 $CanonicalBranch = 'main'
 $CommandHomeName = '.bridgeforge-codex'
@@ -22,6 +22,7 @@ New-Item -ItemType Directory -Path $profileRoot -Force | Out-Null
 # bytes instead of the developer checkout's optional CRLF worktree conversion.
 $validationRoot = Join-Path $Base 'canonical-source'
 New-Item -ItemType Directory -Path $validationRoot -Force | Out-Null
+New-Item -ItemType Directory -Path (Split-Path -Parent (Join-Path $validationRoot $ManifestName)) -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $RepositoryRoot $ManifestName) -Destination (Join-Path $validationRoot $ManifestName)
 $sourceManifest = Read-JsonFile -Path (Join-Path $RepositoryRoot $ManifestName)
 foreach ($skill in $sourceManifest.shared_skills.platforms.codex.skills) {
@@ -46,10 +47,18 @@ $blocked = $false
 try { Assert-Manifest -RepositoryRoot $RepositoryRoot -UserProfile $profileRoot | Out-Null }
 catch { if ($_.Exception.Message -notlike '*Missing root distribution manifest*') { throw }; $blocked = $true }
 if (-not $blocked) { throw 'Old sidecar unexpectedly accepted.' }
-$ManifestName = 'bridgeforge-manifest.json'
+$ManifestName = 'source/forge/bridgeforge-manifest.json'
 $installer = [IO.File]::ReadAllText((Join-Path $RepositoryRoot 'scripts/install-shared-skills.ps1'))
 if (-not $installer.Contains('$updater = Join-Path $cloneRoot') -or
     -not $installer.Contains('-File $updater -SourceRepositoryRoot $cloneRoot')) { throw 'Recovery installer no longer delegates to fresh source.' }
+# Previous root-manifest updaters must fail explicitly and recover through the
+# same fresh-source bootstrap; no duplicate root manifest is required.
+$ManifestName = 'bridgeforge-manifest.json'
+$blocked = $false
+try { Assert-Manifest -RepositoryRoot $RepositoryRoot -UserProfile $profileRoot | Out-Null }
+catch { if ($_.Exception.Message -notlike '*Missing root distribution manifest*') { throw }; $blocked = $true }
+if (-not $blocked) { throw 'Legacy root manifest unexpectedly accepted.' }
+$ManifestName = 'source/forge/bridgeforge-manifest.json'
 
 $script:OriginalAssertRustCliState = (Get-Item Function:Assert-RustCliState).ScriptBlock
 function Assert-RustCliState {
@@ -67,6 +76,7 @@ foreach ($section in @('user_instructions', 'shared_skills', 'project_skeleton')
         $repo = Join-Path $Base "$section-$phase-source"
         $profile = Join-Path $Base "$section-$phase-profile"
         New-Item -ItemType Directory -Path $repo, $profile -Force | Out-Null
+        New-Item -ItemType Directory -Path (Split-Path -Parent (Join-Path $repo $ManifestName)) -Force | Out-Null
         Copy-Item -LiteralPath (Join-Path $RepositoryRoot $ManifestName) -Destination (Join-Path $repo $ManifestName)
         $expected = "sha256:$(Get-Sha256 -Path (Join-Path $repo $ManifestName))"
         $manifest = @{ platforms = @{ codex = @{ skills = @() } } } | ConvertTo-Json -Depth 8 | ConvertFrom-Json

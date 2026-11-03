@@ -145,9 +145,23 @@ fn read_status_does_not_recreate_runtime_or_lock_files() {
 fn product_repository_cannot_become_user_archive() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
-        .find(|p| p.join("bridgeforge-manifest.json").is_file())
+        .find(|p| p.join("source/forge/bridgeforge-manifest.json").is_file())
         .expect("product repository root");
     assert!(Store::init(root).is_err());
+}
+
+#[test]
+fn manifest_migration_preserves_archive_protection_for_both_source_layouts() {
+    for relative in [bridgeforge_core::product_manifest::FILE, bridgeforge_core::product_manifest::LEGACY_FILE] {
+        let f = Fixture::new();
+        let path = f.root.join(relative);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, b"source marker").unwrap();
+        let before = fs::read(f.store.database_path()).unwrap();
+        assert!(Store::init(&f.root).unwrap_err().contains("product repository"));
+        assert!(Store::open(&f.root).unwrap_err().contains("product repository"));
+        assert_eq!(fs::read(f.store.database_path()).unwrap(), before);
+    }
 }
 
 fn task_input(title: &str) -> crate::domain::TaskInput {

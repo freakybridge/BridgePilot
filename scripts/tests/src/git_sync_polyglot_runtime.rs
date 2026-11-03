@@ -328,7 +328,7 @@ fn real_cli_release_preview_after_project_sync_source_relocation() {
     write(&factory, "VERSION", b"8.0.1\n");
     write(&factory, "source/memory/src/ownership.rs", payload);
     fixture_product::install(
-        &factory.join("bridgeforge-manifest.json"),
+        &factory.join("source/forge/bridgeforge-manifest.json"),
         &serde_json::to_vec(&updated).unwrap(),
     );
     let plan = build_plan(&root, &factory, SyncMode::Update).unwrap();

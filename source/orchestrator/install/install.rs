@@ -574,7 +574,7 @@ fn install_before_lock(
         return Err("absolute installation home required".into());
     }
     ordinary(home)?;
-    if home.join("bridgeforge-manifest.json").exists() {
+    if bridgeforge_core::product_manifest::is_source_checkout(home) {
         return Err("do not install over the source/factory checkout".into());
     }
     if journal(home).exists() {
@@ -1003,6 +1003,10 @@ pub fn launch() -> Result<i32> {
 #[cfg(test)]
 #[path = "../../../scripts/tests/orchestrator/version_identity.rs"]
 mod version_identity_tests;
+
+#[cfg(test)]
+#[path = "../../../scripts/tests/orchestrator/manifest_location.rs"]
+mod manifest_location_tests;
 
 #[cfg(test)]
 mod recovery_tests {

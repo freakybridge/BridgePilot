@@ -2,7 +2,14 @@
 use serde_json::Value;
 use std::{fs, path::Path};
 
-pub const FILE: &str = "bridgeforge-manifest.json";
+/// Relative to the owning repository, not to the manifest's parent directory.
+pub const FILE: &str = "source/forge/bridgeforge-manifest.json";
+pub const LEGACY_FILE: &str = "bridgeforge-manifest.json";
+
+/// Conservative write protection only; this is not a manifest lookup fallback.
+pub fn is_source_checkout(root: &Path) -> bool {
+    root.join(FILE).exists() || root.join(LEGACY_FILE).exists()
+}
 
 pub fn parse(bytes: &[u8]) -> Result<Value, String> {
     let value = crate::json::parse_unique_json(bytes, FILE)?;
@@ -17,6 +24,9 @@ pub fn parse(bytes: &[u8]) -> Result<Value, String> {
 }
 
 pub fn load(root: &Path) -> Result<Value, String> {
+    if !root.join(FILE).exists() && root.join(LEGACY_FILE).exists() {
+        return Err(format!("legacy root manifest is unsupported; prepare the current source checkout with {FILE}"));
+    }
     parse(&fs::read(root.join(FILE)).map_err(|e| format!("{FILE}: {e}"))?)
 }
 
@@ -34,3 +44,7 @@ pub fn project_bytes(root: &Path) -> Result<Vec<u8>, String> {
     bytes.push(b'\n');
     Ok(bytes)
 }
+
+#[cfg(all(test, bridgeforge_factory_tests))]
+#[path = "../../../../scripts/tests/unit/product_manifest_location.rs"]
+mod tests;

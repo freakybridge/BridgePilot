@@ -132,6 +132,7 @@ BridgePilot/
 ├── Cargo.toml / Cargo.lock  # Forge 九包与 BP 六包的受管 Rust workspace
 ├── source/
 │   ├── forge/               # 九个工程包的唯一维护源
+│   │   ├── bridgeforge-manifest.json # Forge 用户指令、共享 Skills 与项目骨架的唯一源清单
 │   │   ├── core/skeleton/lifecycle/workflow/memory/checks/factory/cli/hook
 │   │   └── templates/       # 分发资产与通用 Skills
 │   └── orchestrator/        # 总管，与 forge 平行，无 src 中间层
@@ -141,7 +142,6 @@ BridgePilot/
 ├── .codex/                  # 本仓库 dogfood 配置、公共源码投影与生成资产
 ├── scripts/                 # PowerShell 用户级安装入口
 ├── doc/                     # 架构、交付、Bug、参考与归档
-├── bridgeforge-manifest.json       # 用户指令、共享 Skills 与项目骨架的唯一源清单
 ├── VERSION
 └── CHANGELOG.md
 ```

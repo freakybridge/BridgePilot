@@ -50,7 +50,7 @@ fn factory_context(args: &[String]) -> Result<ProjectContext, String> {
     let context = context(args)?;
     if !context
         .root()
-        .join("bridgeforge-manifest.json")
+        .join(bridgeforge_core::product_manifest::FILE)
         .is_file()
     {
         return Err("factory commands require the factory repository".into());

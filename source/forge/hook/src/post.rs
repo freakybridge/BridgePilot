@@ -309,7 +309,7 @@ pub fn edit_requires_instruction_check(payloads: &[Value]) -> bool {
             .is_some_and(|name| name.to_string_lossy().eq_ignore_ascii_case("AGENTS.md"))
             || matches!(
                 relative.as_str(),
-                "bridgeforge-manifest.json"
+                bridgeforge_core::product_manifest::FILE
                     | ".codex/hooks.json"
                     | "templates/hooks.json"
                     | "source/forge/templates/hooks.json"

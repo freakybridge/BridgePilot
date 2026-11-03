@@ -90,7 +90,7 @@ fn legacy_factory_release_updates_all_three_cargo_manifests_and_locks() {
     )
     .unwrap();
     fs::write(temp.0.join(".gitignore"), b".runtime/\n").unwrap();
-    fixture_product::write(temp.0.join("bridgeforge-manifest.json"), b"{}").unwrap();
+    fixture_product::write(temp.0.join("source/forge/bridgeforge-manifest.json"), b"{}").unwrap();
     for name in ["VERSION", "CHANGELOG.md"] {
         fs::copy(source.join(name), temp.0.join(name)).unwrap();
     }

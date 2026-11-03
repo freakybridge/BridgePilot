@@ -325,7 +325,7 @@ fn project_maps_replace_legacy_content_use_only_proven_links_and_are_idempotent(
     seed_project_map_inputs(&fixture);
     fs::create_dir_all(fixture.root.join("source/forge/templates")).unwrap();
     fs::write(fixture.root.join("source/forge/templates/AGENTS.md"), "# TemplateOnlyDoNotIndex\n").unwrap();
-    for path in ["templates/hooks.json", "source/forge/templates/hooks.json", "source/forge/templates/rules/example.md"] {
+    for path in ["templates/hooks.json", "source/forge/templates/hooks.json", "source/forge/templates/rules/example.md", "source/forge/bridgeforge-manifest.json"] {
         assert!(post::edit_requires_instruction_check(&[json!({"tool_input":{"file_path":path}})]));
     }
     let find_path = fixture

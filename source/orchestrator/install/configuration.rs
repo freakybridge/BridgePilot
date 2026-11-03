@@ -6,7 +6,7 @@ use std::path::Path;
 pub fn configure(root: &Path, workspace: &Path) -> Result<Value> {
     bridgepilot_storage::store::ordinary(root)?;
     if !root.is_absolute()
-        || (!root.join("bridgeforge-manifest.json").is_file()
+        || (!root.join(bridgeforge_core::product_manifest::FILE).is_file()
             && crate::install::inspect(root).is_err())
     {
         return Err("explicit product repository root required".into());

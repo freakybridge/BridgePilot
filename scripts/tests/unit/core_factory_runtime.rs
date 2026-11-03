@@ -363,7 +363,7 @@ impl Factory {
             "VERSION",
             "CHANGELOG.md",
             "AGENTS.md",
-            "bridgeforge-manifest.json",
+            "source/forge/bridgeforge-manifest.json",
             "Cargo.toml",
             "Cargo.lock",
             "templates/hooks/.gitignore",
@@ -373,7 +373,7 @@ impl Factory {
             copy(&source, &source);
         }
         let contract: Value = serde_json::from_slice(
-            &fixture_product::read(repository.join("bridgeforge-manifest.json")).unwrap(),
+            &fixture_product::read(repository.join("source/forge/bridgeforge-manifest.json")).unwrap(),
         )
         .unwrap();
         for asset in contract["assets"].as_array().unwrap() {
@@ -407,7 +407,7 @@ impl Factory {
             fs::write(target, bytes).unwrap();
         }
         let distribution: Value = serde_json::from_slice(
-            &fixture_product::read_shared(root.join("bridgeforge-manifest.json")).unwrap(),
+            &fixture_product::read_shared(root.join("source/forge/bridgeforge-manifest.json")).unwrap(),
         )
         .unwrap();
         for platform in distribution["platforms"].as_object().unwrap().values() {
@@ -603,7 +603,7 @@ fn factory_prepare_stops_on_manifest_mirror_source_build_or_target_drift() {
         let runner = Runner::new(&fixture.0, failure);
         if failure == "manifest" {
             fs::write(
-                fixture.0.join("bridgeforge-manifest.json"),
+                fixture.0.join("source/forge/bridgeforge-manifest.json"),
                 b"invalid contract",
             )
             .unwrap();

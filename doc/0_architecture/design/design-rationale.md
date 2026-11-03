@@ -74,7 +74,7 @@ pre-commit 只验证当前工作树和 index。需要重建 manifest 或版本�
 
 ## 6. 工厂与 dogfood
 
-工厂身份由严格校验的根 `bridgeforge-manifest.json` 主张，并要求 Template 合同、
+工厂身份由严格校验的 `source/forge/bridgeforge-manifest.json` 主张，并要求 Template 合同、
 入口 Skill 与项目同步器三项 factory witness 同时存在。单独复制任一 witness 或提供畸形
 manifest 都只能得到身份不一致，不能绕过普通下游必须具备的当前版本戳。
 

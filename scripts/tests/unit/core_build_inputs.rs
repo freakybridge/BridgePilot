@@ -3,7 +3,7 @@ use super::*;
 struct Fixture(PathBuf);
 impl Fixture {
     fn new() -> Self {
-        let repository = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("bridgeforge-manifest.json").is_file()).expect("factory repository");
+        let repository = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("source/forge/bridgeforge-manifest.json").is_file()).expect("factory repository");
         let root = repository.join(".runtime/tests/build-inputs").join(format!(
             "{}-{}",
             std::process::id(),

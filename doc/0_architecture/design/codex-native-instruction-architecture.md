@@ -16,7 +16,7 @@ Codex 启动时发现全局指令，并从项目根目录沿路径读取到当�
 | 项目公共区 | `templates/AGENTS.md` | 受管公共区域同步 |
 | 项目专区 | 项目现有 AGENTS | 逐字保留 |
 
-用户资产合同位于根 `bridgeforge-manifest.json` 的 `user_instructions` 分区，由受管 Rust manifest 命令更新；`shared_skills` 和 `project_skeleton` 分别保留共享 Skill 与项目骨架的管理边界。Rust `user-agents-stage` 校验固定身份、来源哈希、普通路径和原文件，再生成待安装文件与原始/目标哈希见证。现有 PowerShell bootstrap 仅编排构建和共享事务，不提供脚本替代规划器；Home、CLI、Skills、用户指令与 ledger 统一提交。用户文件备份不随成功清理删除，恢复时仍核对日志中的历史原始哈希。操作入口和覆盖说明见 [INSTALL](../../../INSTALL.md)。
+用户资产合同位于 `source/forge/bridgeforge-manifest.json` 的 `user_instructions` 分区，由受管 Rust manifest 命令更新；`shared_skills` 和 `project_skeleton` 分别保留共享 Skill 与项目骨架的管理边界。Rust `user-agents-stage` 校验固定身份、来源哈希、普通路径和原文件，再生成待安装文件与原始/目标哈希见证。现有 PowerShell bootstrap 仅编排构建和共享事务，不提供脚本替代规划器；Home、CLI、Skills、用户指令与 ledger 统一提交。用户文件备份不随成功清理删除，恢复时仍核对日志中的历史原始哈希。操作入口和覆盖说明见 [INSTALL](../../../INSTALL.md)。
 
 ## Agent 路由责任链
 

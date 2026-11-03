@@ -32,7 +32,7 @@ fn repo() -> Repo {
         .as_nanos();
     let sequence = SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let repo = Repo(
-        Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("bridgeforge-manifest.json").is_file()).expect("factory repository")
+        Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("source/forge/bridgeforge-manifest.json").is_file()).expect("factory repository")
             .join(".runtime")
             .join("tests")
             .join("artifact-layout")

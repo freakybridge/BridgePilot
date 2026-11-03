@@ -928,7 +928,7 @@ fn verify_mode(
     let contract = load(&contract_path)?;
     let version = contract["release_version"].as_str().unwrap().to_string();
     let stamp = safe_target(root, &contract["stamp"], "current baseline stamp")?;
-    let factory = root.join("bridgeforge-manifest.json").is_file();
+    let factory = root.join(bridgeforge_core::product_manifest::FILE).is_file();
     let stamp_version = if stamp.is_file() {
         fs::read_to_string(&stamp)
             .map_err(|error| error.to_string())?
@@ -1063,7 +1063,7 @@ fn verify_contract_assets(
     }
     let mut checked = Vec::new();
     let mut skipped = Vec::new();
-    let factory = root.join("bridgeforge-manifest.json").is_file();
+    let factory = root.join(bridgeforge_core::product_manifest::FILE).is_file();
     for asset in contract["assets"].as_array().unwrap() {
         if factory
             && asset["id"].as_str() == Some("codex.doc.readme")
@@ -1160,7 +1160,7 @@ pub fn verify_index(root: &Path, runner: &dyn ProcessRunner) -> Result<BaselineR
     let stamp_path = contract["stamp"]
         .as_str()
         .ok_or("staged stamp path is missing")?;
-    let staged_identity = if root.join("bridgeforge-manifest.json").is_file() {
+    let staged_identity = if root.join(bridgeforge_core::product_manifest::FILE).is_file() {
         "VERSION"
     } else {
         stamp_path
@@ -1175,7 +1175,7 @@ pub fn verify_index(root: &Path, runner: &dyn ProcessRunner) -> Result<BaselineR
     }
     let mut checked = Vec::new();
     let mut skipped = Vec::new();
-    let factory = root.join("bridgeforge-manifest.json").is_file();
+    let factory = root.join(bridgeforge_core::product_manifest::FILE).is_file();
     for asset in contract["assets"]
         .as_array()
         .ok_or("staged assets are missing")?

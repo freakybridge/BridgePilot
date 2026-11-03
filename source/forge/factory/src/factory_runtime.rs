@@ -9,7 +9,7 @@ fn identity(root: &Path) -> Result<(Value, Vec<u8>), String> {
 }
 
 fn identity_mode(root: &Path, zero_write: bool) -> Result<(Value, Vec<u8>), String> {
-    if !root.join("bridgeforge-manifest.json").is_file() {
+    if !root.join(bridgeforge_core::product_manifest::FILE).is_file() {
         return Err("factory runtime preparation requires the factory repository".into());
     }
     if root.join(".codex/.bridgeforge_codex_version").exists() {

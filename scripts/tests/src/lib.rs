@@ -264,7 +264,7 @@ mod tests {
                 },
             }],
         });
-        let source_contract = project.join("bridgeforge-manifest.json");
+        let source_contract = project.join("source/forge/bridgeforge-manifest.json");
         let active_contract = project.join(".codex/managed-skeleton.json");
         fixture_product::write(&source_contract, serde_json::to_vec(&contract).unwrap()).unwrap();
         let mut hooks = json!({"hooks":{"PreToolUse":[{
@@ -338,12 +338,12 @@ mod tests {
         let repository = root();
         assert!(!bridgeforge_factory::manifest::rebuild(&repository, true).unwrap());
         let contract =
-            fixture_product::read_to_string(repository.join("bridgeforge-manifest.json")).unwrap();
+            fixture_product::read_to_string(repository.join("source/forge/bridgeforge-manifest.json")).unwrap();
         assert!(!contract.contains(".py\""));
         assert!(contract.contains("codex.bridgeforge-cli"));
         assert!(contract.contains("codex.hooks"));
         let distribution: serde_json::Value = serde_json::from_slice(
-            &fixture_product::read_shared(repository.join("bridgeforge-manifest.json")).unwrap(),
+            &fixture_product::read_shared(repository.join("source/forge/bridgeforge-manifest.json")).unwrap(),
         )
         .unwrap();
         for platform in distribution["platforms"].as_object().unwrap().values() {

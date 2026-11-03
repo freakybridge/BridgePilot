@@ -10,7 +10,7 @@ use super::*;
 #[test]
 fn unified_manifest_keeps_user_scopes_out_of_project_sync() {
     let (root, project, factory) = upgrade_fixture("8.0.1", "8.1.0");
-    let path = factory.join("bridgeforge-manifest.json");
+    let path = factory.join("source/forge/bridgeforge-manifest.json");
     let plan = build_plan(&project, &factory, SyncMode::Update).unwrap();
     let mut product: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
     product["user_instructions"] = json!({"target":"../profile/.codex/AGENTS.md","source":"unavailable-user-source"});
@@ -59,7 +59,7 @@ fn inline_gitignore_survives_init_update_and_source_file_removal() {
     let (root, project, factory) = upgrade_fixture("8.0.1", "8.1.0");
     fs::remove_dir_all(&project).unwrap();
     fs::create_dir_all(&project).unwrap();
-    let path = factory.join("bridgeforge-manifest.json");
+    let path = factory.join("source/forge/bridgeforge-manifest.json");
     let mut contract: Value = serde_json::from_slice(&fixture_product::read(&path).unwrap()).unwrap();
     let rules = "/.runtime/\n/.deps/\n/.build/\n";
     contract["assets"].as_array_mut().unwrap().push(json!({
@@ -273,7 +273,7 @@ fn upgrade_fixture(previous: &str, release: &str) -> (PathBuf, PathBuf, PathBuf)
             "strategy":"whole","current_sha256":sha_git(b"new\n")}],"generated_assets":[]
     });
     fixture_product::write(
-        factory.join("bridgeforge-manifest.json"),
+        factory.join("source/forge/bridgeforge-manifest.json"),
         serde_json::to_vec(&contract).unwrap(),
     )
     .unwrap();
@@ -385,7 +385,7 @@ fn project_hooks_are_independent_and_recognized_old_state_retires() {
                     .is_none()
             );
             let contract: Value = serde_json::from_slice(
-                &fixture_product::read(factory.join("bridgeforge-manifest.json")).unwrap(),
+                &fixture_product::read(factory.join("source/forge/bridgeforge-manifest.json")).unwrap(),
             )
             .unwrap();
             attach_generated_assets(&mut plan, &factory, &project, &contract, &NoBuild).unwrap();
@@ -610,7 +610,7 @@ fn retired_legacy_asset_explicit_delete_keeps_drift_and_rollback_guards() {
 fn current_configuration_init_is_atomic_with_project_update_and_rejects_input_drift() {
     for scenario in ["success", "file-drift", "head-drift", "rollback"] {
         let (root, project, factory) = upgrade_fixture("8.0.1", "8.1.0");
-        let contract_path = factory.join("bridgeforge-manifest.json");
+        let contract_path = factory.join("source/forge/bridgeforge-manifest.json");
         let mut contract: Value =
             serde_json::from_slice(&fixture_product::read(&contract_path).unwrap()).unwrap();
         contract["release_model"] = json!("product-packages");
@@ -685,7 +685,7 @@ fn release_cutover_fresh_init_defers_until_committed_version_baseline_exists() {
     let fresh = root.join("fresh");
     fs::create_dir_all(&fresh).unwrap();
     fs::write(fresh.join("VERSION"), b"1.0.0\n").unwrap();
-    let contract_path = factory.join("bridgeforge-manifest.json");
+    let contract_path = factory.join("source/forge/bridgeforge-manifest.json");
     let mut contract: Value = serde_json::from_slice(&fixture_product::read(&contract_path).unwrap()).unwrap();
     contract["release_model"] = json!("product-packages");
     fixture_product::write(&contract_path, serde_json::to_vec(&contract).unwrap()).unwrap();
@@ -838,7 +838,7 @@ fn fixed_baseline_rejects_missing_invalid_future_floor_and_downgrade() {
             .unwrap_err()
             .contains("newer than")
     );
-    let path = factory.join("bridgeforge-manifest.json");
+    let path = factory.join("source/forge/bridgeforge-manifest.json");
     let original: Value = serde_json::from_slice(&fixture_product::read(&path).unwrap()).unwrap();
     for floor in [Value::Null, json!("invalid"), json!("8.2.0")] {
         let mut contract = original.clone();
@@ -1220,7 +1220,7 @@ fn project_prefixed_file_retirement_removes_only_its_hook_registration_atomicall
     let (root, project, factory) = upgrade_fixture("8.0.0", "8.1.0");
     let repository = factory_repository::from_manifest_dir(env!("CARGO_MANIFEST_DIR"));
     let current: Value = serde_json::from_slice(
-        &fixture_product::read(repository.join("bridgeforge-manifest.json")).unwrap(),
+        &fixture_product::read(repository.join("source/forge/bridgeforge-manifest.json")).unwrap(),
     )
     .unwrap();
     let mut asset = current["assets"]
@@ -1246,7 +1246,7 @@ fn project_prefixed_file_retirement_removes_only_its_hook_registration_atomicall
                 .unwrap()
         );
     }
-    let contract_path = factory.join("bridgeforge-manifest.json");
+    let contract_path = factory.join("source/forge/bridgeforge-manifest.json");
     let mut contract: Value = serde_json::from_slice(&fixture_product::read(&contract_path).unwrap()).unwrap();
     contract["assets"].as_array_mut().unwrap().push(asset);
     fixture_product::write(&contract_path, serde_json::to_vec(&contract).unwrap()).unwrap();

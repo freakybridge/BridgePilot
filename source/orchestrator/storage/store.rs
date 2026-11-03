@@ -78,7 +78,7 @@ impl Store {
         if !workspace.is_dir() {
             return Err("workspace is not a directory".into());
         }
-        if workspace.join("bridgeforge-manifest.json").exists() {
+        if bridgeforge_core::product_manifest::is_source_checkout(&workspace) {
             return Err("user archive must be separate from the product repository".into());
         }
         Ok(Self {
@@ -93,7 +93,7 @@ impl Store {
             return Err("workspace must be an explicit absolute path".into());
         }
         ordinary(root)?;
-        if root.join("bridgeforge-manifest.json").exists() {
+        if bridgeforge_core::product_manifest::is_source_checkout(root) {
             return Err("cannot initialize user state in the product repository".into());
         }
         fs::create_dir_all(root).map_err(|e| e.to_string())?;

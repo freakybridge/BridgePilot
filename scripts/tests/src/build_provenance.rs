@@ -205,7 +205,7 @@ impl Fixture {
         let initial = json!({"schema_version":4,"baseline_model": "current-only", "compatibility_baseline": "1.0.0",
             "assets":[],"generated_assets":[]});
         fixture_product::write(
-            root.join("bridgeforge-manifest.json"),
+            root.join("source/forge/bridgeforge-manifest.json"),
             serde_json::to_vec(&initial).unwrap(),
         )
         .unwrap();

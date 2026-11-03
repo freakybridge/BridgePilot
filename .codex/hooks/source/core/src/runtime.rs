@@ -112,7 +112,7 @@ pub fn validate_product(
 fn binary_path(root: &Path) -> PathBuf {
     crate::artifact_paths::binary(
         root,
-        root.join("bridgeforge-manifest.json").is_file(),
+        root.join(crate::product_manifest::FILE).is_file(),
         "bridgeforge",
     )
 }
@@ -314,7 +314,7 @@ fn can_relocate_running_image(root: &Path, destination: &Path) -> Result<bool, S
         return Ok(false);
     }
     let directory = root.join(crate::artifact_paths::bin_dir(
-        root.join("bridgeforge-manifest.json").is_file(),
+        root.join(crate::product_manifest::FILE).is_file(),
     ));
     for ancestor in directory.ancestors().filter(|path| path.exists()) {
         if crate::persistence::is_link_or_reparse(ancestor).map_err(|e| e.to_string())? {

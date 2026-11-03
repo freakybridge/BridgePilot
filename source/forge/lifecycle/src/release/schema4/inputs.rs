@@ -518,7 +518,7 @@ fn capture_with_reader(
     for path in content_changed_paths(root, "HEAD", runner)? {
         inputs.insert(root.join(&path), config::read_current(root, &path)?);
     }
-    let factory = root.join("bridgeforge-manifest.json").is_file();
+    let factory = root.join(bridgeforge_core::product_manifest::FILE).is_file();
     // Construct only when a path actually needs classification. Keep the first
     // contract bytes separately so later path reads cannot overwrite the guard.
     // Use the formal release boundary for both ownership and payloads: paths

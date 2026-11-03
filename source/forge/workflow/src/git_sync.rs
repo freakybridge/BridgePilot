@@ -652,7 +652,7 @@ fn sync_impl(
             "autostash_retained":autostashed
         }));
     }
-    let factory = options.release && root.join("bridgeforge-manifest.json").is_file();
+    let factory = options.release && root.join(bridgeforge_core::product_manifest::FILE).is_file();
     let policy_path = root.join(".codex/bridgeforge-version.json");
     let policy_before = if options.release { fs::read(&policy_path).ok() } else { None };
     if options.release { return blocked("configuration-based release is retired; use native project release tools".into()); }

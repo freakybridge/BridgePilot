@@ -7,7 +7,7 @@ use super::*;
 #[test]
 fn factory_project_config_is_generated_from_template_without_writes() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors()
-        .find(|path| path.join("bridgeforge-manifest.json").is_file()).unwrap();
+        .find(|path| path.join("source/forge/bridgeforge-manifest.json").is_file()).unwrap();
     let target = root.join(".codex/config.toml");
     let before = fs::read(&target).unwrap();
     let expected = fs::read(root.join("source/forge/templates/config.toml")).unwrap();
@@ -17,12 +17,12 @@ fn factory_project_config_is_generated_from_template_without_writes() {
 }
 
 #[test]
-fn unified_manifest_emits_one_source_and_project_only_projection() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("bridgeforge-manifest.json").is_file()).expect("factory repository");
+fn unified_manifest_emits_one_nested_source_without_retired_sidecars() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("source/forge/bridgeforge-manifest.json").is_file()).expect("factory repository");
     let before = fs::read(root.join(bridgeforge_core::product_manifest::FILE)).unwrap();
     let writes = render_targets(root).unwrap();
     assert_eq!(writes.iter().filter(|(p, _)| p == &root.join(bridgeforge_core::product_manifest::FILE)).count(), 1);
-    for old in ["user-agents-manifest.json", "bridgeforge-codex-manifest.json", "templates/managed-skeleton.json"] {
+    for old in ["bridgeforge-manifest.json", "user-agents-manifest.json", "bridgeforge-codex-manifest.json", "templates/managed-skeleton.json", ".codex/managed-skeleton.json"] {
         assert!(!writes.iter().any(|(p, _)| p == &root.join(old)));
     }
     let (_, bytes) = writes.iter().find(|(p, _)| p == &root.join(bridgeforge_core::product_manifest::FILE)).unwrap();
@@ -30,18 +30,14 @@ fn unified_manifest_emits_one_source_and_project_only_projection() {
     assert_eq!(combined["project_skeleton"], serde_json::from_slice::<Value>(&render_managed_contract(root).unwrap()).unwrap());
     assert_eq!(combined["user_instructions"], serde_json::from_slice::<Value>(&crate::user_agents::render_manifest(root).unwrap()).unwrap());
     assert_eq!(combined["shared_skills"], serde_json::from_slice::<Value>(&render_distribution_manifest(root).unwrap()).unwrap());
-    let (_, downstream) = writes.iter().find(|(p, _)| p == &root.join(".codex/managed-skeleton.json")).unwrap();
-    let downstream: Value = serde_json::from_slice(downstream).unwrap();
-    assert!(downstream.get("user_instructions").is_none());
-    assert!(downstream.get("shared_skills").is_none());
     assert_eq!(fs::read(root.join(bridgeforge_core::product_manifest::FILE)).unwrap(), before);
 }
 
 #[test]
 fn manifest_projection_rejects_out_of_scope_retirement_before_io() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("bridgeforge-manifest.json").is_file()).expect("factory repository");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("source/forge/bridgeforge-manifest.json").is_file()).expect("factory repository");
     let writes = render_targets(root).unwrap();
-    let contract_path = root.join("bridgeforge-manifest.json");
+    let contract_path = root.join("source/forge/bridgeforge-manifest.json");
     let bytes = &writes.iter().find(|(p, _)| p == &contract_path).unwrap().1;
     let original = fs::read(root.join(crate::source_projection::physical_path(root, "source/memory/src/lib.rs"))).unwrap();
     for target in [
@@ -128,7 +124,7 @@ fn canonical_hash_ignores_object_insertion_order() {
 
 #[test]
 fn factory_skill_mirrors_are_explicit_private_and_readonly() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("bridgeforge-manifest.json").is_file()).expect("factory repository");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("source/forge/bridgeforge-manifest.json").is_file()).expect("factory repository");
     let contract: Value =
         serde_json::from_slice(include_bytes!("../../../source/forge/factory/src/dogfood.json")).unwrap();
     let before = contract["assets"]
@@ -161,8 +157,8 @@ fn factory_skill_mirrors_are_explicit_private_and_readonly() {
 
 #[test]
 fn asset_history_preserves_asset_ids_and_public_boundary_without_writes() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("bridgeforge-manifest.json").is_file()).expect("factory repository");
-    let before = fixture_product::read(root.join("bridgeforge-manifest.json")).unwrap();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("source/forge/bridgeforge-manifest.json").is_file()).expect("factory repository");
+    let before = fixture_product::read(root.join("source/forge/bridgeforge-manifest.json")).unwrap();
     let rendered = render_managed_contract(root).unwrap();
     let contract: Value = serde_json::from_slice(&rendered).unwrap();
     crate::baseline::validate_contract(&contract).unwrap();
@@ -196,10 +192,21 @@ fn asset_history_preserves_asset_ids_and_public_boundary_without_writes() {
     {
         let item = assets
             .iter()
-            .find(|a| a["id"] == row["id"] && a["target"] == row["target"])
-            .unwrap();
-        assert_eq!(item["id"], row["id"]);
-        assert_eq!(item["target"], row["target"]);
+            .find(|a| a["id"] == row["id"] && a["target"] == row["target"]);
+        if let Some(item) = item {
+            assert_eq!(item["id"], row["id"]);
+            assert_eq!(item["target"], row["target"]);
+        } else {
+            // A preserved relocation may outlive its source (e.g. retired JSON).
+            let source = crate::source_projection::physical_path(root, row["source"].as_str().unwrap());
+            assert!(!root.join(source).exists(), "existing source lost its active asset: {row}");
+            let retired = contract["retired_assets"].as_array().unwrap().iter()
+                .find(|a| a["id"] == row["id"] && a["target"] == row["previous_target"])
+                .expect("historical asset must retain its retirement record");
+            for known in row["known_hashes"].as_array().unwrap() {
+                assert!(retired["known_hashes"].as_array().unwrap().contains(&known["sha256"]));
+            }
+        }
     }
     assert!(assets.iter().all(|a| {
         !a["source"]
@@ -209,14 +216,14 @@ fn asset_history_preserves_asset_ids_and_public_boundary_without_writes() {
     }));
     assert_eq!(contract["generated_assets"].as_array().unwrap().len(), 2);
     assert_eq!(
-        fixture_product::read(root.join("bridgeforge-manifest.json")).unwrap(),
+        fixture_product::read(root.join("source/forge/bridgeforge-manifest.json")).unwrap(),
         before
     );
 }
 
 #[test]
 fn consumer_lock_follows_candidate_native_versions_and_dependency_closure() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("bridgeforge-manifest.json").is_file()).expect("factory repository");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("source/forge/bridgeforge-manifest.json").is_file()).expect("factory repository");
     let original = fs::read(root.join("Cargo.lock")).unwrap();
     let mut lock = String::from_utf8(original)
         .unwrap()

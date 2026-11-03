@@ -10,7 +10,7 @@ if ($errors.Count) { throw ($errors | Out-String) }
 foreach ($function in $ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) {
     if ($function.Name -ne 'Invoke-Main') { . ([scriptblock]::Create($function.Extent.Text)) }
 }
-$ManifestName = 'bridgeforge-manifest.json'
+$ManifestName = 'source/forge/bridgeforge-manifest.json'
 $CommandHomeName = '.bridgeforge-codex'
 $CommandHomeLogName = '.bridgeforge-codex-home-update.json'
 $TestCrashAfterActionCount = 0
@@ -27,6 +27,7 @@ foreach ($scenario in @('rollback', 'committed-cleanup')) {
     $bin = Join-Path $fixtureProfile '.codex/bin'
     $skills = Join-Path $fixtureProfile '.codex/skills'
     New-Item -ItemType Directory -Path $repo, $bin, $skills -Force | Out-Null
+    New-Item -ItemType Directory -Path (Split-Path -Parent (Join-Path $repo $ManifestName)) -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $RepositoryRoot $ManifestName) -Destination (Join-Path $repo $ManifestName)
     [IO.File]::WriteAllText((Join-Path $repo 'SKILL.md'), 'new skill')
     $op = [Guid]::NewGuid().ToString('N')
@@ -183,7 +184,7 @@ foreach ($scenario in @('create', 'noop', 'failure', 'interrupted', 'drift', 'ba
 # Source provenance (canonical main) is tested by the updater; this case checks packaging and swap.
 $fixtureProfile = Join-Path $Base 'autopilot-install'
 New-Item -ItemType Directory -Path (Join-Path $fixtureProfile '.codex/skills') -Force | Out-Null
-$catalog = ([IO.File]::ReadAllText((Join-Path $RepositoryRoot 'bridgeforge-manifest.json')) | ConvertFrom-Json).shared_skills
+$catalog = ([IO.File]::ReadAllText((Join-Path $RepositoryRoot 'source/forge/bridgeforge-manifest.json')) | ConvertFrom-Json).shared_skills
 $selected = @($catalog.platforms.codex.skills | Where-Object { $_.name -in @('autopilot', 'confirm') })
 Assert-True ($selected.Count -eq 2 -and @($selected.name | Select-Object -Unique).Count -eq 2) 'Budget Skills are missing or duplicated in the distribution catalog'
 $manifest = @{ platforms = @{ codex = @{ skills = $selected } } } | ConvertTo-Json -Depth 12 | ConvertFrom-Json

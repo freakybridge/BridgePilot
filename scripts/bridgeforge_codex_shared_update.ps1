@@ -25,7 +25,7 @@ Set-StrictMode -Version 2.0
 
 $CanonicalRemote = "https://github.com/freakybridge/BridgePilot.git"
 $CanonicalBranch = "main"
-$ManifestName = "bridgeforge-manifest.json"
+$ManifestName = "source/forge/bridgeforge-manifest.json"
 $OperationLogName = ".bridgeforge-codex-shared-update.json"
 $CommandHomeName = ".bridgeforge-codex"
 $CommandHomeLogName = ".bridgeforge-codex-home-update.json"

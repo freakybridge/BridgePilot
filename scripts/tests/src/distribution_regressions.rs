@@ -76,7 +76,7 @@ fn distributed_roles_match_skill_references_and_dogfood() {
         .nth(2)
         .unwrap();
     let contract: Value =
-        serde_json::from_slice(&fixture_product::read(root.join("bridgeforge-manifest.json")).unwrap())
+        serde_json::from_slice(&fixture_product::read(root.join("source/forge/bridgeforge-manifest.json")).unwrap())
             .unwrap();
     let roles = contract["assets"]
         .as_array()
@@ -219,7 +219,7 @@ fn project_maps_are_not_fixed_managed_payloads() {
         .nth(2)
         .unwrap();
     let contract: Value =
-        serde_json::from_slice(&fixture_product::read(root.join("bridgeforge-manifest.json")).unwrap())
+        serde_json::from_slice(&fixture_product::read(root.join("source/forge/bridgeforge-manifest.json")).unwrap())
             .unwrap();
     for asset in contract["assets"].as_array().unwrap() {
         let target = asset["target"].as_str().unwrap();
@@ -418,7 +418,7 @@ fn minimal(f: &Fixture) -> (PathBuf, PathBuf) {
     fs::create_dir_all(&project).unwrap();
     write(&bridgeforge_core::source_projection::template_path(&factory, "templates/example.txt"), b"managed\n");
     fixture_product::install(
-        &factory.join("bridgeforge-manifest.json"),
+        &factory.join("source/forge/bridgeforge-manifest.json"),
         serde_json::to_vec_pretty(&contract()).unwrap(),
     );
     (factory, project)
@@ -602,7 +602,7 @@ fn knowledge_seed_initializes_and_upgrades_without_owning_topic_bytes() {
         current["release_version"] = json!("8.0.10");
         current["compatibility_baseline"] = json!("8.0.6");
         fixture_product::install(
-            &factory.join("bridgeforge-manifest.json"),
+            &factory.join("source/forge/bridgeforge-manifest.json"),
             serde_json::to_vec(&current).unwrap(),
         );
         if existing {
@@ -614,7 +614,7 @@ fn knowledge_seed_initializes_and_upgrades_without_owning_topic_bytes() {
             .nth(2)
             .unwrap();
         let real: Value = serde_json::from_slice(
-            &fixture_product::read(repository.join("bridgeforge-manifest.json")).unwrap(),
+            &fixture_product::read(repository.join("source/forge/bridgeforge-manifest.json")).unwrap(),
         )
         .unwrap();
         let seed = real["assets"]
@@ -629,7 +629,7 @@ fn knowledge_seed_initializes_and_upgrades_without_owning_topic_bytes() {
         current["release_version"] = json!("8.1.0");
         write(&factory.join(seed["source"].as_str().unwrap()), b"");
         fixture_product::install(
-            &factory.join("bridgeforge-manifest.json"),
+            &factory.join("source/forge/bridgeforge-manifest.json"),
             serde_json::to_vec(&current).unwrap(),
         );
         let plan = build_plan(&project, &factory, SyncMode::Auto).unwrap();
@@ -642,7 +642,7 @@ fn knowledge_seed_initializes_and_upgrades_without_owning_topic_bytes() {
         write(&target, b"project-owned seed\r\n");
         current["release_version"] = json!("8.1.1");
         fixture_product::install(
-            &factory.join("bridgeforge-manifest.json"),
+            &factory.join("source/forge/bridgeforge-manifest.json"),
             serde_json::to_vec(&current).unwrap(),
         );
         let plan = build_plan(&project, &factory, SyncMode::Update).unwrap();

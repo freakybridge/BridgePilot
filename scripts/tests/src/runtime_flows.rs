@@ -147,7 +147,7 @@ fn project_sync_plan_apply_and_fingerprint_gate_are_transactional() {
         "generated_assets": []
     });
     fixture_product::install(
-        &factory.join("bridgeforge-manifest.json"),
+        &factory.join("source/forge/bridgeforge-manifest.json"),
         format!("{}\n", serde_json::to_string_pretty(&contract).unwrap()).as_bytes(),
     );
 
@@ -192,7 +192,7 @@ fn recognized_settings_retire_and_project_modified_settings_block_without_loss()
     let repository = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().nth(2).unwrap();
     let factory = temp.0.join("factory");
     let mut contract: serde_json::Value = serde_json::from_slice(
-        &fixture_product::read(repository.join("bridgeforge-manifest.json")).unwrap(),
+        &fixture_product::read(repository.join("source/forge/bridgeforge-manifest.json")).unwrap(),
     ).unwrap();
     for key in ["assets", "retired_assets"] {
         assert!(contract[key].as_array().unwrap().iter().all(|asset| {
@@ -206,7 +206,7 @@ fn recognized_settings_retire_and_project_modified_settings_block_without_loss()
         write(&factory.join(source), &fs::read(repository.join(source)).unwrap());
     }
     write(&factory.join("VERSION"), &fs::read(repository.join("VERSION")).unwrap());
-    let contract_path = factory.join("bridgeforge-manifest.json");
+    let contract_path = factory.join("source/forge/bridgeforge-manifest.json");
     fixture_product::install(&contract_path, &serde_json::to_vec_pretty(&contract).unwrap());
     let known = include_bytes!("../fixtures/retired-project-settings.json").as_slice();
     for (name, mode) in [("init", SyncMode::Init), ("adopt", SyncMode::Adopt)] {
@@ -289,7 +289,7 @@ fn prepared_public_artifacts_are_shared_and_update_preserves_project_hooks() {
         .unwrap();
     let codex = temp.0.join("profile/.codex");
     fs::create_dir_all(&codex).unwrap();
-    let contract_bytes = fixture_product::read(factory.join("bridgeforge-manifest.json")).unwrap();
+    let contract_bytes = fixture_product::read(factory.join("source/forge/bridgeforge-manifest.json")).unwrap();
     let contract: serde_json::Value = serde_json::from_slice(&contract_bytes).unwrap();
     let prepared =
         public_artifacts::prepare(factory, &codex, None, None, None, &SystemProcessRunner).unwrap();
@@ -484,7 +484,7 @@ fn project_sync_retired_assets_require_exact_preservation_decisions() {
         "generated_assets": []
     });
     fixture_product::install(
-        &factory.join("bridgeforge-manifest.json"),
+        &factory.join("source/forge/bridgeforge-manifest.json"),
         format!(
             "{}\n",
             serde_json::to_string_pretty(&current_contract).unwrap()
@@ -603,7 +603,7 @@ fn destructive_rebuild_requires_unknown_file_decisions_and_retires_old_project_m
         "generated_assets": []
     });
     fixture_product::install(
-        &factory.join("bridgeforge-manifest.json"),
+        &factory.join("source/forge/bridgeforge-manifest.json"),
         format!("{}\n", serde_json::to_string_pretty(&contract).unwrap()).as_bytes(),
     );
     write(&project.join(".codex/find-doc.map.md"), b"project map\n");

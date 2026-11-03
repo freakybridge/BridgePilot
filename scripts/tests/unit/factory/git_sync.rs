@@ -50,12 +50,12 @@ fn factory_repository(name: &str) -> (RealRepository, PathBuf) {
     fs::create_dir_all(repo.0.join(".codex/hooks")).unwrap();
     fs::write(repo.0.join("templates/managed.txt"), b"old\n").unwrap();
     fixture_product::write(
-        repo.0.join("bridgeforge-manifest.json"),
+        repo.0.join("source/forge/bridgeforge-manifest.json"),
         managed_contract(b"old\n"),
     )
     .unwrap();
     fixture_product::write_shared(
-        repo.0.join("bridgeforge-manifest.json"),
+        repo.0.join("source/forge/bridgeforge-manifest.json"),
         br#"{"platforms":{"windows":{"skills":[]}}}"#,
     )
     .unwrap();
@@ -181,7 +181,7 @@ impl ProcessRunner for GeneratedRunner {
 fn factory_build_failure_and_input_drift_do_not_apply_release() {
     for mode in ["fail", "drift", "policy-drift", "user-agents-drift"] {
         let (repo, remote) = factory_repository(mode);
-        let manifest = fixture_product::read(repo.0.join("bridgeforge-manifest.json")).unwrap();
+        let manifest = fixture_product::read(repo.0.join("source/forge/bridgeforge-manifest.json")).unwrap();
         let user_manifest = fs::read(repo.0.join(crate::user_agents::MANIFEST)).unwrap();
         let outcome = sync(
             &repo.0,
@@ -204,7 +204,7 @@ fn factory_build_failure_and_input_drift_do_not_apply_release() {
         );
         assert_eq!(fs::read(repo.0.join("VERSION")).unwrap(), b"8.0.0\n");
         assert_eq!(
-            fixture_product::read(repo.0.join("bridgeforge-manifest.json")).unwrap(),
+            fixture_product::read(repo.0.join("source/forge/bridgeforge-manifest.json")).unwrap(),
             manifest
         );
         assert!(
@@ -257,7 +257,7 @@ fn factory_rejected_commit_restores_versions_binaries_receipts_and_index() {
     fs::write(&cli, b"original binary").unwrap();
     let receipt = repo.0.join(".deps/bridgeforge/bin/build-receipt-cli.json");
     fs::write(&receipt, b"original receipt").unwrap();
-    let before_contract = fixture_product::read(repo.0.join("bridgeforge-manifest.json")).unwrap();
+    let before_contract = fixture_product::read(repo.0.join("source/forge/bridgeforge-manifest.json")).unwrap();
     fs::write(
         repo.0.join(".git/hooks/pre-commit"),
         b"#!/bin/sh\necho fixture-reject >&2\nexit 1\n",
@@ -305,7 +305,7 @@ fn factory_rejected_commit_restores_versions_binaries_receipts_and_index() {
     assert_eq!(fs::read(&cli).unwrap(), b"original binary");
     assert_eq!(fs::read(&receipt).unwrap(), b"original receipt");
     assert_eq!(
-        fixture_product::read(repo.0.join("bridgeforge-manifest.json")).unwrap(),
+        fixture_product::read(repo.0.join("source/forge/bridgeforge-manifest.json")).unwrap(),
         before_contract
     );
     assert_eq!(fs::read(repo.0.join(".git/index")).unwrap(), index);
@@ -419,7 +419,7 @@ fn factory_captured_snapshot_rejects_foreign_sources_and_isolated_drift() {
     }
     let (repo, remote) = factory_repository("captured-input-guards");
     let contract: serde_json::Value =
-        serde_json::from_slice(&fixture_product::read(repo.0.join("bridgeforge-manifest.json")).unwrap())
+        serde_json::from_slice(&fixture_product::read(repo.0.join("source/forge/bridgeforge-manifest.json")).unwrap())
             .unwrap();
     let asset = &contract["generated_assets"][0];
     let source = repo.0.join(asset["source_root"].as_str().unwrap());
@@ -805,7 +805,7 @@ fn mixed_cache_hit_and_build_rejected_commit_restore_all_targets() {
         "templates/hooks/Cargo.lock",
         ".codex/hooks/Cargo.toml",
         ".codex/hooks/Cargo.lock",
-        "bridgeforge-manifest.json",
+        "source/forge/bridgeforge-manifest.json",
         ".codex/managed-skeleton.json",
         ".deps/bridgeforge/bin/build-receipt-cli.json",
         ".deps/bridgeforge/bin/build-receipt-hook.json",

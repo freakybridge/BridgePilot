@@ -4,6 +4,8 @@ delivery_layout: flat
 
 # BridgePilot Documents
 
+- 已验收：[Forge 分发清单归属迁移](1_delivery/manifest-location/acceptance_2026-11-03_forge-manifest-migration.md)（2026-11-03；清单迁至 source/forge，50 项 Rust 定向测试、安装事务、受管构建、869 文件零写检查和独立复核通过；用户授权 BP1.0.1／BF17.0.1／orchestrator0.14.1 源码发布，实际 Git 结果以受管收据为准；未更新安装包、用户级安装或真实下游）。
+
 - 已验收：[BP、BF 与 orchestrator 三产品版本治理](1_delivery/plan_2026-11-03_three-product-versions.md#用户验收与发布授权2026-11-03)（2026-11-03用户验收BP1.0.0／BF17.0.0／orchestrator0.14.0并授权源码发布；构建、定向验证、旧真实产物隔离迁移、dogfood及独立复核通过。发布结果以受管Git收据为准；未更新用户级安装或真实下游）。
 
 本仓库采用 Forge 六层文档体系。`1_delivery/` 采用扁平布局：每个 topic 直接位于该目录下；若未来交付规模需要里程碑，可改为 `milestone` 并迁入 `M1/<topic>/`。

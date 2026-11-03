@@ -20,7 +20,7 @@ fn factory_command(args: &[String]) -> CommandOutcome {
 
 fn is_factory_repository(root: &Path) -> bool {
     root.join(bridgeforge_core::source_projection::physical_path(root, "source/factory/Cargo.toml")).is_file()
-        && root.join("bridgeforge-manifest.json").is_file()
+        && root.join(bridgeforge_core::product_manifest::FILE).is_file()
 }
 
 fn read_factory_file(path: &Path, limit: u64) -> Result<Vec<u8>, String> {
@@ -261,7 +261,7 @@ fn check(command: &str, args: &[String]) -> CommandOutcome {
                 let mut roots = vec![context.root().join(".codex/skills"), context.root().join(".agents/skills")];
                 if context
                     .root()
-                    .join("bridgeforge-manifest.json")
+                    .join(bridgeforge_core::product_manifest::FILE)
                     .is_file()
                 {
                     roots.push(bridgeforge_core::source_projection::template_path(context.root(), "templates/skills"));
