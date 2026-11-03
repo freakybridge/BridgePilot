@@ -4,6 +4,8 @@ delivery_layout: flat
 
 # BridgePilot Documents
 
+- 已验收：[bridgepilot-git-sync release 模式](1_delivery/bridgepilot-git-sync/acceptance_2026-11-03_release-mode.md)（2026-11-03；全部登记下游或指定子集发布、失败继续及严格收据汇总规则已实现，现有用户级副本一致性和引用检查通过；PyYAML 缺失导致技能自动校验未运行，真实下游发布未验证。本轮另行授权当前 BP 项目 release）。
+
 - 已验收：[旧测试链路激进退役](1_delivery/test-retirement/acceptance_2026-11-03_aggressive-test-retirement.md#用户验收2026-11-03)（2026-11-03；删除29文件，测试源码净减14,590行、总文本净减16,760行；121项定向用例分批通过，两套编译、三项一致性检查及独立复核通过。保留当前功能与安全回归，未授权整体删除测试目录；完整发布结果以本轮受管CLI收据为准）。
 
 - 工程验证完成：[单入口完整发布修复](1_delivery/native-release/requirements_2026-11-03_single-entry-release.md#2026-11-03-提交前失败恢复修复)（TODO-054；恢复、固定提交与旧尝试保护完成，21项定向检查、独立复核及三个受管产物准备通过；BP1.1.1／BF17.1.1。已授权接续完整发布，远端结果以CLI收据为准，尚未自动结算用户验收）。
