@@ -207,7 +207,7 @@ pub fn prepare_with_product_version(
     let source = crate::source_projection::source_root(product_root);
     let contract_bytes = bridgeforge_core::product_manifest::project_bytes(product_root)?;
     let contract = crate::json::parse_unique_json(&contract_bytes, "public product contract")?;
-    let version = fs::read_to_string(product_root.join("VERSION")).map_err(|e| e.to_string())?;
+    let version = bridgeforge_core::product_version::forge(product_root)?;
     if contract["release_version"].as_str() != Some(version.trim()) {
         return Err("public product version mismatch".into());
     }

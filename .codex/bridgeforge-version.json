@@ -121,6 +121,23 @@
           ],
           "program": "cargo",
           "timeout_seconds": 600
+        },
+        {
+          "args": [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/tests/bridgepilot_source_update.ps1",
+            "-FullLifecycle"
+          ],
+          "id": "bp-source-update-script",
+          "inputs": [
+            "scripts/tests/bridgepilot_source_update.ps1",
+            "source/orchestrator/skills/bridgepilot/scripts/bridgepilot_update.ps1"
+          ],
+          "program": "powershell",
+          "timeout_seconds": 600
         }
       ]
     },
@@ -835,7 +852,9 @@
             "scripts/tests/support/release_plan.rs",
             "scripts/tests/support/artifact_paths.rs",
             "scripts/tests/unit/workflow_artifact_cleanup.rs",
-            "scripts/tests/support/product_manifest.rs"
+            "scripts/tests/support/product_manifest.rs",
+            "scripts/tests/fixtures/retired-project-settings.json",
+            "source/forge/workflow/src/config_retirement.rs"
           ],
           "program": "cargo",
           "timeout_seconds": 3600
@@ -849,13 +868,13 @@
             "scripts/tests/Cargo.toml",
             "--target-dir",
             ".build/bridgeforge/integration-target",
-            "project_settings_remain_project_owned",
+            "recognized_settings_retire_and_project_modified_settings_block_without_loss",
             "--",
             "--test-threads=1",
             "--logfile",
-            "../../.runtime/tests/development/workflow-settings-preservation.log"
+            "../../.runtime/tests/development/workflow-settings-retirement.log"
           ],
-          "id": "workflow-settings-preservation",
+          "id": "workflow-settings-retirement",
           "inputs": [
             "scripts/tests/Cargo.toml",
             "scripts/tests/Cargo.lock",
@@ -864,7 +883,8 @@
             "scripts/tests/support/artifact_paths.rs",
             "bridgeforge-manifest.json",
             "source/forge/templates/config.toml",
-            "scripts/tests/support/product_manifest.rs"
+            "scripts/tests/support/product_manifest.rs",
+            "scripts/tests/fixtures/retired-project-settings.json"
           ],
           "program": "cargo",
           "timeout_seconds": 600
@@ -899,6 +919,53 @@
           ],
           "program": "cargo",
           "timeout_seconds": 900
+        },
+        {
+          "args": [
+            "test",
+            "--quiet",
+            "--locked",
+            "--offline",
+            "--config",
+            "scripts/tests/factory-cargo.toml",
+            "--manifest-path",
+            "Cargo.toml",
+            "-p",
+            "bridgeforge-hook",
+            "--lib",
+            "--target-dir",
+            ".build/bridgeforge/test-target",
+            "config_health_ignores_retired_project_settings_but_checks_user_settings",
+            "--",
+            "--test-threads=1",
+            "--nocapture",
+            "--logfile",
+            "../../../.runtime/tests/development/workflow-retired-settings-health.log"
+          ],
+          "id": "workflow-retired-settings-health",
+          "inputs": [
+            "scripts/tests/factory-cargo.toml",
+            "scripts/tests/support/factory_root.rs",
+            "scripts/tests/support/git_repository.rs",
+            "scripts/tests/support/schema4_agent.rs",
+            "scripts/tests/unit/core_git_sync.rs",
+            "scripts/tests/unit/core_project_sync.rs",
+            "scripts/tests/unit/source_retirement.rs",
+            "source/forge/templates/hooks.json",
+            "bridgeforge-manifest.json",
+            "scripts/tests/support/current_fixture.rs",
+            "scripts/tests/support/release_plan.rs",
+            "scripts/tests/support/artifact_paths.rs",
+            "scripts/tests/unit/workflow_artifact_cleanup.rs",
+            "scripts/tests/support/product_manifest.rs",
+            "scripts/tests/fixtures/retired-project-settings.json",
+            "source/forge/workflow/src/config_retirement.rs",
+            "source/forge/hook/src/session.rs",
+            "source/forge/hook/src/post.rs",
+            "scripts/tests/unit/hook.rs"
+          ],
+          "program": "cargo",
+          "timeout_seconds": 3600
         }
       ]
     }

@@ -3,7 +3,6 @@ mod memory_commands;
 use bridgeforge_core::{CommandOutcome, EXIT_BLOCKED, ProjectContext, SystemProcessRunner};
 use serde_json::{Value, json};
 use std::ffi::OsString;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -44,7 +43,7 @@ fn factory_spec(root: &Path) -> Result<(Value, Value), String> {
         .and_then(|p| p.get("version"))
         .and_then(toml_edit::Item::as_str)
         .ok_or("factory package must own its version")?;
-    let product = fs::read_to_string(root.join("VERSION")).map_err(|e| e.to_string())?;
+    let product = bridgeforge_core::product_version::forge(root)?;
     let test = json!({"args":["self-test","--json"],"expected_json":{
         "schema":1,"name":"bridgeforge-factory","status":"ok","version":version,"product_version":product.trim()}});
     let metadata = bridgeforge_core::build_manifest::canonical_sha;
@@ -157,11 +156,9 @@ fn value(args: &[String], flag: &str) -> Option<String> {
 }
 
 fn values(args: &[String], flag: &str) -> Vec<String> {
-    args.windows(2)
-        .filter(|pair| pair[0] == flag)
-        .map(|pair| pair[1].clone())
-        .collect()
+    args.windows(2).filter(|pair| pair[0] == flag).map(|pair| pair[1].clone()).collect()
 }
+
 
 fn has(args: &[String], flag: &str) -> bool {
     args.iter().any(|item| item == flag)
@@ -174,53 +171,16 @@ fn path_value(args: &[String], flag: &str) -> Result<PathBuf, String> {
 }
 
 fn self_test() -> CommandOutcome {
-    let mut outcome = CommandOutcome::with_receipt(json!({
+    CommandOutcome::with_receipt(json!({
         "schema": 1,
         "name": "bridgeforge",
         "status": "ok",
         "version": env!("CARGO_PKG_VERSION"),
-        "capabilities": ["git-sync-explicit-release-v1", "git-sync-release-only-v1", "git-sync-release-readiness-v1", "git-sync-direct-release-v1", "git-sync-timing-v1", "git-sync-setup-v1", "git-sync-package-lifecycle-v1", "user-cli-reuse-v1", "project-sync-build-reuse-v1", "git-sync-remote-context-v1", "git-sync-preflight-v1", "git-sync-phase-timing-v1", "public-artifacts-v1"]
-    }));
-    if let Some(capabilities) = outcome
-        .receipt
-        .as_mut()
-        .and_then(|r| r["capabilities"].as_array_mut())
-    {
-        capabilities.push(json!("git-sync-schema4-v1"));
-        capabilities.push(json!("git-sync-product-packages-v1"));
-        capabilities.push(json!("git-sync-baseline-repair-v1"));
-    }
-    if let Some(capabilities) = outcome
-        .receipt
-        .as_mut()
-        .and_then(|r| r["capabilities"].as_array_mut())
-    {
-        capabilities.push(json!("factory-runtime-prepare-v1"));
-        capabilities.push(json!("artifact-cleanup-v1"));
-        capabilities.push(json!("three-directory-layout-v1"));
-        capabilities.push(json!("package-development-v1"));
-        capabilities.push(json!("package-stability-v1"));
-        capabilities.push(json!("git-sync-development-closure-v1"));
-        capabilities.extend(
-            [
-                "rust-mixed-workspace-v1",
-                "package-adoption-v1",
-                "scoped-rust-evidence-v1",
-                "scoped-release-evidence-v1",
-                "task-scoped-development-v1",
-                "resumable-development-checks-v1",
-                "task-selected-development-checks-v1",
-                "staged-development-validation-v1",
-                "direct-development-apply-v1",
-                "version-coverage-v1",
-                "release-external-analysis-preview-v1",
-                "public-source-projection-v1",
-            ]
-            .map(|v| json!(v)),
-        );
-    }
-    outcome
+        "capabilities": ["template-only-v1", "compiled-build-provenance-v1", "user-cli-reuse-v1", "git-sync-preflight-v1", "public-artifacts-v1"],
+        "build_identity": bridgeforge_core::build_identity::identity()
+    }))
 }
+
 
 fn instruction_source(root: &Path) -> CommandOutcome {
     let report = bridgeforge_checks::instructions::inspect(root);
@@ -245,7 +205,7 @@ fn check(command: &str, args: &[String]) -> CommandOutcome {
     match command {
         "baseline" => {
             if has(args, "--index") {
-                return match bridgeforge_skeleton::baseline::verify_index(
+                return match bridgeforge_skeleton::template::verify_index(
                     context.root(),
                     &SystemProcessRunner,
                 ) {
@@ -255,9 +215,8 @@ fn check(command: &str, args: &[String]) -> CommandOutcome {
                     Err(error) => blocked("current-baseline", error),
                 };
             }
-            match bridgeforge_skeleton::baseline::verify(
+            match bridgeforge_skeleton::template::verify(
                 context.root(),
-                None,
                 !has(args, "--skip-generated-runtime"),
             ) {
                 Ok(report) => CommandOutcome::with_receipt(serde_json::to_value(report).unwrap()),
@@ -299,7 +258,7 @@ fn check(command: &str, args: &[String]) -> CommandOutcome {
             let roots = if let Some(path) = value(args, "--skill-root") {
                 vec![PathBuf::from(path)]
             } else {
-                let mut roots = vec![context.root().join(".codex/skills")];
+                let mut roots = vec![context.root().join(".codex/skills"), context.root().join(".agents/skills")];
                 if context
                     .root()
                     .join("bridgeforge-manifest.json")
@@ -331,225 +290,38 @@ fn check(command: &str, args: &[String]) -> CommandOutcome {
     }
 }
 
-fn with_build_metrics(
-    mut out: CommandOutcome,
-    metrics: bridgeforge_core::build_metrics::BuildMetrics,
-    format: &str,
-) -> CommandOutcome {
-    if format != "human" {
-        let receipt = out
-            .receipt
-            .get_or_insert_with(|| json!({"status":"blocked"}));
-        let machine = if format == "combined" {
-            &mut receipt["machine"]
-        } else {
-            receipt
-        };
-        machine["build_metrics"] = serde_json::to_value(metrics).unwrap();
-    }
-    out
-}
-
-fn project_sync(args: &[String]) -> CommandOutcome {
-    let started = std::time::Instant::now();
-    let mut out = project_sync_inner(args);
-    let format = value(args, "--output-format").unwrap_or_else(|| "machine".into());
-    if format != "human" {
-        if let Some(receipt) = out.receipt.as_mut() {
-            let machine = if format == "combined" {
-                &mut receipt["machine"]
-            } else {
-                receipt
-            };
-            machine["elapsed_ms"] = json!(started.elapsed().as_millis());
-        }
-    }
-    out
-}
-
-fn project_sync_inner(args: &[String]) -> CommandOutcome {
-    if args.iter().any(|arg| {
-        matches!(
-            arg.split('=').next(),
-            Some("--asset-migration-manifest" | "--confirmed-asset-migration")
-        )
-    }) {
-        return blocked(
-            "project-sync",
-            "legacy Rule/Memory migration is retired; remove migration arguments",
-        );
-    }
-    let output_format = value(args, "--output-format").unwrap_or_else(|| "machine".into());
-    if !matches!(output_format.as_str(), "machine" | "human" | "combined") {
-        return blocked(
-            "project-sync",
-            "invalid --output-format; expected machine|human|combined",
-        );
-    }
-    let project_root = match path_value(args, "--project-root") {
-        Ok(value) => value,
-        Err(error) => return blocked("project-sync", error),
-    };
-    let template_root = match path_value(args, "--template-root") {
-        Ok(value) => value,
-        Err(error) => return blocked("project-sync", error),
-    };
-    let mode = match value(args, "--mode").as_deref().unwrap_or("auto") {
-        "auto" => bridgeforge_workflow::project_sync::SyncMode::Auto,
-        "init" => bridgeforge_workflow::project_sync::SyncMode::Init,
-        "adopt" => bridgeforge_workflow::project_sync::SyncMode::Adopt,
-        "update" => bridgeforge_workflow::project_sync::SyncMode::Update,
-        other => return blocked("project-sync", format!("invalid mode: {other}")),
-    };
-    let preserved = values(args, "--preserve-project-asset");
-    let deleted = values(args, "--delete-project-asset");
-    let preservation = (!preserved.is_empty() || !deleted.is_empty())
-        .then(|| json!({"preserve": preserved, "delete": deleted}));
-    let planning_started = std::time::Instant::now();
-    let plan_result = bridgeforge_workflow::project_sync::build_plan_with_inputs(
-        &project_root,
-        &template_root,
-        mode,
-        preservation.as_ref(),
-    );
-    let mut plan = match plan_result {
-        Ok(value) => value,
-        Err(error) => {
-            return bridgeforge_workflow::project_sync::outcome_receipt_with_format(
-                Err(error),
-                &output_format,
-            );
-        }
-    };
-    let planning_ms = planning_started.elapsed().as_millis();
-    let applying = has(args, "--apply");
-    if !applying {
-        plan.build_metrics
-            .timings_ms
-            .insert("planning".into(), planning_ms);
-        return bridgeforge_workflow::project_sync::outcome_plan_with_format(
-            Ok(plan),
-            &output_format,
-        );
-    }
-    let fingerprint = if applying {
-        let Some(value) = value(args, "--plan-fingerprint") else {
-            return bridgeforge_workflow::project_sync::outcome_receipt_with_format(
-                Err(
-                    "--apply requires --plan-fingerprint from the immediately preceding plan"
-                        .into(),
-                ),
-                &output_format,
-            );
-        };
-        if plan.aggregate_fingerprint != value {
-            return bridgeforge_workflow::project_sync::outcome_receipt_with_format(
-                Err("aggregate fingerprint drifted; regenerate the plan".into()),
-                &output_format,
-            );
-        }
-        Some(value)
-    } else {
-        None
-    };
-    let preservation_decided = plan.preservation_manifest["entries"]
-        .as_array()
-        .is_some_and(|entries| {
-            entries
-                .iter()
-                .any(|entry| matches!(entry["disposition"].as_str(), Some("preserve" | "delete")))
-        });
-    if applying && preservation_decided && !has(args, "--confirmed-preservation-manifest") {
-        return blocked(
-            "project-sync",
-            "project asset decisions require --confirmed-preservation-manifest",
-        );
-    }
-    let contract_bytes = match bridgeforge_core::product_manifest::project_bytes(&template_root) {
-        Ok(bytes) => bytes,
-        Err(error) => return blocked("project-sync", error),
-    };
-    let contract: Value = match serde_json::from_slice(&contract_bytes) {
-        Ok(value) => value,
-        Err(error) => {
-            return blocked(
-                "project-sync",
-                format!("cannot read generated asset contract: {error}"),
-            );
-        }
-    };
-    let prepared = if plan.public_installation_required {
-        let path = match value(args, "--public-artifacts")
-            .map(PathBuf::from)
-            .map(Ok)
-            .unwrap_or_else(|| {
-                bridgeforge_workflow::public_artifacts::codex_home().and_then(|root| {
-                    bridgeforge_workflow::public_artifacts::prepared_path(&root, &contract)
-                })
-            }) {
-            Ok(path) => path,
-            Err(error) => return blocked("project-sync", error),
-        };
-        bridgeforge_workflow::project_sync::attach_prepared_public(
-            &mut plan,
-            &contract_bytes,
-            &path,
-        )
-    } else if contract["generated_assets"]
-        .as_array()
-        .is_some_and(|items| !items.is_empty())
-    {
-        Err("target product lacks the prepared-public-artifact contract; refresh the official product first".into())
-    } else {
-        Ok(())
-    };
-    if let Err(error) = prepared {
-        plan.build_metrics
-            .timings_ms
-            .insert("planning".into(), planning_ms);
-        return with_build_metrics(
-            bridgeforge_workflow::project_sync::outcome_receipt_with_format(
-                Err(error),
-                &output_format,
-            ),
-            plan.build_metrics.clone(),
-            &output_format,
-        );
-    }
-    plan.build_metrics
-        .timings_ms
-        .insert("planning".into(), planning_ms);
-    let mut failed_metrics = plan.build_metrics.clone();
-    let applying_started = std::time::Instant::now();
-    let result = bridgeforge_workflow::project_sync::apply_plan(
-        plan,
-        fingerprint
-            .as_deref()
-            .expect("apply fingerprint was validated"),
-        has(args, "--confirmed-risk"),
-    )
-    .map(|mut receipt| {
-        receipt
-            .build_metrics
-            .timings_ms
-            .insert("apply".into(), applying_started.elapsed().as_millis());
-        receipt
-    });
-    failed_metrics
-        .timings_ms
-        .insert("apply".into(), applying_started.elapsed().as_millis());
-    if result.is_err() {
-        return with_build_metrics(
-            bridgeforge_workflow::project_sync::outcome_receipt_with_format(result, &output_format),
-            failed_metrics,
-            &output_format,
-        );
-    }
-    bridgeforge_workflow::project_sync::outcome_receipt_with_format(result, &output_format)
-}
-
 fn git_sync(args: &[String]) -> CommandOutcome {
     git_sync_with_runner(args, &SystemProcessRunner)
+}
+
+fn template_project_sync(args: &[String]) -> CommandOutcome {
+    let result = (|| -> Result<Value, String> {
+        for arg in args {
+            if matches!(arg.split('=').next(), Some("--preserve-project-asset" | "--delete-project-asset" |
+                "--asset-migration-manifest" | "--confirmed-asset-migration")) {
+                return Err("legacy preservation/migration arguments are retired".into());
+            }
+        }
+        if let Some(mode) = value(args, "--mode") {
+            if !["auto", "init", "adopt", "update"].contains(&mode.as_str()) { return Err("invalid project-sync mode".into()); }
+        }
+        if has(args, "--apply") && (has(args, "--check") || has(args, "--dry-run")) {
+            return Err("preview flags cannot authorize apply".into());
+        }
+        let product = path_value(args, "--template-root")?;
+        let plan = bridgeforge_workflow::template_sync::plan(&path_value(args, "--project-root")?, &product)?;
+        if !has(args, "--apply") { return Ok(plan.report); }
+        let contract = bridgeforge_core::product_manifest::project(&product)?;
+        let prepared = match value(args, "--public-artifacts") {
+            Some(path) => PathBuf::from(path),
+            None => bridgeforge_workflow::public_artifacts::prepared_path(
+                &bridgeforge_workflow::public_artifacts::codex_home()?, &contract)?,
+        };
+        bridgeforge_workflow::template_sync::apply(plan,
+            &value(args, "--plan-fingerprint").ok_or("--apply requires --plan-fingerprint")?,
+            has(args, "--confirmed-risk"), &prepared)
+    })();
+    match result { Ok(report) => CommandOutcome::with_receipt(report), Err(error) => blocked("project-sync", error) }
 }
 
 pub fn git_sync_with_runner(
@@ -560,26 +332,16 @@ pub fn git_sync_with_runner(
 }
 
 pub fn run(args: &[String]) -> CommandOutcome {
-    if args.first().is_some_and(|c| c == "develop") {
-        if let Err(error) =
-            bridgeforge_lifecycle::release::schema4::development::task_packages_argument(args)
-        {
-            return blocked("develop", error);
-        }
+    // Retired commands must stop before factory forwarding, support-floor reads
+    // or legacy initialization can recreate project sidecars.
+    if args.first().is_some_and(|c| c == "develop" || c == "cleanup") {
+        return blocked("retired-command", "configuration-based development ledger and cleanup are retired; use native project build/test/version tools; no files changed");
     }
-    if args.first().is_some_and(|c| c == "develop")
-        && (["--preview", "--apply", "--recover", "--validate"]
-            .iter()
-            .filter(|f| has(args, f))
-            .count()
-            != 1
-            || ((has(args, "--apply") || has(args, "--recover") || has(args, "--validate"))
-                && (has(args, "--check") || has(args, "--dry-run"))))
-    {
-        return blocked(
-            "develop",
-            "choose exactly one of --preview, --validate, --apply, --recover; preview flags cannot authorize writes",
-        );
+    if args.first().is_some_and(|c| c == "build-assets") && !has(args, "--factory") {
+        return blocked("build-assets", "project-local compilation is retired; use prepared public artifacts through project-sync");
+    }
+    if args.first().is_some_and(|c| c == "project-sync") {
+        return template_project_sync(args);
     }
     let root = value(args, "--root")
         .map(PathBuf::from)
@@ -651,7 +413,7 @@ pub fn run(args: &[String]) -> CommandOutcome {
                 Err(error) => blocked("audit-user-allow", error),
             }
         }
-        "project-sync" => project_sync(args),
+        "project-sync" => template_project_sync(args),
         "user-agents-stage" => {
             if has(args, "--check") || has(args, "--dry-run") {
                 return blocked("user-agents-stage", "staging is a write operation; preview flags are not supported");
@@ -669,35 +431,7 @@ pub fn run(args: &[String]) -> CommandOutcome {
         }
         "cleanup" => bridgeforge_workflow::artifact_cleanup::command(args, &SystemProcessRunner),
         "git-sync" => git_sync(args),
-        "develop" => {
-            let root=value(args,"--root").map(PathBuf::from);
-            let context=match ProjectContext::discover(root.as_deref()) { Ok(c)=>c,Err(e)=>return blocked("develop",e) };
-            if ["--preview","--apply","--recover","--validate"].iter().filter(|f|has(args,f)).count()!=1
-                || ((has(args,"--apply") || has(args,"--recover") || has(args,"--validate")) && (has(args,"--check") || has(args,"--dry-run"))) {
-                return blocked("develop","choose exactly one of --preview, --validate, --apply, --recover; preview flags cannot authorize writes");
-            }
-            let request=bridgeforge_lifecycle::release::schema4::Request{analysis_file:value(args,"--analysis-file").map(PathBuf::from)};
-            let task_packages = match bridgeforge_lifecycle::release::schema4::development::task_packages_argument(args) {
-                Ok(packages) => packages,
-                Err(error) => return blocked("develop", error),
-            };
-            if has(args, "--validate") {
-                return bridgeforge_lifecycle::release::schema4::development::validate_for_packages(
-                    context.root(), &request, task_packages.as_deref(), &SystemProcessRunner, None);
-            }
-            if let Some(packages) = task_packages {
-                return if has(args, "--apply") {
-                    bridgeforge_lifecycle::release::schema4::development::apply_for_packages(context.root(), &request,
-                        &value(args, "--fingerprint").unwrap_or_default(), &packages, &SystemProcessRunner, None)
-                } else {
-                    bridgeforge_lifecycle::release::schema4::development::preview_for_packages(context.root(), &request,
-                        &packages, &SystemProcessRunner, None)
-                };
-            }
-            if has(args,"--recover") { bridgeforge_lifecycle::release::schema4::development::recover(context.root()) }
-            else if has(args,"--apply") { bridgeforge_lifecycle::release::schema4::development::apply(context.root(),&request,&value(args,"--fingerprint").unwrap_or_default(),&SystemProcessRunner) }
-            else { bridgeforge_lifecycle::release::schema4::development::preview(context.root(),&request,&SystemProcessRunner) }
-        }
+        "develop" => blocked("develop", "configuration-based development ledger is retired"),
         "memory-sync" => memory_commands::memory_sync(&args[1..]),
         "manifest" => factory_command(args),
         "build-assets" => {
@@ -711,23 +445,10 @@ pub fn run(args: &[String]) -> CommandOutcome {
             if has(args, "--check") || has(args, "--dry-run") {
                 return blocked("build-assets", "read-only inspection requires --factory; no build performed");
             }
-            let contract_path = project.join(".codex/managed-skeleton.json");
-            let contract: Value = match fs::read(&contract_path)
-                .map_err(|error| error.to_string())
-                .and_then(|payload| serde_json::from_slice(&payload).map_err(|error| error.to_string()))
-            {
-                Ok(value) => value,
-                Err(error) => return blocked("build-assets", error),
-            };
-            match bridgeforge_workflow::project_sync::build_generated_assets(
-                &project,
-                &contract,
-                &SystemProcessRunner,
-            ) {
-                Ok(receipts) => CommandOutcome::with_receipt(json!({"schema": 1, "status": "built", "receipts": receipts})),
-                Err(error) => blocked("build-assets", error),
-            }
+            let _ = project;
+            blocked("build-assets", "project-local compilation is retired; use prepared public artifacts")
         }
+
         _ => CommandOutcome {
             code: EXIT_BLOCKED,
             stderr: "usage: bridgeforge <self-test|doctor|check|archive-scan|audit-user-allow|project-sync|public-artifacts|develop|git-sync|memory-sync|manifest|build-assets|cleanup>\n".into(),

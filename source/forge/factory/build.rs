@@ -8,6 +8,11 @@ fn main() {
     }).expect("owning workspace manifest");
     let manifest = root.join("Cargo.toml");
     let lock = root.join("Cargo.lock");
+    let cli = if root.join("source/forge/cli/Cargo.toml").is_file() {
+        root.join("source/forge/cli/Cargo.toml")
+    } else { root.join("source/cli/Cargo.toml") };
+    println!("cargo:rerun-if-changed={}", cli.display());
+    println!("cargo:rustc-env=BRIDGEFORGE_PRODUCT_MANIFEST={}", cli.display());
     println!("cargo:rerun-if-changed={}", manifest.display());
     println!("cargo:rerun-if-changed={}", lock.display());
     println!("cargo:rustc-env=BRIDGEFORGE_WORKSPACE_MANIFEST={}", manifest.display());

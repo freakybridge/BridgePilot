@@ -285,6 +285,47 @@ fn plan_project_map_retirement(
     Ok(())
 }
 
+fn plan_config_retirement(
+    root: &Path,
+    safe: &mut Vec<SyncAction>,
+    deletes: &mut Vec<PathBuf>,
+    reads: &mut BTreeMap<String, Option<Vec<u8>>>,
+) -> Result<(), String> {
+    let version_bytes = transaction_file_state(&root.join(".codex/bridgeforge-version.json"))?;
+    reads.insert(".codex/bridgeforge-version.json".into(), version_bytes.clone());
+    let version_config = version_bytes
+        .map(|bytes| crate::json::parse_unique_json(&bytes, "current version configuration"))
+        .transpose()?;
+    for (id, target) in crate::config_retirement::TARGETS {
+        let path = safe_join(root, target, "retired configuration")?;
+        let before = transaction_file_state(&path)?;
+        reads.insert((*target).into(), before.clone());
+        let Some(bytes) = before else { continue; };
+        if !crate::config_retirement::known_payload(target, &bytes) {
+            return Err(format!(
+                "retired configuration has unrecognized or project-modified content; preserved: {target}"
+            ));
+        }
+        if version_config.as_ref().is_some_and(|config|
+            crate::config_retirement::referenced_by_current_config(config, target)
+        ) {
+            return Err(format!(
+                "retired configuration is still a current version input; update the configuration through the managed entry before retirement: {target}"
+            ));
+        }
+        safe.push(SyncAction {
+            id: (*id).into(),
+            target: (*target).into(),
+            operation: "delete".into(),
+            risk: false,
+            before_sha256: Some(sha_git(&bytes)),
+            after_sha256: "sha256:deleted".into(),
+        });
+        if !deletes.contains(&path) { deletes.push(path); }
+    }
+    Ok(())
+}
+
 fn sha_git(payload: &[u8]) -> String {
     if payload.contains(&0) {
         sha_raw(payload)
@@ -905,21 +946,9 @@ fn destructive_inventory(
                     .iter()
                     .any(|(_, target)| target.starts_with(&(relative.clone() + "/")));
             if !covered && !ancestor && entry.file_type().is_file() {
-                // Relinquished configuration and retired migration state stay
-                // project-owned, without a rebuild deletion choice.
-                if matches!(
-                    folded.as_str(),
-                    ".codex/settings.json"
-                        | ".codex/settings.json.bak"
-                        | ".codex/project-hook-policy.json"
-                        | ".codex/project-hook-migrations.json"
-                ) {
-                    entries.push(json!({
-                        "id": format!("R:project-owned-config:{relative}"),
-                        "kind": "project-owned-config", "target": relative,
-                        "before_sha256": sha_git(&fs::read(entry.path()).map_err(|e| e.to_string())?),
-                        "disposition": "required-preserve"
-                    }));
+                // Only recognized retired configuration can be removed by the
+                // dedicated transaction planner; unknown content blocks there.
+                if crate::config_retirement::TARGETS.iter().any(|(_, target)| *target == relative) {
                     continue;
                 }
                 // Existing files are project decisions, never ownership proved by an old manifest.
@@ -1288,6 +1317,15 @@ pub fn build_plan_with_inputs(
         }
     }
     plan_project_map_retirement(&project_root, &mut safe, &mut deletes)?;
+    plan_config_retirement(&project_root, &mut safe, &mut deletes, &mut target_reads)?;
+    for target in std::iter::once(".codex/bridgeforge-version.json")
+        .chain(crate::config_retirement::TARGETS.iter().map(|(_, target)| *target))
+    {
+        generated_source_fingerprints.insert(
+            format!("retired-config-input:{target}"),
+            target_reads[target].as_deref().map(sha_raw).unwrap_or_else(|| "absent".into()),
+        );
+    }
     plan_sync_role_retirement(
         &project_root,
         &mut safe,
@@ -2157,6 +2195,30 @@ pub fn install_generated_transaction_retiring(
     retirements: &BTreeMap<PathBuf, Vec<u8>>,
     verify_after: impl FnOnce() -> Result<(), String>,
 ) -> Result<(), String> {
+    install_transaction(root, writes, snapshots, binaries, retirements, true, verify_after)
+}
+
+/// Template-only transactions verify their final state after all retirements.
+pub fn install_template_transaction(
+    root: &Path,
+    writes: &BTreeMap<PathBuf, Vec<u8>>,
+    snapshots: &BTreeMap<PathBuf, Option<Vec<u8>>>,
+    binaries: &BTreeSet<PathBuf>,
+    retirements: &BTreeMap<PathBuf, Vec<u8>>,
+    verify_after: impl FnOnce() -> Result<(), String>,
+) -> Result<(), String> {
+    install_transaction(root, writes, snapshots, binaries, retirements, false, verify_after)
+}
+
+fn install_transaction(
+    root: &Path,
+    writes: &BTreeMap<PathBuf, Vec<u8>>,
+    snapshots: &BTreeMap<PathBuf, Option<Vec<u8>>>,
+    binaries: &BTreeSet<PathBuf>,
+    retirements: &BTreeMap<PathBuf, Vec<u8>>,
+    legacy: bool,
+    verify_after: impl FnOnce() -> Result<(), String>,
+) -> Result<(), String> {
     for (path, bytes) in retirements {
         if writes.contains_key(path)
             || snapshots.get(path).and_then(Option::as_ref) != Some(bytes)
@@ -2199,21 +2261,31 @@ pub fn install_generated_transaction_retiring(
                 write(path, payload)?;
             }
         }
-        verify_after()?;
+        let mut verify_after = Some(verify_after);
+        if legacy { verify_after.take().unwrap()()?; }
         verify_written_payloads(writes, None)?;
         for (path, bytes) in retirements {
             delete_unchanged_file(path, Some(bytes))?;
             deleted.insert(path.clone());
         }
         verify_written_payloads(writes, None)?;
-        if !retirements.is_empty() {
+        if legacy && !retirements.is_empty() {
             verify_legacy_artifact_retirement(
                 root,
                 retirements.contains_key(&root.join(".codex/bin/.gitignore")),
             )?;
         }
-        if !retirements.is_empty() {
+        if legacy && !retirements.is_empty() {
             bridgeforge_core::process_activity::legacy_clients_quiet(root)?;
+        }
+        if let Some(verify) = verify_after {
+            verify()?;
+            verify_written_payloads(writes, None)?;
+            for path in retirements.keys() {
+                if transaction_file_state(path)?.is_some() {
+                    return Err(format!("retired target was recreated during verification: {}", path.display()));
+                }
+            }
         }
         Ok(())
     })();

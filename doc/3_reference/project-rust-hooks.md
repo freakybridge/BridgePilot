@@ -40,11 +40,11 @@
 
 将自己的条目合入已有配置，不覆盖公共条目。bridgeforgeCodexId 的 bridgeforge-codex.project-hook.v1: 前缀归骨架所有，项目不能冒用。不同项目各自注册并调用自己的程序，不在用户级重复登记公共项目 Hook。
 
-旧 .codex/project-hooks.json、bridgeforgeProjectHookId 和 hooks.json 中的 bridgeforgeProjectHooks 登记原样保留，不自动改写或拆分。新工程由项目直接维护 native handler，不需要骨架生成注册。
+旧 `.codex/project-hooks.json` 旁文件已退役。业务命令直接维护在 hooks.json 的 native handler 中；已有有效 handler（包括附加身份字段）逐字保留，不从旧旁文件重新生成、不导入旧版本或收口数据。
 
 ## 已有项目的维护
 
-独立维护边界固定在代码中，不依赖 project-hook-policy.json。骨架不再读取旧策略或迁移状态、不再生成迁移提示，也不提供 project-hook-migration status/verify；旧文件留在项目中并被忽略。
+独立维护边界固定在代码中，不依赖策略或迁移状态 JSON。同步器对已知退役旁文件列出精确路径与字节指纹，备份后在同一事务内清理；未知额外 JSON 阻断，不能隐式删除。dry-run 不写入，apply 重核指纹，删除后验证 `.codex` 递归仅 hooks.json，失败恢复原字节并保护外部改动。旧版本配置、账本与配置迁移接口一并退出。
 
 旧项目程序和收据不会随公共布局迁移搬移，注册不会自动改路径。用户授权项目维护后，由项目补齐独立 manifest/lock/main、去掉骨架私有依赖，按自己的锁定入口构建、安装和验证。新产物进入 .build/；历史 .codex/bin 路径需要项目自行完成迁移和调用链验证。公共迁移遇到归属不明的旧文件时保留并报告阻断，不猜测删除。
 

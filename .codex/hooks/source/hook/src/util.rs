@@ -32,7 +32,7 @@ pub fn repo_root() -> PathBuf {
     }
     if let Ok(executable) = env::current_exe() {
         for ancestor in executable.ancestors().skip(1) {
-            if ancestor.join(".codex/managed-skeleton.json").is_file() {
+            if ancestor.join(".git").exists() && ancestor.join(".codex/hooks.json").is_file() {
                 return ancestor.to_path_buf();
             }
         }

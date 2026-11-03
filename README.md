@@ -5,6 +5,7 @@
 BridgePilot（BP）接收项目目标，保存确认、任务与执行历史，协调不同项目的开发和交付。
 日常直接在 Codex 的 BP 对话中指定项目和目标；复杂任务先 confirm，重要方向再由你判断。
 `source/forge/` 提供工程骨架与受管工具，`source/orchestrator/` 提供总管能力。
+开发仓库、独立源码更新目录、安装 home 与私人档案工作区的区分见 [安装与源码维护说明](INSTALL.md#开发仓库安装目录与档案的边界)。
 单项目或多项目骨架升级可直接选择 `/bridgeforge-update`（或输入 `$bridgeforge-update`），由 BP 私有 [bridgeforge-update](source/orchestrator/skills/bridgeforge-update/SKILL.md) 编排，覆盖 dry-run、问题处理、升级及本轮已有授权的发布。该独立入口仍由 BP 安装与维护，不进入 Forge 共享分发。
 Forge 维护入口仍为 `$bridgeforge-codex`，现有下游入口的迁移另行处理。
 
@@ -62,9 +63,11 @@ $bridgeforge-codex
 
 ## 文档入口
 
-普通 `$git-sync` 只提交和同步，不主动升版。develop 按本次改动选择必要的已登记检查，在最终候选验证后处理子包版本；自动进入 `1.0.0` 仍须完整稳定检查。`$git-sync release` 核验累计版本覆盖和声明交付物，只升主程序并公告全部累计子包变化，不补做开发或业务回归。版本记录不承担长期环境证书，换会话或调整检查策略本身不触发重复收口。
+BP 主产品、BF 与 orchestrator 分别管理版本。BP 以根 `VERSION` 为准，首版为 `1.0.0`；BF 与 orchestrator 分别以各自 CLI Cargo manifest 为准，延续已有版本线。`bp versions` 展示 BP 与组件版本，BF 的 `source-reference` 仅表示源码组合，不代表本机已安装该版本。安装与旧版本迁移从 [INSTALL.md](INSTALL.md) 进入。
 
-从实际入口收据核验所需能力。develop 共用 D1–D5，默认一次 `--apply` 完成最终候选必要检查与子包记账；确需分开时使用 `--validate` 后 `--apply`，完整环境合同下复用有效证据。`--preview` 保持零写入，`git-sync --release` 管主程序。规则与验证状态见[版本生命周期设计](doc/0_architecture/design/package-version-lifecycle.md)，配置和实际入口见[版本生命周期合同](source/forge/templates/skills/git-sync/references/schema4.md)；[旧 schema4 接入合同](doc/1_delivery/git-sync-release-rewrite/schema4-contract.md)仅保留历史参考。
+普通 `$git-sync` 只提交和同步，不主动升版。当前本地候选采用 Template-only：下游 `.codex` 递归 JSON 仅保留 `hooks.json`；项目分发旁文件、版本配置、开发账本及骨架版本戳退出，不换路径或格式续用。
+
+通用 develop 继续组织调查、实现、必要验证和交付；Forge 配置化 `develop`、`git-sync --release/setup/migration` 及依赖旧 keep 配置的 cleanup 已明确退役。构建、版本与发布按项目原生入口处理，发布仍须明确授权。BP 旧账本自动交付认证同样退役，不将任务自动标为 Released。当前规则见[项目同步设计](doc/0_architecture/design/codex-project-sync.md)及[工厂原生开发交付](doc/0_architecture/design/development-completion.md)，本轮真实结果见[四项目退役记录](doc/1_delivery/template-retirement/requirements_2026-11-02_four-projects.md)。本地候选不代表已正式发布。
 
 单项目长任务或多个已讨论任务需要托管时，在该项目的新对话中输入：
 
@@ -115,13 +118,12 @@ $refactor-scan 扫描当前项目，允许现有定向测试和离线性能基�
 
 ## 更新时怎样保护项目
 
-- 新项目直接安装当前骨架。
-- 已有骨架项目最低支持 8.0.0，低于该版本在项目写入前拒绝；8.x 及以后面向最新完整基线生成计划，保留项目定制。新项目仍可初始化，旧格式项目迁移已退役。
-- 无戳空项目初始化；无戳已有资产进入受控接入。双戳、非法戳、更新期间文件漂移或最终基线验证失败时停止或回滚。
-- 同版本骨架需要修复时仍可生成计划；覆盖已有整文件资产需要确认，始终使用可信产品目录的当前基线。
+- `init/adopt/update/auto` 使用同一通用模板规则，不读取旧版本戳或项目合同分流。
+- Plan 零写，未知额外 JSON、链接、未结事务或工具归属不明时阻断；已知退役项和已有内容替换列出精确风险。
+- Apply 复用已确认授权，锁内重算输入指纹，先校验恢复副本，再在同一事务安装和清理；删除后验证递归 JSON 唯一名单和工具来源。
+- 保留项目私有区、原生 handler、Skill、业务资料和 Git 状态；回滚不覆盖并发外部变化。工厂自身文档索引和历史资料由工厂维护，不适用下游接管。
 
-不同项目版本的具体处理方式见[安装与迁移说明](INSTALL.md#项目升级与异常诊断)；内部同步
-合同由[Codex 项目同步设计](doc/0_architecture/design/codex-project-sync.md)维护。
+安装与恢复从[INSTALL](INSTALL.md)进入；内部合同见[项目同步设计](doc/0_architecture/design/codex-project-sync.md)。
 
 ## 仓库结构
 

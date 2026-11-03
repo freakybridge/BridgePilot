@@ -1,5 +1,8 @@
 # 子包开发版本与主程序发布
 
+> 2026-11-03：本页以下内容保留为旧机制历史。Forge 配置化版本登记、develop 账本及相应 release 门禁已退役，不再作为当前操作指引；当前交付与原生版本边界见 [工厂原生开发交付](development-completion.md)，实盘结果见 [四项目退役记录](../../1_delivery/template-retirement/requirements_2026-11-02_four-projects.md)。
+
+
 > 2026-10-24：开发入口、自动稳定和发布分工已完成实现、工程验证及用户验收，已获发布授权。实际验证结果与剩余边界见[需求卡](../../1_delivery/package-version-lifecycle/requirements_2026-10-24_package-version-lifecycle.md)，不能用设计说明代替通过证据。
 
 > 2026-10-28：[TODO-044 已验收](../../1_delivery/forge-simplification/requirements_2026-10-27_workflow-and-versioning.md#用户验收2026-10-28)，8.0.0 已发布；版本覆盖与长期认证解耦，旧默认重路径永久退役。工厂临时方案 A 随后经用户单独授权删除，公共 AGENTS 与 Hook 未改。真实下游、用户级安装和自然运行未验证，不从工程与发布结果扩大结论。

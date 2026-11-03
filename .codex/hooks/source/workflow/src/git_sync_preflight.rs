@@ -130,20 +130,6 @@ impl ProcessRunner for ReadOnly<'_> {
 
 pub(super) fn inspect(root: &Path, runner: &dyn ProcessRunner) -> CommandOutcome {
     let read_only = ReadOnly(runner);
-    let mut setup = crate::release::setup::status_with(root, &read_only, false);
-    if setup.code != 0
-        || !matches!(
-            setup.receipt.as_ref().and_then(|r| r["status"].as_str()),
-            Some("configured" | "configuration-required")
-        )
-    {
-        setup.code = crate::EXIT_BLOCKED;
-        if setup.receipt.is_none() {
-            setup.receipt =
-                Some(json!({"schema":1,"status":"blocked","reason":setup.stderr.trim_end()}));
-        }
-        return setup;
-    }
     let git = Git {
         root,
         runner: &read_only,
@@ -191,7 +177,7 @@ pub(super) fn inspect(root: &Path, runner: &dyn ProcessRunner) -> CommandOutcome
             (String::new(), String::new())
         };
         Ok(json!({
-            "schema":1,"status":"ready","setup":setup.receipt,
+            "schema":1,"status":"ready","release_model":"native-project-tools",
             "branch":branch,"head":head,"upstream":upstream,"push_target":push_target,
             "working_tree":if dirty {"dirty"} else {"clean"},
             "status_porcelain":status,"diff_stat":{"unstaged":unstaged,"staged":staged},

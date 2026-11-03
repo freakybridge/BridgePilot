@@ -171,14 +171,7 @@ fn runtime_fixture(label: &str) -> PathBuf {
         .join(format!("{}-{nonce}-{label}", std::process::id()));
     let directory = root.join(".codex/bin");
     fs::create_dir_all(&directory).unwrap();
-    let profiles: Vec<Value> = serde_json::from_str(include_str!(
-        "../../../source/forge/core/src/legacy_artifact_receipts.json"
-    ))
-    .unwrap();
-    let mut receipt = profiles
-        .into_iter()
-        .find(|p| p["id"] == "codex.hooks")
-        .unwrap();
+    let mut receipt = serde_json::json!({});
     receipt["schema_version"] = serde_json::json!(2);
     receipt["generated_asset_id"] = serde_json::json!("codex.hooks");
     receipt["platform"] = serde_json::json!(crate::build_receipt::platform_key().unwrap());
@@ -198,62 +191,14 @@ fn runtime_fixture(label: &str) -> PathBuf {
 }
 
 #[test]
-fn legacy_runtime_retires_only_public_files_and_keeps_private_files_and_ignore_policy() {
-    let root = runtime_fixture("mixed");
+fn legacy_runtime_fingerprint_retirement_preserves_all_existing_files() {
+    let root = runtime_fixture("retired-fingerprints");
     let directory = root.join(".codex/bin");
-    assert_eq!(legacy_runtime(&root).unwrap().len(), 3);
-    let private = [
-        ("project_demo.exe", b"private executable".as_slice()),
-        (
-            "build-receipt-project-demo.json",
-            b"not a public receipt".as_slice(),
-        ),
-        ("user-data.txt", b"independent data".as_slice()),
-    ];
-    for (name, bytes) in private {
-        fs::write(directory.join(name), bytes).unwrap();
-    }
-    let ignore = b"*\r\n!.gitignore\r\n# private policy\r\n";
-    fs::write(directory.join(".gitignore"), ignore).unwrap();
-    let retired = legacy_runtime(&root).unwrap();
-    assert_eq!(retired.len(), 2);
-    for path in retired.keys() {
-        fs::remove_file(path).unwrap();
-    }
-    assert!(legacy_runtime(&root).unwrap().is_empty());
-    for (name, bytes) in private {
-        assert_eq!(fs::read(directory.join(name)).unwrap(), bytes);
-    }
-    assert_eq!(fs::read(directory.join(".gitignore")).unwrap(), ignore);
-    fs::remove_dir_all(root).unwrap();
-}
-
-#[test]
-fn legacy_runtime_preservation_does_not_bypass_public_ownership_or_directory_guards() {
-    let root = runtime_fixture("guards");
-    let directory = root.join(".codex/bin");
-    fs::write(directory.join("private.txt"), b"keep").unwrap();
-    let binary = directory.join(format!("bridgeforge-hook{}", std::env::consts::EXE_SUFFIX));
-    fs::write(&binary, b"corrupt public bytes").unwrap();
-    assert!(
-        legacy_runtime(&root)
-            .unwrap_err()
-            .contains("ownership is unknown")
-    );
-    fs::write(&binary, b"public").unwrap();
-    fs::create_dir(directory.join("unknown-directory")).unwrap();
-    assert!(
-        legacy_runtime(&root)
-            .unwrap_err()
-            .contains("unsafe legacy runtime entry")
-    );
-    fs::remove_dir(directory.join("unknown-directory")).unwrap();
-    fs::remove_file(directory.join("build-receipt-hook.json")).unwrap();
-    assert!(
-        legacy_runtime(&root)
-            .unwrap_err()
-            .contains("pair is incomplete")
-    );
-    assert_eq!(fs::read(directory.join("private.txt")).unwrap(), b"keep");
+    fs::write(directory.join("private.txt"), b"keep private").unwrap();
+    let before = fs::read_dir(&directory).unwrap().map(|entry| {
+        let path = entry.unwrap().path(); let bytes = fs::read(&path).unwrap(); (path, bytes)
+    }).collect::<BTreeMap<_,_>>();
+    assert!(legacy_runtime(&root).unwrap_err().contains("fingerprint migration is retired"));
+    for (path,bytes) in before { assert_eq!(fs::read(path).unwrap(),bytes); }
     fs::remove_dir_all(root).unwrap();
 }

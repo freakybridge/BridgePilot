@@ -68,22 +68,23 @@
 - **安装与恢复统一从 INSTALL.md 进入。** 每个项目必须在根目录维护 `INSTALL.md`，作为安装、换机恢复、重装和环境迁移的唯一说明入口。`README.md`、`AGENTS.md` 中的安装与恢复相关内容只做导航或保留必要的快速命令，不重复维护完整安装流程。
 - **保护项目资料，不自动归档。** 项目知识资料归项目所有，骨架升级不得覆盖或删除正文。不因日期或完成状态自动归档；需要归档已完成事项时，使用 archive-scan。
 - **测试和工具放在规定位置。** 独立测试、基准及其专用辅助文件放在 `scripts/tests/**`；语言原生的内联单元测试可以留在被测模块中。独立工具放在 `scripts/`，生产运行不得依赖测试集。
-- **产物严格按三目录存放。** 项目本机运行产物进入 `.runtime/`，依赖环境和安装工具进入 `.deps/`，编译、打包的中间及最终产物和编译缓存进入 `.build/`；根目录及源码目录不得散落这些产物，`target/`、`dist/`、`.venv/`、`node_modules/` 不保留原位例外，也不以链接绕过。工具链不兼容时报告阻断。本机配置固定在 `.runtime/config/`，下载文件固定在 `.runtime/download/`，测试报告、测试日志、覆盖率结果和运行临时数据固定在 `.runtime/tests/<测试任务>/`；测试源码及固定样本仍在 `scripts/tests/`。受版本管理的配置、依赖清单、锁文件、源码和用户资料保留原职责。项目根 `.gitignore` 必须完整忽略 `.runtime/`、`.deps/`、`.build/` 及全部内容；忽略不等于删除授权，已跟踪文件须单独处理并保留本机内容。`.codex/artifact-layout.json` 仅可细化三根内的识别与路径，不得开放根外或固定子目录之外的豁免。迁移须同步读写、构建、安装和调用入口，保护配置原始内容及权限，归属不明或目标冲突时停止。
+- **产物严格按三目录存放。** 本机运行产物进入 `.runtime/`，依赖环境和安装工具进入 `.deps/`，编译、打包及缓存进入 `.build/`；根目录及源码目录不散落 target、dist、.venv、node_modules，也不以链接绕过。本机配置在 `.runtime/config/`，下载在 `.runtime/download/`，测试产物在 `.runtime/tests/<任务>/`。源码、原生 manifest、依赖锁和用户资料保留原职责。根 `.gitignore` 完整忽略三根及内容，忽略不等于删除授权。旧 artifact-layout 旁文件与依赖它的自动清理已退役，不凭默认值删除当前业务成品。迁移同步读写与调用链，归属不明或目标冲突时停止。
+- **正式开发仓库与产物分离。** 本项目持续维护的源码和开发仓库必须位于正式源码工作区，不得放入 `.runtime/`、`.deps/` 或 `.build/`。临时下载的源码和测试仓库可分别放入 `.runtime/download/`、`.runtime/tests/`，但不得作为正式项目开发根、项目登记路径或持续维护的源码事实源；转为正式开发前必须迁出。开始修改前核对真实 Git 根与用户指定的项目目录，不一致时先说明并处理，不在产物目录中另建开发仓库继续工作。受控第三方依赖源码及冻结的迁移恢复副本仍按各自用途存放，不作为本项目开发入口。
 
 ### 7. 版本与发布
 
-本章是目标规则，不代表当前工具已全部支持。执行前先核验受管能力；缺少子包开发收口、自动转为 `1.0.0` 或新 release 检查等所需能力时，报告缺口并停止相关版本写入或发布。不得手工模拟、用旧流程冒充或宣称新流程已生效。
+版本以项目原生文件和项目自身发布流程为准。Forge 的项目版本登记、开发收口账本、配置迁移及相应发布门禁已经退役，不创建替代旁文件，也不把旧数据塞入 hooks.json。
 
-- **各类版本分别管理。** 主程序版本以根目录 `VERSION` 为准。项目自有子包必须登记独立版本和唯一版本来源，版本号可以不同。第三方依赖和骨架工具遵守各自的版本规则。
+- **各类版本分别管理。** 主程序版本以项目原生版本文件为准；子包以各自原生 manifest 为唯一版本来源。第三方依赖和骨架工具遵守各自的版本规则。
 - **按改动性质升版。** 使用 `MAJOR.MINOR.PATCH`：兼容修复升 patch，兼容新增升 minor，不兼容变化升 major；`0.x` 的不兼容变化升 minor。特殊格式按语言适配合同处理。不得覆盖、复用或倒退已发布版本。
-- **开发验证通过后升子包版本。** 已授权的 develop 完成且验证通过后，由受管流程升级受影响子包；没有变化或重复收口不升版。`0.x` 达到稳定验收合同规定的条件后，由程序自动升至 `1.0.0`；未达到则保持开发阶段并说明缺口。
-- **release 只升主程序版本。** 不再次升级子包。受影响子包尚未完成验证和升版收口时，停止发布，不自动补做 develop。普通 `git-sync` 不主动升版，也不受上述能力缺口或子包收口门槛限制。
+- **按项目原生流程收口。** 在授权范围内完成必要构建、测试、原生版本及依赖锁一致性核验；不调用已退役的 Forge develop 或配置化 release，不伪造旧账本。没有变化或重复执行不升版，普通 git-sync 不主动升版。
+- **发布须有明确授权。** 使用项目真实发布入口，核对实际版本和交付物；不得从开发完成、测试通过或本地提交推断已经发布。
 - **发布后完整报告版本变化。** release 成功后，在对话中列出主程序及自上次正式发布以来全部子包的版本变化，说明旧版本、新版本和原因。具体判级、稳定条件和证据要求由对应 Skill 与机器合同维护。
 
 ### 8. 骨架与 Memory
 
 - **不假定目录指令已经加载。** AGENTS 的发现取决于启动目录和目录层级；目录索引只是查找线索，不代表处理某个文件时会自动加载对应指令。
-- **骨架版本由同步器维护。** 骨架版本只记录在 `.codex/.bridgeforge_codex_version`，由统一项目同步器维护，不手工修改，也不作为业务版本。
+- **公共文件以 Template 为准。** `.codex` 递归只允许 `hooks.json` 一份 JSON。公共基线由工具内置通用模板规则和编译来源证明校验，不保留项目侧分发合同、版本配置、收口账本或骨架版本戳；未知额外 JSON 阻断更新，已知退役项经计划、备份及事务清理。项目业务 Hook 直接在 hooks.json 注册，专属源码和 Skill 保持项目所有。
 - **保护 Codex 原生 Memory。** 保留官方生成和注入机制，BridgeForge 不解析或改写 Memory 正文。跨电脑同步按受管合同处理原始字节，本机专属文件不参与同步。
 
 <!-- BRIDGEFORGE:PUBLIC:END -->
@@ -101,13 +102,13 @@
 - 上游到下游与下游反哺上游的边界分别以 `doc/0_architecture/design/sync-from-upstream-playbook.md` 和 `doc/0_architecture/design/reverse-sync-playbook.md` 为准。
 - 禁止对本仓库执行下游 `project_sync adopt/apply`，禁止写入 `.bridgeforge_codex_version`；工厂合规只能由 dogfood 一致性硬闸证明。
 - 本项目的模块职责、依赖方向、数据流和外部副作用边界必须与本文件“项目目录地图”一致。
-- 工厂版本策略以 `.codex/bridgeforge-version.json` 为准；普通 `git-sync` 不预写版本，产品层改动在 `git-sync release` 时由受管事务统一升级根 `VERSION` 并在 `CHANGELOG.md` 标记 `[product]`；自身配置与元文档分别标记 `[repo]` / `[meta]`。
+- 三条产品版本独立管理：BP 主版本以根 `VERSION` 为准，从 `1.0.0` 起步；BF 以 `source/forge/cli/Cargo.toml` 的显式版本为准；orchestrator 以 `source/orchestrator/cli/Cargo.toml` 为准。其他 Rust 包以各自原生 manifest 为准，不混称产品版本。根 workspace 不统一继承产品版本。配置化版本登记、开发收口账本及相应 release 门禁已退役，不重建旁文件。普通 git-sync 不升版；组件发布和纳入 BP 的组合发布分别确定范围及授权，BP 安装包记录精确组件版本，不据此宣称已安装外部 BF。
 - 受管资产必须使用显式 target、稳定 asset id、可验证历史 hash 和单一 ownership strategy；禁止 glob ownership。
 - safe/risk/gap 计划必须在 apply 前重算 aggregate fingerprint；漂移时禁止写入。gap 必须原样保留并降级收据。
 - Skill 或 Agent 增删改名必须同步分发登记、dogfood 与引用校验；禁止维护第二份角色路由表。
 - `--check` / `--dry-run` 必须零写入；`init/adopt/update` 必须只经受管 `bridgeforge project-sync` apply。
 - Bug 关闭必须分别记录源码、产品传播、dogfood、fixture、真实下游与 runtime 六类证据；缺失项必须标为未验证。
-- 工厂开发收口遵循 [开发收口清单](doc/0_architecture/design/development-completion.md)，按改动范围选择必要验证与审计，复用仍有效的证据；完整回归须有具体风险依据，发布准备不作为开发完成前置。`git-sync` 与可选 `release` 保持独立，必要时构建受管产物并复用缓存，保留轻量提交检查，不组织业务测试、全量回归或验收。
+- 工厂开发按实际改动范围选择必要构建、测试、独立复核及原生产物核验，复用有效证据；完整回归须有具体风险依据。旧 develop 账本不再作为完成条件，历史记录只作恢复和历史证据。Git 同步与原生版本发布分别授权，保留轻量提交检查。
 - 未执行真实下游或 runtime smoke 时，禁止宣称对应验证已通过。
 
 ### 项目业务与安全红线
@@ -130,15 +131,15 @@
 
 BP 组织单项目或多项目骨架升级时，读取私有 [bridgeforge-update](source/orchestrator/skills/bridgeforge-update/SKILL.md)；该 Skill 随 BP 包管理，不进入 Forge 公共模板或共享分发。
 
-用户要求 BP 初始化、项目登记、换机、分派、状态核对或明确范围的暂停时，先读取 [BridgePilot 统一入口](source/orchestrator/skills/bridgepilot/SKILL.md)。该入口由 BP 独立包管理，可受管安装到用户级 Skills，不进入 Forge 共享分发。有限窗口调度由自有进程执行，窗口外接续依赖本控制对话已核验的原生 heartbeat；每次唤醒先核对机器、控制对话与实际原生配置，不接管 Unknown。任务回合结束先进入 Reviewing；只读报告须核对命令、文件及原生项目成员，写任务须另核验受管开发与发布证据，不能把 completed 当作 Released。工作区和恢复入口见 [INSTALL.md](INSTALL.md#bridgepilot-本地试用与档案恢复)，实际验证缺口见唯一开发计划。
+用户要求 BP 初始化、项目登记、换机、分派、状态核对或明确范围的暂停时，先读取 [BridgePilot 统一入口](source/orchestrator/skills/bridgepilot/SKILL.md)。该入口由 BP 独立包管理，可受管安装到用户级 Skills，不进入 Forge 共享分发。有限窗口调度由自有进程执行，窗口外接续依赖本控制对话已核验的原生 heartbeat；每次唤醒先核对机器、控制对话与实际原生配置，不接管 Unknown。任务回合结束先进入 Reviewing；只读报告核对命令、文件及原生成员，写任务按项目原生验证与人工审阅处理。旧账本自动认证已退役，不能把 completed 自动标为 Released。工作区和恢复入口见 [INSTALL.md](INSTALL.md#bridgepilot-本地试用与档案恢复)，实际验证缺口见唯一开发计划。
 
-本工厂的 develop 本地 dogfood 优先读取 `source/forge/templates/skills/develop/SKILL.md` 及其按需引用的 reference；用户级安装副本不同时，以仓库候选作为本工厂的执行依据，不把旧版全仓清零规则重新带入。本入口不分发到公共 Template 或其他项目。
+本工厂开发及 dogfood 优先读取 `source/forge/templates/skills/develop/SKILL.md` 及其按需引用的 reference；用户级安装副本不同时，以仓库候选作为本工厂的执行依据，不调用已退役的配置化 develop/release。本入口不分发到公共 Template 或其他项目。
 
-实际命令使用受管准备后的 `.build/bridgeforge/bin/bridgeforge-factory.exe`，从本次包预览收据核验任务范围与直接 apply 能力；阶段间复用还需 `staged-development-validation-v1` 及完整实际环境合同，可选失败重试缓存仍按 `resumable-development-checks-v1`。能力缺失须报告，不能静默退回旧全仓入口。本地 dogfood 不等于正式版本收口或发布，也不更新用户级共享安装。
+实际工厂命令使用受管准备后的 `.build/bridgeforge/bin/bridgeforge-factory.exe`；模板内置规则由 `template-standard` 从通用 Template 生成，再经 manifest 与受管构建校验。不把旧账本缺失当作原生验证失败，不以本地 dogfood 证明正式发布，也不自动更新用户级共享安装。
 
-本工厂的 Git 同步与开发收口入口为 `.build/bridgeforge/bin/bridgeforge-factory.exe git-sync` 和 `develop`。Git 同步使用已安装工具和一次聚合预检，不前置准备或独立 self-test；工具缺失、不匹配时报告维护缺口，不自动安装升级。develop 使用当前已准备工具，仅工具缺失、不匹配或本次确需新构建时执行受管准备，不为每个阶段重复构建或 self-test。公共 CLI 保留兼容转发，但工厂直接入口避免额外转发进程；发布结果确需刷新产物时仍由受管事务处理。
+本工厂普通 Git 同步入口为 `.build/bridgeforge/bin/bridgeforge-factory.exe git-sync`，使用现有工具与一次聚合预检。工具缺失或不匹配时报告维护缺口，不自动安装升级。原生开发验证使用下列 Cargo 入口；旧 develop、配置迁移与配置化 release 参数明确报退役，不能转回冻结工具继续在线运行。
 
-本工厂的显式产物清理入口为 `.build/bridgeforge/bin/bridgeforge-factory.exe cleanup --root .`，只读预览追加 `--dry-run`。`.build` 只保留受管登记的当前工具、项目当前成品及对应收据，其余全部清理；项目成品通过 `.codex/artifact-layout.json` 的 `cleanup: keep` 声明，包含所需 DLL 和资源。直接使用本项目入口，不采用外部清理执行器。
+旧 cleanup 依赖的项目产物覆盖与 Hook 登记旁文件已退役。未建立可靠的原生成品保护前，该入口明确阻断；不恢复旧 JSON，不默认清空 `.build`，不删除当前成品或本次恢复证据。
 
 工厂显式工具刷新及开发必要构建的受管准备入口为下列第一条命令，不再作为日常 Git 同步前置。它通过锁定 Cargo 启动当前源码工厂工具，按需准备 CLI、Hook 和工厂工具；准备失败停止，不对工厂执行下游 adopt/apply。只读检查直接使用已具备 `factory-runtime-prepare-v1` 的工厂工具的 `build-assets --factory --project-root . --check`；没有该能力时报告工具不可用，不用 Cargo 引导冒充零写入检查。完整说明见 INSTALL.md。
 

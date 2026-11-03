@@ -42,14 +42,7 @@ $BRIDGEFORGE_CODEX_HOME = Join-Path $env:USERPROFILE ".bridgeforge-codex"
 
 ## 2. 判断模式并锁定已验证工具
 
-项目写入前，只读检查版本戳并锁定唯一 `$MODE`：
-
-1. `.codex/.bridgeforge_codex_version` 与 `.codex/.bridgeforge_version` 双戳或非法戳：零写阻断。
-2. 恰好一个合法戳：`update`；由当前合同的固定 `compatibility_baseline` 判定低基线重建或基线内兼容更新。
-3. 没有合法戳但已有 `.codex/`、`AGENTS.md` 或其他骨架资产：`adopt`。
-4. 没有骨架身份的空白项目：`init`。
-
-每轮以刷新后的产品 home 为安装目标。仅支持骨架 8.0.0 及以后；已识别为更早版本的项目须在项目写入前拒绝，不再执行旧项目迁移或重建。无戳新项目继续走当前初始化/合法首次接入，身份不明时只读报告。8.x 项目更新保留定制和必要历史证明。只允许使用 updater 事务安装并验证的受管 Rust CLI：
+项目写入前核实真实 Git 根、当前产品和已准备工具来源。使用统一 Template-only 模型；`auto/init/adopt/update` 仅为调用兼容，不读取旧合同、版本登记、账本或戳决定政策。`.codex` 递归只允许 hooks.json；未知额外 JSON 阻断，已知退役项列入精确风险计划。公共工具编译来源必须与当前产品一致。
 
 ```powershell
 $BRIDGEFORGE = Join-Path $env:USERPROFILE ".codex\bin\bridgeforge.exe"
@@ -63,40 +56,20 @@ $BRIDGEFORGE = Join-Path $env:USERPROFILE ".codex\bin\bridgeforge.exe"
 
 项目自有 Hook 由项目独立开发、构建和注册；骨架维护只更新公共 Hook，保留项目程序、收据与注册，不扫描完整源码、编译或记录迁移状态。此边界固定在代码中，不依赖策略文件。用户询问或明确要求维护项目 Hook 时读取 [项目 Hook 独立维护](references/project-hook-independence.md)，在项目自身开发流程执行。
 
-## 4. 读取唯一模式手册并生成计划
+## 4. 计划与应用
 
-只读取当前模式对应的一份手册：
+兼容模式名的说明见[初始化](references/init.md)与[已有资产接入](references/adopt.md)；异常或需要核对字段时读[技术收据](references/technical-receipts.md)。三种模式仍使用同一 Template-only 规则，不恢复旧戳分流。
 
-| 模式 | 必读手册 |
-|---|---|
-| `init` | [新项目初始化](references/init.md) |
-| `adopt` | [旧骨架受控接入](references/adopt.md) |
-| `update` | [当前骨架更新](references/update.md) |
-
-然后只用已锁定的 `$BRIDGEFORGE` 运行 planner：
+读取 [更新规则](references/update.md)，使用上节已验证的 CLI 与公共产物：
 
 ```powershell
-& $BRIDGEFORGE project-sync --project-root . `
-  --template-root $BRIDGEFORGE_CODEX_HOME --mode $MODE --output-format combined `
-  --public-artifacts $PUBLIC_ARTIFACTS
+& $BRIDGEFORGE project-sync --project-root . --template-root $BRIDGEFORGE_CODEX_HOME --mode auto
 ```
 
-plan 必须零写入。同步器 `machine` 区负责 fingerprint、safe、risk、gap、blocker 与一次性 `PreservationManifest`；`human` 区负责稳定的用户结果。blocker 必须立即停止；无 risk 的 current baseline 更新零确认。存在 risk 时，主对话只能把所有用户决策合并为本轮一次确认，确认前禁止执行 safe 或 risk 动作。
+计划输出 aggregate_fingerprint、safe、risk、retired、gaps、blockers。blocker 停止；不存在风险或已有风险授权时直接继续，不重复询问。新增真实风险一次合并说明并确认，确认前不执行任何写入。
 
-旧 Markdown Rule／项目 Memory 的语义迁移已退役。`.codex/rules/*.md` 与 `.codex/memory/**` 按普通项目自有资产处理：兼容更新保留，重建时由现有 `PreservationManifest` 按精确路径确认保留或删除；不读取正文生成转换方案，不默认删除，也不影响原生 `~/.codex/memories/`。
+读取 [事务与恢复](references/transaction.md)，用同一指纹及 $PUBLIC_ARTIFACTS 执行 --apply。工具在锁内重算计划，失败保护现场；不手工复制、删除或写戳。
 
-## 5. Apply 与用户结果
+## 5. 结果
 
-准备 Apply 时复用已取得的计划指纹和用户选择；不在 Skill 中额外跑一遍完整 planner。读取 [事务与回滚](references/transaction.md)，Apply 传 `--plan-fingerprint` 与同一 `$PUBLIC_ARTIFACTS`；执行入口集中复核，漂移时零写停止并重新展示。安装准备是内部步骤，没有单独命令。禁止人工 copy、merge、删除或写版本戳。
-
-维护结果逐项原样展示同步器 `human` 区的“结论、待处理事项、下一步”，只使用“已完成、无需处理、可直接执行、等待确认、未完成、已完成但仍有待处理项”六类状态。safe-only 必须为“可直接执行”，禁止改成“等待确认”、改写结论或倾倒 `machine` 内部字段。用户追问未覆盖的背景时可补充，但不得改变同步器结论。
-
-- 成功：说明当前骨架版本；只把本轮真实收据证明产生的未提交骨架文件计入数量，并把 `$git-sync` 作为需要保存到 GitHub 时的唯一下一步。
-- no-op：说明当前版本和“本次骨架操作已结束，无需继续处理”，不展示 planner、validator 或健康 Native Memory 明细。
-- risk：用白话说明范围、影响、保留项和不可恢复边界，并且只问一个决策问题。
-- blocker/失败：直接展示同步器 `human` 区确定的中文停止原因、写入/回滚状态与安全动作；未分类错误只能显示通用中文停止说明，原始异常只保留在 `machine` 技术收据中。禁止把状态码、blocker 列表、原始异常或 traceback 当结论。
-- gap/advisory：只有影响当前结果、需要用户操作或会改变后续行为时才展示；等待真实生命周期事件验证时，只说明仍在等待正常使用完成验证。
-
-普通 Git 同步不依赖开发收口；release 核验受影响子包的验证与升版收口，缺口不能由骨架维护伪造补齐。骨架维护不创建、覆盖或删除项目的业务检查清单，不把旧 `development-checks.json` / `prepared` 等同于子包收口证据。新分工需 CLI 声明 `package-development-v1`、`package-stability-v1`、`git-sync-development-closure-v1`；项目检查通过配置提案维护，升级骨架不默认认证未发布改动。
-
-既有改动禁止归为本轮成果。核对成功条件、Native Memory readiness、回滚或解释技术证据时，读取 [内部技术收据](references/technical-receipts.md)；未追问不补发技术清单。
+报告真实 succeeded/blocked/rolled-back、写入及退役路径、恢复副本和剩余事项；终态是四类规则一致：模板公共资产、原生业务 handler 保留、工具编译来源一致、.codex 递归 JSON 仅 hooks.json。业务构建、测试、版本与发布由项目原生流程维护，骨架更新不认证未执行的业务验证。不宣称旧 develop 或配置化 release 仍可用，不迁移旧配置续用。

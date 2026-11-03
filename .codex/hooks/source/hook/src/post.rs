@@ -309,13 +309,11 @@ pub fn edit_requires_instruction_check(payloads: &[Value]) -> bool {
             .is_some_and(|name| name.to_string_lossy().eq_ignore_ascii_case("AGENTS.md"))
             || matches!(
                 relative.as_str(),
-                ".codex/managed-skeleton.json"
-                    | "bridgeforge-manifest.json"
+                "bridgeforge-manifest.json"
                     | ".codex/hooks.json"
                     | "templates/hooks.json"
                     | "source/forge/templates/hooks.json"
                     | ".codex/config.toml"
-                    | ".codex/settings.json"
                     | "doc/readme.md"
                     | "doc/3_reference/codex-hook-signals.md"
             )

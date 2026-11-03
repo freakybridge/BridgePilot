@@ -5,6 +5,8 @@ mod fixture_product;
 #[cfg(test)]
 mod build_provenance;
 #[cfg(test)]
+mod version_governance;
+#[cfg(test)]
 mod factory_version_config;
 #[cfg(test)]
 mod high_cost_native;

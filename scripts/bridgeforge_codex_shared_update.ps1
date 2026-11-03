@@ -1633,6 +1633,28 @@ function Restore-CommandHomeOperation {
     Remove-Item -LiteralPath $logPath -Force
 }
 
+function Get-ForgeProductVersion {
+    param([string]$RepositoryRoot)
+    foreach ($relative in @('source/forge/cli/Cargo.toml', 'source/cli/Cargo.toml')) {
+        $path = Join-Path $RepositoryRoot $relative
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
+        $text = Get-Content -LiteralPath $path -Raw
+        $section = [regex]::Match($text, '(?ms)^\[package\]\s*\r?\n(?<body>.*?)(?=^\[|\z)')
+        $version = [regex]::Match($section.Groups['body'].Value, '(?m)^version\s*=\s*["''](?<version>\d+\.\d+\.\d+)["'']\s*$')
+        if ($version.Success) { return $version.Groups['version'].Value }
+        if ($section.Groups['body'].Value -notmatch '(?m)^version\.workspace\s*=\s*true\s*$') { throw 'Forge CLI native version is missing.' }
+        $workspace = Get-Content -LiteralPath (Join-Path $RepositoryRoot 'Cargo.toml') -Raw
+        $section = [regex]::Match($workspace, '(?ms)^\[workspace\.package\]\s*\r?\n(?<body>.*?)(?=^\[|\z)')
+        $version = [regex]::Match($section.Groups['body'].Value, '(?m)^version\s*=\s*["''](?<version>\d+\.\d+\.\d+)["'']\s*$')
+        if (-not $version.Success) { throw 'Legacy Forge workspace version is missing.' }
+        return $version.Groups['version'].Value
+    }
+    # Frozen products before source projection used VERSION for Forge alone.
+    if ((Test-Path -LiteralPath (Join-Path $RepositoryRoot 'source/forge/core/Cargo.toml')) -or
+        (Test-Path -LiteralPath (Join-Path $RepositoryRoot 'source/core/Cargo.toml'))) { throw 'Forge CLI source is missing.' }
+    return (Get-Content -LiteralPath (Join-Path $RepositoryRoot 'VERSION') -Raw).Trim()
+}
+
 function Get-RustCliReuseIdentity {
     param([string]$Binary, [string]$RepositoryRoot)
     try {
@@ -1640,7 +1662,7 @@ function Get-RustCliReuseIdentity {
         $test = & $Binary self-test --json 2>$null
         if ($LASTEXITCODE -ne 0) { return $null }
         $self = ($test -join "`n") | ConvertFrom-Json
-        $expectedVersion = (Get-Content -LiteralPath (Join-Path $RepositoryRoot 'VERSION') -Raw).Trim()
+        $expectedVersion = Get-ForgeProductVersion -RepositoryRoot $RepositoryRoot
         if ([int]$self.schema -ne 1 -or [string]$self.name -ne 'bridgeforge' -or
             [string]$self.status -ne 'ok' -or [string]$self.version -ne $expectedVersion -or
             @($self.capabilities) -notcontains 'user-cli-reuse-v1') { return $null }
@@ -1794,7 +1816,7 @@ function New-RustCliPlan {
         throw "Managed Rust CLI self-test did not return JSON."
     }
     if ([int]$receipt.schema -ne 1 -or [string]$receipt.name -ne "bridgeforge" -or
-        [string]$receipt.status -ne "ok" -or [string]$receipt.version -ne (Get-Content -LiteralPath (Join-Path $RepositoryRoot 'VERSION') -Raw).Trim()) {
+        [string]$receipt.status -ne "ok" -or [string]$receipt.version -ne (Get-ForgeProductVersion -RepositoryRoot $RepositoryRoot)) {
         Remove-SafeTree -Path $targetDirectory
         throw "Managed Rust CLI self-test identity is invalid."
     }
@@ -1833,12 +1855,11 @@ function Prepare-PublicArtifacts {
     param($Plan, [string]$RepositoryRoot, [string]$UserProfile)
     $binary = if ([bool]$Plan.needs_swap) { [string]$Plan.stage } else { [string]$Plan.target }
     if (-not $Plan.cache_identity) { throw 'Public artifact preparation requires a verified compiler/source identity.' }
+    # A Cargo bootstrap from the full factory workspace is only a helper. The
+    # installed public CLI must come from the managed public source projection,
+    # including its independently compiled source/lock provenance.
     $arguments = @('public-artifacts', 'prepare', '--product-root', $RepositoryRoot,
-        '--codex-home', (Join-Path $UserProfile '.codex'), '--bootstrap-cli', $binary,
-        '--bootstrap-identity', [string]$Plan.cache_identity)
-    if ($Plan.Contains('bootstrap_target') -and $Plan.bootstrap_target) {
-        $arguments += @('--bootstrap-target', [string]$Plan.bootstrap_target)
-    }
+        '--codex-home', (Join-Path $UserProfile '.codex'))
     $phase = [Diagnostics.Stopwatch]::StartNew()
     try {
         $output = & $binary @arguments
@@ -1847,6 +1868,28 @@ function Prepare-PublicArtifacts {
         if ([int]$receipt.schema -ne 1 -or [string]$receipt.status -ne 'prepared') {
             throw 'Public artifact preparation returned an invalid receipt.'
         }
+        $located = & $binary public-artifacts locate --product-root $RepositoryRoot --codex-home (Join-Path $UserProfile '.codex')
+        if ($LASTEXITCODE -ne 0) { throw 'Prepared public CLI lookup failed.' }
+        $candidate = ($located -join "`n") | ConvertFrom-Json
+        if ([int]$candidate.schema -ne 1 -or [string]$candidate.status -ne 'available') {
+            throw 'Prepared public CLI identity unavailable.'
+        }
+        $publicBinary = [string]$candidate.binary
+        Assert-NoReparseUnderProfile -Path $publicBinary -UserProfile $UserProfile
+        $publicHash = Get-Sha256 -Path $publicBinary
+        if ("sha256:$publicHash" -ne [string]$candidate.binary_sha256) { throw 'Prepared CLI bytes changed.' }
+        $needsSwap = -not (Test-Path -LiteralPath ([string]$Plan.target) -PathType Leaf) -or
+            (Get-Sha256 -Path ([string]$Plan.target)) -ne $publicHash
+        if ($needsSwap) {
+            Copy-Item -LiteralPath $publicBinary -Destination ([string]$Plan.stage) -Force
+            if ((Get-Sha256 -Path ([string]$Plan.stage)) -ne $publicHash) { throw 'Prepared CLI changed while staging.' }
+        } elseif (Test-Path -LiteralPath ([string]$Plan.stage)) {
+            Remove-Item -LiteralPath ([string]$Plan.stage) -Force
+        }
+        $Plan.needs_swap = $needsSwap
+        $Plan.status = if ($needsSwap) { 'staged' } else { 'current' }
+        $Plan.binary_sha256 = $publicHash
+        $Plan.cache_identity = [string]$candidate.identity
         $script:PublicArtifactsReceipt = $receipt
     } finally { Complete-PhaseTiming -Name 'public_artifacts' -Stopwatch $phase }
 }

@@ -1,11 +1,5 @@
-# Codex 新项目初始化
+# Template-only init
 
-仅在根 skill 判定为 `init` 后读取。
+与 update 使用同一公共模板规则，模式名只保留入口兼容，不解释旧项目配置或版本戳。运行 `project-sync --project-root <项目根> --template-root <已验证产品根> --mode init` 生成零写计划；人工定制的替换和已知退役项属于 risk，已有授权直接复用。未知额外 JSON 阻断，不建立 PreservationManifest 或其他替代旁文件。
 
-1. 只运行 `bridgeforge project-sync --mode init` 生成计划。
-2. 空项目的 current baseline 安装可零确认应用。
-3. apply 必须带紧邻 plan 的 aggregate fingerprint。
-4. 准备 apply 时返回根入口并读取 `references/transaction.md`，由它负责写入、验证、回滚和最后写戳顺序。
-
-禁止先创建半套 `.codex/`，禁止从 Claude 模板、旧用户目录或其他项目复制资产，禁止
-人工写版本戳。项目专属架构、目录地图和快速命令由项目填写。
+按 transaction.md 应用精确指纹；不手工复制半套骨架、不写身份戳。项目专属架构、目录地图、快速命令由项目维护，安装恢复仍从 INSTALL.md 进入。

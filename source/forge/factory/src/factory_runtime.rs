@@ -15,27 +15,8 @@ fn identity_mode(root: &Path, zero_write: bool) -> Result<(Value, Vec<u8>), Stri
     if root.join(".codex/.bridgeforge_codex_version").exists() {
         return Err("factory must not carry a downstream skeleton version stamp".into());
     }
-    // Validate the installed baseline before preparing a candidate. Source and
-    // dogfood changes are installed with binaries in one recoverable transaction.
-    crate::baseline::verify_read_only(root, None, false)?;
-    let installed = crate::json::parse_unique_json(
-        &std::fs::read(root.join(".codex/managed-skeleton.json")).map_err(|e| e.to_string())?,
-        "installed factory contract",
-    )?;
-    for asset in installed["generated_assets"]
-        .as_array()
-        .ok_or("installed generated assets missing")?
-    {
-        let binary = asset["build"]["binary_name"]
-            .as_str()
-            .ok_or("installed binary name missing")?;
-        if asset["build"] != crate::manifest::generated_build_recipe(binary)
-            || asset["build_recipe_sha256"] != crate::manifest::canonical_sha(&asset["build"])?
-            || asset["self_test_sha256"] != crate::manifest::canonical_sha(&asset["self_test"])?
-        {
-            return Err("installed generated recipe or self-test contract drifted".into());
-        }
-    }
+    // The owning product manifest and native source define builds. A stale
+    // project-side contract must neither prevent repair nor be recreated.
     if zero_write && manifest::rebuild(root, true)? {
         return Err("factory manifests or dogfood are stale".into());
     }

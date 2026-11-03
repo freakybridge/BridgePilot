@@ -14,10 +14,8 @@ pub struct FactoryVersionReport {
 }
 
 pub fn check(root: &Path) -> FactoryVersionReport {
-    let version = fs::read_to_string(root.join("VERSION"))
-        .unwrap_or_default()
-        .trim()
-        .to_string();
+    let native_version = bridgeforge_core::product_version::forge(root);
+    let version = native_version.clone().unwrap_or_default();
     let contract = bridgeforge_core::product_manifest::project(root).unwrap_or_default();
     let contract_version = contract["release_version"]
         .as_str()
@@ -25,12 +23,13 @@ pub fn check(root: &Path) -> FactoryVersionReport {
         .to_string();
     let changelog = fs::read_to_string(root.join("CHANGELOG.md")).unwrap_or_default();
     let mut issues = Vec::new();
+    if let Err(error) = native_version { issues.push(error); }
     if version.parse::<SemVer>().is_err() {
-        issues.push("root VERSION is not strict SemVer".into());
+        issues.push("Forge CLI native version is not strict SemVer".into());
     }
     if contract_version != version {
         issues.push(format!(
-            "managed contract release_version differs from VERSION: {contract_version} != {version}"
+            "managed contract release_version differs from Forge CLI: {contract_version} != {version}"
         ));
     }
     let changelog_present = changelog.contains(&format!("## [{version}]"))

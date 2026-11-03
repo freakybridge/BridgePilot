@@ -14,17 +14,19 @@ use std::{
 };
 
 const BINDING: &str = "bridgepilot-local.json";
-const FILES: [&str; 5] = [
+const FILES: [&str; 6] = [
     "SKILL.md",
     "references/init.md",
     "references/projects.md",
     "references/handoff.md",
     "references/execution.md",
+    "scripts/bridgepilot_update.ps1",
 ];
 const UPDATE: &str = "bridgeforge-update";
+const CLEANUP: &str = "bridgepilot-cleanup";
 const UPDATE_FILES: [&str; 1] = ["SKILL.md"];
 fn assets(skill: &str) -> &[&str] {
-    if skill == UPDATE {
+    if skill == UPDATE || skill == CLEANUP {
         &UPDATE_FILES
     } else {
         &FILES
@@ -55,6 +57,8 @@ struct Journal {
     changes: Vec<Change>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     update: Option<Projection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cleanup: Option<Projection>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -66,6 +70,9 @@ fn projections(j: &Journal) -> Vec<(&str, &Binding, &[Change])> {
     let mut result = vec![("bridgepilot", &j.binding, j.changes.as_slice())];
     if let Some(update) = &j.update {
         result.push((UPDATE, &update.binding, update.changes.as_slice()));
+    }
+    if let Some(cleanup) = &j.cleanup {
+        result.push((CLEANUP, &cleanup.binding, cleanup.changes.as_slice()));
     }
     result
 }
@@ -102,7 +109,7 @@ fn roots(home: &Path, skills: &Path) -> Result<(PathBuf, PathBuf)> {
             .map_err(|e| e.to_string())?
             .join(skills.file_name().ok_or("skills name missing")?)
     };
-    for skill in ["bridgepilot", UPDATE] {
+    for skill in ["bridgepilot", UPDATE, CLEANUP] {
         let target = skills.join(skill);
         if target.starts_with(&home) || home.starts_with(&target) {
             return Err("user skill and product home must be separate".into());
@@ -124,8 +131,12 @@ fn valid(binding: &Binding, home: &Path, skills: &Path, skill: &str) -> Result<(
         || binding.product != "BridgePilot"
         || binding.home != home
         || binding.skills_root != skills
-        || binding.files.len() != assets(skill).len()
-        || assets(skill)
+        || ![
+            assets(skill).len(),
+            if skill == "bridgepilot" { 5 } else { 1 },
+        ]
+        .contains(&binding.files.len())
+        || assets(skill)[..binding.files.len()]
             .iter()
             .any(|name| !binding.files.contains_key(*name))
     {
@@ -146,13 +157,13 @@ fn members(target: &Path, skill: &str) -> Result<()> {
         ordinary(&entry.path())?;
         let name = entry.file_name().to_string_lossy().into_owned();
         if skill == "bridgepilot"
-            && name == "references"
+            && (name == "references" || name == "scripts")
             && entry.file_type().map_err(|e| e.to_string())?.is_dir()
         {
             for child in fs::read_dir(entry.path()).map_err(|e| e.to_string())? {
                 let child = child.map_err(|e| e.to_string())?;
                 ordinary(&child.path())?;
-                let name = format!("references/{}", child.file_name().to_string_lossy());
+                let name = format!("{name}/{}", child.file_name().to_string_lossy());
                 if !FILES.contains(&name.as_str())
                     || !child.file_type().map_err(|e| e.to_string())?.is_file()
                 {
@@ -194,6 +205,11 @@ fn previous(home: &Path, skills: &Path, skill: &str) -> Result<Option<Binding>> 
             return Err(format!("user-edited skill file preserved: {name}"));
         }
     }
+    for name in assets(skill) {
+        if !binding.files.contains_key(*name) && read(&target.join(name))?.is_some() {
+            return Err(format!("unowned skill file preserved: {name}"));
+        }
+    }
     Ok(Some(binding))
 }
 fn source(home: &Path, skills: &Path, skill: &str) -> Result<(Binding, BTreeMap<String, Vec<u8>>)> {
@@ -233,7 +249,7 @@ pub fn status(home: &Path, skills: &Path) -> Result<Value> {
     }
     let old = previous(&home, &skills, "bridgepilot")?;
     let (current, _) = source(&home, &skills, "bridgepilot")?;
-    let update = update_available(&home)?;
+    let update = available(&home, UPDATE)?;
     let update_old = previous(&home, &skills, UPDATE)?;
     let update_current = if update {
         Some(source(&home, &skills, UPDATE)?.0)
@@ -245,16 +261,30 @@ pub fn status(home: &Path, skills: &Path) -> Result<Value> {
             "installed BP lacks the managed bridgeforge-update source; upgrade BP first".into(),
         );
     }
-    let is_current = old.as_ref() == Some(&current) && update_old == update_current;
+    let cleanup = available(&home, CLEANUP)?;
+    let cleanup_old = previous(&home, &skills, CLEANUP)?;
+    let cleanup_current = if cleanup {
+        Some(source(&home, &skills, CLEANUP)?.0)
+    } else {
+        None
+    };
+    if !cleanup && cleanup_old.is_some() {
+        return Err(
+            "installed BP lacks the managed bridgepilot-cleanup source; upgrade BP first".into(),
+        );
+    }
+    let is_current = old.as_ref() == Some(&current)
+        && update_old == update_current
+        && cleanup_old == cleanup_current;
     Ok(
-        json!({"schema":1,"status":if is_current{"user_skill_current"}else{"user_skill_install_required"},"home":home,"skills_root":skills,"installed":old.is_some(),"current":is_current,"binding":old,"skills":{"bridgepilot":{"installed":old.is_some(),"current":old.as_ref()==Some(&current)},"bridgeforge-update":{"available":update,"installed":update_old.is_some(),"current":update && update_old==update_current}},"writes":false}),
+        json!({"schema":1,"status":if is_current{"user_skill_current"}else{"user_skill_install_required"},"home":home,"skills_root":skills,"installed":old.is_some(),"current":is_current,"binding":old,"skills":{"bridgepilot":{"installed":old.is_some(),"current":old.as_ref()==Some(&current)},"bridgeforge-update":{"available":update,"installed":update_old.is_some(),"current":update && update_old==update_current},"bridgepilot-cleanup":{"available":cleanup,"installed":cleanup_old.is_some(),"current":cleanup && cleanup_old==cleanup_current}},"writes":false}),
     )
 }
-fn update_available(home: &Path) -> Result<bool> {
+fn available(home: &Path, skill: &str) -> Result<bool> {
     Ok(install::inspect(home)?
         .files
         .iter()
-        .any(|file| file.target == "source/orchestrator/skills/bridgeforge-update/SKILL.md"))
+        .any(|file| file.target == format!("source/orchestrator/skills/{skill}/SKILL.md")))
 }
 fn projection(home: &Path, skills: &Path, skill: &str) -> Result<Projection> {
     previous(home, skills, skill)?;
@@ -288,7 +318,7 @@ fn plan(home: &Path, skills: &Path) -> Result<Journal> {
         return Err("skill installation pending; use skill-recover".into());
     }
     let primary = projection(home, skills, "bridgepilot")?;
-    let update = if update_available(home)? {
+    let update = if available(home, UPDATE)? {
         Some(projection(home, skills, UPDATE)?)
     } else {
         if previous(home, skills, UPDATE)?.is_some() {
@@ -298,11 +328,23 @@ fn plan(home: &Path, skills: &Path) -> Result<Journal> {
         }
         None
     };
+    let cleanup = if available(home, CLEANUP)? {
+        Some(projection(home, skills, CLEANUP)?)
+    } else {
+        if previous(home, skills, CLEANUP)?.is_some() {
+            return Err(
+                "installed BP lacks the managed bridgepilot-cleanup source; upgrade BP first"
+                    .into(),
+            );
+        }
+        None
+    };
     Ok(Journal {
         schema: 1,
         binding: primary.binding,
         changes: primary.changes,
         update,
+        cleanup,
     })
 }
 fn check_journal(j: &Journal, home: &Path, skills: &Path) -> Result<()> {
@@ -418,7 +460,7 @@ fn verify_sources(home: &Path, skills: &Path, j: &Journal) -> Result<()> {
 fn write_marker(home: &Path, skills: &Path, j: &Journal) -> Result<()> {
     persistence::atomic_write_json(
         &marker(home),
-        &json!({"schema":1,"skills_root":skills,"independent_update":j.update.is_some()}),
+        &json!({"schema":1,"skills_root":skills,"independent_update":j.update.is_some(),"source_update":j.binding.files.contains_key("scripts/bridgepilot_update.ps1"),"parallel_cleanup":j.cleanup.is_some()}),
     )
     .map_err(|e| e.to_string())
 }
@@ -500,7 +542,34 @@ fn recover_with(home: &Path, skills: &Path, before_restore: impl FnOnce()) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn legacy_binding_can_add_updater_but_never_adopts_an_unowned_script() {
+        let (_root, home, skills, j) = fixture(true, true);
+        fs::remove_file(journal(&home)).unwrap();
+        let path = skills.join("bridgepilot").join(BINDING);
+        let mut legacy = j.binding;
+        legacy.files.remove("scripts/bridgepilot_update.ps1");
+        persistence::atomic_write_json(&path, &legacy).unwrap();
+        assert!(previous(&home, &skills, "bridgepilot").is_err());
+        let script = skills.join("bridgepilot/scripts/bridgepilot_update.ps1");
+        let original = fs::read(&script).unwrap();
+        fs::remove_file(&script).unwrap();
+        assert!(previous(&home, &skills, "bridgepilot").unwrap().is_some());
+        let planned = plan(&home, &skills).unwrap();
+        assert!(
+            planned
+                .binding
+                .files
+                .contains_key("scripts/bridgepilot_update.ps1")
+        );
+        install(&home, &skills, false).unwrap();
+        assert_eq!(fs::read(script).unwrap(), original);
+        assert_eq!(status(&home, &skills).unwrap()["current"], true);
+    }
     fn with_update(home: &Path, j: &mut Journal, old_present: bool) {
+        with_entry(home, j, old_present, UPDATE);
+    }
+    fn with_entry(home: &Path, j: &mut Journal, old_present: bool, skill: &str) {
         let mut binding = j.binding.clone();
         binding.files = BTreeMap::from([("SKILL.md".into(), digest(b"new update"))]);
         let mut old_binding = binding.clone();
@@ -519,22 +588,95 @@ mod tests {
                 new: serde_json::to_vec_pretty(&binding).unwrap(),
             },
         ];
-        let relative = "source/orchestrator/skills/bridgeforge-update/SKILL.md";
-        persistence::atomic_write(&home.join(relative), b"new update").unwrap();
+        let relative = format!("source/orchestrator/skills/{skill}/SKILL.md");
+        persistence::atomic_write(&home.join(&relative), b"new update").unwrap();
         let path = home.join(".runtime/config/bridgepilot-installation.json");
         let mut installed: install::Installation = read_json(&path).unwrap();
         installed.files.push(install::OwnedFile {
-            id: "update".into(),
-            target: relative.into(),
+            id: skill.into(),
+            target: relative,
             sha256: digest(b"new update"),
         });
         persistence::atomic_write_json(&path, &installed).unwrap();
-        j.update = Some(Projection { binding, changes });
+        if skill == CLEANUP {
+            j.cleanup = Some(Projection { binding, changes });
+        } else {
+            j.update = Some(Projection { binding, changes });
+        }
+    }
+    #[test]
+    fn third_entry_recovers_at_every_boundary_and_preserves_external_edits() {
+        for old in [false, true] {
+            let count = FILES.len() + 1 + 2 + 2;
+            for prefix in 0..=count {
+                let (_root, home, skills, mut j) = fixture(old, true);
+                with_entry(&home, &mut j, old, UPDATE);
+                with_entry(&home, &mut j, old, CLEANUP);
+                let mut index = 0;
+                for (skill, _, changes) in projections(&j) {
+                    for change in changes {
+                        let path = skills.join(skill).join(&change.name);
+                        let bytes = if index < prefix {
+                            Some(&change.new)
+                        } else {
+                            change.old.as_ref()
+                        };
+                        if let Some(bytes) = bytes {
+                            persistence::atomic_write(&path, bytes).unwrap();
+                        } else if path.exists() {
+                            fs::remove_file(path).unwrap();
+                        }
+                        index += 1;
+                    }
+                }
+                persistence::atomic_write_json(&journal(&home), &j).unwrap();
+                let receipt = recover(&home, &skills).unwrap();
+                assert_eq!(
+                    receipt["status"],
+                    if prefix == count {
+                        "user_skill_commit_recovered"
+                    } else {
+                        "user_skill_rollback_recovered"
+                    }
+                );
+                for (skill, _, changes) in projections(&j) {
+                    for change in changes {
+                        assert_eq!(
+                            read(&skills.join(skill).join(&change.name)).unwrap(),
+                            if prefix == count {
+                                Some(change.new.clone())
+                            } else {
+                                change.old.clone()
+                            }
+                        );
+                    }
+                }
+                if prefix == count {
+                    assert_eq!(
+                        status(&home, &skills).unwrap()["skills"][CLEANUP]["current"],
+                        true
+                    );
+                }
+            }
+        }
+        let (_root, home, skills, mut j) = fixture(false, true);
+        with_entry(&home, &mut j, false, CLEANUP);
+        persistence::atomic_write_json(&journal(&home), &j).unwrap();
+        let primary = fs::read(skills.join("bridgepilot/SKILL.md")).unwrap();
+        let edited = skills.join(CLEANUP).join("SKILL.md");
+        persistence::atomic_write(&edited, b"user customization").unwrap();
+        assert!(recover(&home, &skills).is_err());
+        assert_eq!(fs::read(edited).unwrap(), b"user customization");
+        assert_eq!(
+            fs::read(skills.join("bridgepilot/SKILL.md")).unwrap(),
+            primary
+        );
+        assert!(journal(&home).exists());
     }
     #[test]
     fn two_entry_recovery_handles_every_write_boundary_and_preserves_secondary_edits() {
         for old in [false, true] {
-            for prefix in 0..=8 {
+            for prefix in 0..=9 {
                 let (_root, home, skills, mut j) = fixture(old, true);
                 with_update(&home, &mut j, old);
                 let mut index = 0;
@@ -558,7 +700,7 @@ mod tests {
                 let receipt = recover(&home, &skills).unwrap();
                 assert_eq!(
                     receipt["status"],
-                    if prefix == 8 {
+                    if prefix == 9 {
                         "user_skill_commit_recovered"
                     } else {
                         "user_skill_rollback_recovered"
@@ -568,7 +710,7 @@ mod tests {
                     for change in changes {
                         assert_eq!(
                             read(&skills.join(skill).join(&change.name)).unwrap(),
-                            if prefix == 8 {
+                            if prefix == 9 {
                                 Some(change.new.clone())
                             } else {
                                 change.old.clone()
@@ -576,7 +718,7 @@ mod tests {
                         );
                     }
                 }
-                if prefix == 8 {
+                if prefix == 9 {
                     assert_eq!(status(&home, &skills).unwrap()["current"], true);
                 }
             }
@@ -664,6 +806,7 @@ mod tests {
             schema: 1,
             product: "BridgePilot".into(),
             current: install::Version {
+                components: None,
                 version: "0.6.0".into(),
                 executable: ".build/core.exe".into(),
                 sha256: digest(b"fixture core"),
@@ -682,6 +825,7 @@ mod tests {
             binding,
             changes,
             update: None,
+            cleanup: None,
         };
         persistence::atomic_write_json(&journal(&home), &j).unwrap();
         (root, home, skills, j)

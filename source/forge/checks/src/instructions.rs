@@ -1,7 +1,6 @@
 //! Reusable instruction-source validation. Callers own event/output adaptation.
 use regex::Regex;
 use serde::Serialize;
-use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, fs, path::Path};
 use walkdir::WalkDir;
@@ -145,29 +144,10 @@ fn claims_positive_autoload(text: &str) -> bool {
         })
 }
 
-fn managed_public_hash(root: &Path) -> Option<String> {
-    for path in [
-        root.join(".codex/managed-skeleton.json"),
-        root.join(bridgeforge_core::product_manifest::FILE),
-    ] {
-        let unified = path.file_name().is_some_and(|name| name == bridgeforge_core::product_manifest::FILE);
-        let Ok(value) = fs::read_to_string(path)
-            .ok()
-            .and_then(|text| serde_json::from_str::<Value>(&text).ok())
-            .ok_or(())
-        else {
-            continue;
-        };
-        let value = if unified { &value["project_skeleton"] } else { &value };
-        if let Some(hash) = value["assets"]
-            .as_array()
-            .and_then(|assets| assets.iter().find(|asset| asset["id"] == "root.agents"))
-            .and_then(|asset| asset["agents_zones"]["public"]["current_sha256"].as_str())
-        {
-            return Some(hash.to_string());
-        }
-    }
-    None
+fn managed_public_hash(_root: &Path) -> Option<String> {
+    bridgeforge_core::template_standard::assets().into_iter()
+        .find(|asset| asset.rule["id"] == "root.agents")
+        .and_then(|asset| asset.rule["agents_zones"]["public"]["current_sha256"].as_str().map(str::to_owned))
 }
 
 fn public_hash(public: &str) -> String {

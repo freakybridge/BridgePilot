@@ -98,6 +98,20 @@ fn lifecycle_preserves_project_settings_bytes_and_existing_backup() {
     assert_eq!(fs::read(&backup).unwrap(), b"existing backup");
 }
 
+#[test]
+fn config_health_ignores_retired_project_settings_but_checks_user_settings() {
+    let fixture = Fixture::new();
+    let retired = fixture.root.join(".codex/settings.json");
+    fs::write(&retired, b"invalid retired project JSON").unwrap();
+    fs::write(fixture.root.join(".codex/settings.local.json"), br#"{"hooks":{"Stop":[]}}"#).unwrap();
+    assert_eq!(session::config_health(true).code, 0);
+    assert_eq!(fs::read(&retired).unwrap(), b"invalid retired project JSON");
+    fs::write(fixture.root.join("fake-home/.codex/settings.json"), b"invalid user JSON").unwrap();
+    let report = session::config_health(true);
+    assert_ne!(report.code, 0);
+    assert!(report.stdout.contains("~/.codex/settings.json"));
+}
+
 struct Fixture {
     root: PathBuf,
     env: Vec<(&'static str, Option<std::ffi::OsString>)>,

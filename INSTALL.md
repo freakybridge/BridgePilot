@@ -1,6 +1,6 @@
 # BridgePilot 安装与迁移
 
-当前候选工具仅支持骨架 8.0.0 及以后。更早项目的升级/格式迁移已退役，须在项目写入前拒绝；新项目初始化、8.x 当前配置与恢复保持。业务 VERSION 和独立子包版本不受该数字下限限制。
+当前本地候选采用 Template-only，同步器不再解释旧项目合同、版本配置、账本或版本戳。下游 `.codex` 递归只允许 hooks.json；未知额外 JSON 阻断，已知退役项经精确计划、备份与事务清理。业务原生版本和数据不由骨架旁文件接管。
 
 BridgePilot 当前支持 Windows 和 Codex。源码开发及 Forge 工程维护需要 Rust/Cargo 1.88+；Cargo 在安装、升级及工厂运行时准备时按需构建
 受管 Rust 工具；日常 Hook 不调用 Cargo 或脚本解释器。请按自己的情况直接进入对应章节：
@@ -12,7 +12,7 @@ BridgePilot 当前支持 Windows 和 Codex。源码开发及 Forge 工程维护�
 
 ## 工厂本地运行时准备
 
-工厂源码可由 Git 更新，但 `.build/bridgeforge/bin` 是被忽略的本地产物。需要显式刷新工具或完成开发必要构建时执行下列入口；普通 `$git-sync` 和 `$git-sync release` 使用已安装工具，不将准备或独立 self-test 作为日常前置：
+工厂源码可由 Git 更新，但 `.build/bridgeforge/bin` 是被忽略的本地产物。需要显式刷新工具或完成开发必要构建时执行下列入口；普通 `$git-sync` 使用已安装工具，不将准备或独立 self-test 作为日常前置：
 
 ```powershell
 cargo run --locked --release --manifest-path Cargo.toml --target-dir .build/bridgeforge/cargo/local --bin bridgeforge-factory -- build-assets --factory --project-root .
@@ -20,14 +20,14 @@ cargo run --locked --release --manifest-path Cargo.toml --target-dir .build/brid
 
 该入口不依赖已安装的 CLI，不提交或发布，不安装下游骨架。
 仓库不设置根 `.cargo` 目录。所有构建、检查和测试入口显式传入 `--target-dir`，输出必须位于本仓库 `.build/`；从仓库根目录执行本文命令。不要省略该参数：直接运行未指定输出目录的原生 Cargo 命令仍会使用其默认 `target`，受管入口不能替任意手写命令改变默认行为。
-它先核验已安装基线，再从当前产品源生成候选 dogfood、manifest 和入口，并核对 CLI、Hook、工厂工具的源码、锁文件、配方、产物
+它依据工具侧产品清单及当前原生源码生成候选 dogfood、manifest 和入口，不读取旧项目合同或版本配置；同时核对 CLI、Hook、工厂工具的源码、锁文件、配方、产物
 哈希、自检与收据；健康产物不改写，失效产物复用经验证的缓存或执行锁定构建。
-候选投影、入口、三种产物及收据共用安装回滚事务。旧 `.codex/bin/` 文件仅在历史收据及实际字节可证明归属时退役；未知文件保留并阻断。维护锁仍协调构建与 develop；git-sync 不再持有该锁或支持同仓库并行同步。输入漂移、构建失败、
+候选投影、入口、三种产物及收据共用安装回滚事务。旧 `.codex/bin/` 指纹自动迁移已退役，遇到该目录保留并阻断，独立核销恢复现场。维护锁仍保护必要构建；git-sync 不再持有该锁或支持同仓库并行同步。输入漂移、构建失败、
 文件占用或安装校验失败均停止；并发外部修改保留并报告，不覆盖其他进程的文件。
 
 Cargo 引导可能产生增量构建及缓存写入，只用于已授权维护。引导产物未建立完整输入
 身份时不冒充正式产物复用；首次准备可能仍需隔离构建，实际耗时以执行结果为准。
-当前产品源可以生成新的候选投影；已有镜像被外部改坏或旧文件归属不明时阻断，不自动改写产品源。单独 `manifest` 不得在新工具尚未就绪时切换运行入口。
+当前产品源可以生成新的候选投影；已有受管镜像与当前产品源不一致时，只读 `--check` 阻断，明确授权的准备入口可在同一恢复事务中修复已声明的镜像，不改写产品源。未知旧文件、归属不明及准备期间的并发变化继续保留并阻断。单独 `manifest` 不得在新工具尚未就绪时切换运行入口。
 
 项目目录遵守三目录合同：工厂生成工具及编译缓存放在 `.build/bridgeforge/`，消费项目的已安装公共工具放在 `.deps/bridgeforge/bin/`；用户级 `$env:USERPROFILE/.codex/bin/` 属于独立安装作用域，保持不变。项目本机配置、下载和测试结果分别使用 `.runtime/config/`、`.runtime/download/`、`.runtime/tests/<任务>/`。三个根全部由项目 `.gitignore` 忽略，受版本管理的配置继续留在原所有权位置。
 
@@ -83,14 +83,13 @@ Skills 由产品管理，避免覆盖来源不明或被人工修改的 Skill 文
 指令由根或嵌套 `AGENTS.md` 原生加载，机器可判约束由 Hook 或 pre-commit 执行，操作流程
 由 Skill 执行，长说明放在 `doc/`。
 
-项目 `.codex/settings.json` 由项目自行管理。BridgeForge 初始化、接管、升级和生命周期
+项目旧 `.codex/settings.json`、`project-hook-policy.json` 和 `project-hook-migrations.json` 不再分发。同步器只对可识别的历史默认 settings 及明确所有权、结构和状态的旧策略／迁移状态生成退役动作；未知或项目修改的内容保留并阻断，不能按名称盲删。当前版本登记仍引用待退役文件时，先经受管配置入口解除当前引用，历史基线与账本保持。dry-run 不写文件，apply 纳入同一指纹与回滚事务；生命周期 Hook 不创建这些旧文件或备份，用户级 settings 不在退役范围。
 
-骨架 Hook 与项目自有 Hook 独立维护，边界固定在代码中。安装和升级仅维护公共源码、产物与公共注册，保留项目 Hook 源码、程序、收据、注册及扩展字段。旧 project-hook-policy.json 和迁移状态文件保留并忽略；项目 Hook 的构建、安装、路径迁移和业务验证由项目自己的开发流程负责。
-Hook 不创建、修改或删除该文件，也不生成或覆盖其备份；旧版安装留下的内容原样保留。
+骨架 Hook 与项目自有 Hook 独立维护，边界固定在代码中。安装和升级仅维护公共源码、产物与公共注册，保留项目 Hook 源码、程序、收据、注册及扩展字段；项目 Hook 的构建、安装、路径迁移和业务验证由项目自己的开发流程负责。
 
 ## 统一清单格式的入口刷新
 
-产品根清单已统一为 `bridgeforge-manifest.json`，包含 `user_instructions`、`shared_skills` 和 `project_skeleton`。三个旧源清单不再保留；下游项目的 `.codex/managed-skeleton.json` 继续由项目分区自动生成。
+产品根清单已统一为 `bridgeforge-manifest.json`，包含 `user_instructions`、`shared_skills` 和 `project_skeleton`。三个旧源清单不再保留；该清单仅作为工具侧事实源，下游不再生成 `.codex/managed-skeleton.json`。
 
 此前已安装的薄入口仍查找 `bridgeforge-codex-manifest.json`，首次更新到统一清单版本可能报“Missing root distribution manifest”。这不是下游项目文件损坏。请从可信的产品仓库运行现有安装入口，完成一次用户级入口刷新：
 
@@ -111,22 +110,56 @@ powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-shared-ski
 
 ## 项目升级与异常诊断
 
-项目骨架版本记录在 `.codex/.bridgeforge_codex_version`。咨询、诊断或只读预览不更新安装；明确维护（含无附加限制的 `$bridgeforge-codex`）才刷新官方产品 home，随后分流：
+咨询、诊断或只读预览不刷新安装；明确维护才按 bridgeforge-codex 刷新已验证产品与公共产物。项目 `project-sync --project-root <根> --template-root <产品根>` 生成零写计划，`init/adopt/update/auto` 共用通用规则，不按旧版本戳分流。
 
-- 没有骨架身份和骨架资产的空白项目：直接初始化，不要求预先存在版本戳。
-- 低于修复首版 `1.8.6`：盘点并确认项目资产后重建最新骨架，不读取旧 schema、旧 manifest 或逐版本兼容链。
-- 等于或高于 `1.8.6`：兼容更新并保留项目定制；升级分界线固定，不随最新发布版本自动上移。比产品 home 更新的版本拒绝降级。
-- 已有骨架资产但无戳：受控接入；双戳或非法戳在项目写入前停止。
+旧项目合同、版本配置、账本、目录覆盖及 Hook 旁文件进入精确退役；未知额外 JSON 保留并阻断。AGENTS 项目区、pre-commit 私有扩展、原生 Hook 和 Skill 保持项目所有。Apply 用同一指纹和 prepared 公共产物，先备份后安装／删除，再校验模板、编译来源和递归仅 hooks.json；失败恢复自身改动、保留外部变化。不写新版本戳、PreservationManifest 或替代项目配置。
 
-旧 Markdown Rule／项目 Memory 的语义迁移已经退役。`.codex/rules/*.md` 和 `.codex/memory/**` 不再生成迁移包，也不会被固定删除；兼容更新保留这些文件，低基线重建或 adopt 时按普通项目自有资产的精确路径确认保留或删除。原生 `~/.codex/memories/` 不属于本操作范围。
-
-可选项目资产通过一次性 `PreservationManifest` 明确保留或删除；确认前项目零写入，不长期保存该 manifest。资产处理、最新基线及验证属于同一项目事务；可捕获失败恢复本事务能够证明归属的改动，外部编辑保留并报告未恢复项。同步器最后才写当前版本戳，`.codex/managed-skeleton.json` 只保存当次最新 schema 4 的资产归属和内容哈希。
-
-[子包开发收口与主程序发布](doc/0_architecture/design/package-version-lifecycle.md)要求 `package-development-v1`、`package-stability-v1`、`git-sync-development-closure-v1`；任务检查选择和版本覆盖还须核验 `task-selected-development-checks-v1`、`version-coverage-v1`。直接 apply 和阶段间复用分别核验 `direct-development-apply-v1`、`staged-development-validation-v1`，优先消费实际入口收据，不默认另跑 self-test。安装或骨架升级成功不等于项目已配置业务检查或完成版本收口。配置及实际入口只维护在[版本生命周期合同](source/forge/templates/skills/git-sync/references/schema4.md)，保留原发布基线和下游 Python 环境支持，不借安装说明自动收口或写入真实下游。
+版本、构建、测试与发布按项目原生入口执行；Forge 配置化 develop/release/setup/migration 以及依赖旧 keep 声明的 cleanup 已退役。原生 Memory 的用户级同步不属于项目 JSON 清理范围。详细规则见[项目同步设计](doc/0_architecture/design/codex-project-sync.md)。
 
 ## BridgePilot 本地试用与档案恢复
 
+### 产品版本与安装格式
+
+BP 主产品从 `1.0.0` 起，以根 VERSION 为准。BF 以 `source/forge/cli/Cargo.toml`、orchestrator 以 `source/orchestrator/cli/Cargo.toml` 为版本事实源，内部包版本仅作构建身份。`bp versions`／`self-test` 输出 BP 版本和组件版本；Forge 的来源引用不是实际安装回执，查询外部 BF 必须读取实际工具。
+
+BP 1.0.0 使用 package／installation schema 2，固定十三项资产，launcher protocol 2 支持读取 installation schema 1 与 2；包格式和 launcher 协议分别校验，不按 BP 产品版本推断资产。旧 schema 1 仍按原 0.x 格式读取，其 version 表示 orchestrator。迁移先核对新 orchestrator 不低于旧版本，再检查实际档案读兼容、文件所有权及组件／二进制身份；未知额外字段和漂移保持阻断。
+
+使用新包 core 直接执行 install-preview／install，稳定入口的旧 launcher 升级与 home claim 在同一恢复事务内完成；占用、漂移或失败时不切换安装身份，保留现场并沿 install-recover 恢复。不要通过正在运行的旧稳定 launcher 自行覆盖它。新格式禁止直接回退到无法读取新安装身份的旧 core；同格式回退仍要求精确匹配已保留版本及档案读兼容。安装和预览不迁移私有档案，不更新外部 BF 或接管任务。
+
 BP 源码在 `source/orchestrator/`，按 tasks、storage、execution、transfer、install、cli 六包分工，与 Forge 使用同一个锁定的 Rust workspace；cli 保留原生包名 `bridgepilot-orchestrator` 及 `bp`、`bp-launcher` 入口。也可用独立便携包安装，无需新机编译 Rust。它不替换 Forge 既有安装、公共骨架名称或共享 Skill。普通用户只通过 Codex 对话下达目标，以下命令由当前 Agent 按真实路径准备和恢复。
+
+### 开发仓库、安装目录与档案的边界
+
+| 目录角色 | 用途与约束 |
+|---|---|
+| 正式开发仓库 | 根目录包含 `.git`、`Cargo.toml`、`source/forge/` 与 `source/orchestrator/`，保存人工开发及未提交改动；两子系统共用同一个 Git 仓库和锁定 workspace，不放入任何项目的 `.runtime/`、`.deps/` 或 `.build/` |
+| 源码更新脚本的独立检出目录 | 默认为 `~/.bridgepilot-source`，用于获取官方干净 `main` 并构建安装包；不是有本地开发改动时的自动更新入口 |
+| 安装 home | 已安装程序、BP 私有 Skill 投影和本机安装配置；从用户级 Skill 的 `bridgepilot-local.json` 解析，不以开发仓库路径替代 |
+| 私人档案工作区 | 从 home 的 `.runtime/config/bridgepilot.json` 解析，保存 SQLite、项目绑定和任务档案；与产品源码及安装 home 分离 |
+
+开始源码开发先核对当前真实 Git 根、origin 和两子系统源码路径。聊天的工作目录、某个 `source/` 目录或便携安装 home 本身均不足以证明是完整开发仓库。临时下载和测试副本不得直接登记为正式项目路径，也不得持续在其中开发。
+
+已有开发仓库放错位置时，先停止相关写入，记录 HEAD、refs、索引、工作区修改和未跟踪文件，为源码及 Git 元数据建立可校验的恢复归档。迁移须包含隐藏文件、空目录、目录属性和必要权限；目标已有内容逐项比对，同名差异不覆盖。运行资料按对应三目录合并，历史收据保留原路径，实际入口改用新根；绝对路径使当前产物身份失效时按原受管流程重建，不改写旧收据或版本账本。纯迁移核验通过后才实施规则修改，分别记录两类差异。
+
+迁移不重新初始化 Git，不自动运行源码更新脚本，不执行安装升级、档案接管或下游同步。冻结恢复副本只用于回退，不继续开发；删除前说明精确目标、影响和恢复方式并取得明确授权。本机迁移记录从 [BP 源码根迁移计划与结果](doc/1_delivery/source-workspace-refactor/plan_2026-11-02_bp-source-root-migration.md)进入。
+
+### 无参数源码安装与更新
+
+已安装用户级入口后，在 Codex 调用 **`$bridgepilot`**，无需参数。入口从 `https://github.com/freakybridge/BridgePilot.git` 的 `main` 获取源码，固定本次提交，使用锁定的 `Cargo.lock` 构建 `bp` 和 `bp-launcher`，再由 Rust 安装器预览、安装并更新全部受管用户级 Skill。重复调用会更新同一安装。`init`、`status`、项目登记和交接模式保留原行为，不隐式更新程序。
+
+Windows 源码构建需要 Git、Rust 1.88 或更高版本及其 Windows C++ 构建工具；可复用本机已有环境。缺依赖时先报告具体缺口，按用户允许的安装范围准备，不自动提权或脚本化登录。构建可按 Cargo.lock 下载依赖，构建失败不切换当前安装。
+
+默认独立源码目录为 `$env:USERPROFILE/.bridgepilot-source`；编译和包进入其 `.build/bridgepilot/`，收据进入 `.runtime/bridgepilot-source-update/`。源码必须为官方 origin、干净的 main；只允许快进，不 reset、stash 或合并本地开发。已有 home 和 CODEX skills 位置由 `bridgepilot-local.json` 复用；全新安装 home 默认为系统 Documents 下 `Codex/BridgePilot`，skills 默认为实际 CODEX_HOME 下 `skills`（未设则 `~/.codex/skills`）。源码、home 和 skills 必须分离；未知同名目录或用户修改均保留。
+
+没有 Skill 的新机先由 Codex 核验官方仓库并 clone main 到上述独立源码目录，读取本文件，然后执行 `source/orchestrator/skills/bridgepilot/scripts/bridgepilot_update.ps1`。该脚本完成获取、构建与受管安装，不要求先有 BP 可执行程序。不要通过 Forge 共享分发安装此私有入口。
+
+安装更新不创建／恢复私有任务档案，不创建或同步私人仓库，不授予控制权，也不恢复任务或 heartbeat。首次后续运行 `$bridgepilot init` 配置档案；已有工作区由安装器检查读兼容并保留原配置。`source_update_completed` 收据包含实际源码提交、程序版本、home 及程序／Skill 的真实回执；安装或 Skill 事务中断先使用对应 recover，不删除 pending。程序安装和 Skill 投影为两个事务，后者失败时须如实说明程序可能已更新，核对后仅继续未完成阶段。
+
+### 并行清理下游入口
+
+BP 0.12.0 起，便携包新增 `payload/bridgepilot-cleanup-skill.md`，固定资产共十三项。程序和 `skill-install` 同时管理 `bridgepilot`、`bridgeforge-update`、`bridgepilot-cleanup` 三个私有入口；已有安装原位补齐，回退程序必须支持已安装的清理入口。新入口的安装、恢复、来源摘要及用户编辑保护与已有入口使用同一事务，不进入 Forge 共享分发。
+
+`$bridgepilot-cleanup` 核对登记下游的清理入口，可追加项目名称或 ID；`preview` 全程只读。项目枚举使用 `bp project-list --workspace <实际目录>`，非 preview 指定子集可用 `--input <JSON文件>` 传 `{"projects":["<名称或ID>"]}`，preview 在内存中匹配项目名单。该查询只读 SQLite 与已有机器身份，缺档案或身份直接报错。旧配置化 cleanup 已退役，缺少可靠原生成品保护时报告 blocked，不执行删除；原生流程的范围、控制权及保护规则见 [bridgepilot-cleanup](source/orchestrator/skills/bridgepilot-cleanup/SKILL.md)。安装入口不执行删除。
 
 ### 从 GitHub 在新电脑安装并恢复
 
@@ -139,9 +172,9 @@ BP 源码在 `source/orchestrator/`，按 tasks、storage、execution、transfer
 1. **核对本机和入口。** 当前包面向 Windows x64，Codex 已安装。检测 Git、GitHub CLI（`gh`），但缺失时不以它们作为下载 BP 的前提：可用系统 HTTPS 客户端（例如 PowerShell 的 Invoke-RestMethod／Invoke-WebRequest）读取 GitHub.com 的公开 API 并下载已核验的正式包；这一段仅用于安装引导，不替代 BP 的 Rust 执行内核。先安装 BP 程序，再由固定 home 的 environment-install 准备缺少的 Git／gh。鉴权由本人完成，不在聊天中粘贴令牌。`GH_HOST` 指向其他服务时停止核对，不把其他服务器当 GitHub.com。首次引导不要求已有 BP Skill。
 2. **选择目录并保护已有数据。** 默认 home 为本机 `Documents/Codex/BridgePilot`，私有工作区为同级 `BridgePilotWorkspace`，均使用实际绝对路径。存在安装或档案时先读取已有配置、安装状态与同步记录；不重置、不换空目录掩盖冲突，不覆盖用户修改。不使用或复制旧机机器身份。下载暂存固定放在工作区 `.runtime/download/bridgepilot/<release-id>/`；首次安装的 home 保持为空，不能先把下载文件堆到 home 导致归属检查失败。
 3. **固定发布身份并下载。** 使用 `gh api --hostname github.com repos/freakybridge/BridgePilot/releases/latest`，读取同一非 draft、非 prerelease 的正式 Release，保存真实 id、tag、资产 id／name／size／digest。正式 tag 须可解析至该发布的固定源码提交。找不到完整 BP 包时停止，不能改用 main 源码编译、旧机器文件或未经验证的第三方二进制。通过 `gh release download <实际 tag> --repo freakybridge/BridgePilot --pattern <精确资产名> --dir <下载目录>` 下载，禁止通配或覆盖冲突文件；中断后先核对已有文件再复用。
-4. **执行前校验并组装包。** Release 必须包含 `package.json`、`bp-core.exe`、`bp-launcher.exe`、`controller-rules.md`、`readme.md`、`install.md`、`bridgepilot-skill.md`；core 0.6.0起另含 `bridgepilot-init.md`、`bridgepilot-projects.md`、`bridgepilot-handoff.md`、`bridgepilot-execution.md` 四个模式引用；0.8.0起另含 `bridgeforge-update-skill.md`。先按 GitHub 实际资产 digest（`sha256:`）校验 manifest，再核对 `schema=1`、`product=BridgePilot`、SemVer版本和该版本精确资产登记：0.8.0起十一项，0.6.x至0.7.x十项，旧0.5.x为六项。旧包仍可走旧安装流程，但不具备新版能力。源路径必须为对应 `payload/<上述文件名>`，拒绝额外入口、绝对路径、`..`、链接与未知目标；目标须匹配 BP 固定资产表（四个模式引用进入 home 的 `source/orchestrator/skills/bridgepilot/references/`，骨架升级 Skill 进入 `source/orchestrator/skills/bridgeforge-update/SKILL.md`）。它由用户级 BP 入口通过实际 home 加载，不另装 Forge 共享 Skill。逐文件校验大小、GitHub digest 和 manifest SHA256；缺失、漂移或身份不明时停止，不执行候选程序。组装到同一下载任务的 `bundle/`。校验后再执行 core `self-test` 与 launcher `--launcher-self-test`，核对 core 版本、所需能力与 manifest、launcher protocol=1；摘要和回执保存在本次下载目录。
+4. **执行前校验并组装包。** Release 必须包含 `package.json`、`bp-core.exe`、`bp-launcher.exe`、`controller-rules.md`、`readme.md`、`install.md`、`bridgepilot-skill.md`；core 0.6.0起另含 `bridgepilot-init.md`、`bridgepilot-projects.md`、`bridgepilot-handoff.md`、`bridgepilot-execution.md` 四个模式引用；0.8.0起另含 `bridgeforge-update-skill.md`，0.11.0起另含 `bridgepilot-update.ps1`，0.12.0起另含 `bridgepilot-cleanup-skill.md`。先按 GitHub 实际资产 digest（`sha256:`）校验 manifest，再核对 `product=BridgePilot` 和包格式：schema 2 必须为 BP 1.0.0 或更高、十三项固定资产、精确 components（orchestrator=embedded，forge=source-reference）及 launcher protocol 2，并与实际 core 自检核对；只有旧 schema 1 的 0.x 包按下列历史资产登记读取：0.12.0起十三项，0.11.x十二项，0.8.x至0.10.x十一项，0.6.x至0.7.x十项，旧0.5.x为六项。旧包仍可走旧安装流程，但不具备新版能力。源路径必须为对应 `payload/<上述文件名>`，拒绝额外入口、绝对路径、`..`、链接与未知目标；目标须匹配 BP 固定资产表（模式引用进入 home 的 `source/orchestrator/skills/bridgepilot/references/`，源码更新脚本进入该 Skill 的 `scripts/`，独立入口分别进入 `source/orchestrator/skills/bridgeforge-update/SKILL.md` 与 `source/orchestrator/skills/bridgepilot-cleanup/SKILL.md`）。它由用户级 BP 入口通过实际 home 加载，不另装 Forge 共享 Skill。逐文件校验大小、GitHub digest 和 manifest SHA256；缺失、漂移或身份不明时停止，不执行候选程序。组装到同一下载任务的 `bundle/`。校验后再执行 core `self-test` 与 launcher `--launcher-self-test`，核对 core 版本、所需能力与 manifest、launcher protocol=1 (legacy schema 1) / 2 (schema 2)；摘要和回执保存在本次下载目录。
 5. **安装、准备依赖并恢复。** 对新工作区调用 core `init`，先 `install-preview --bundle <已核验包> --home <home> --workspace <工作区>`，通过后执行 `install`；这两步无需 Git／gh，也不接管其他机器。用稳定 launcher `environment-check --context <home>` 检查；需要时经明确授权执行 `environment-install --home <home> --scope user --source <来源>`，安装日志和 Unknown 意图固定在 home，不允许换目录重发。只安装 Git.Git／GitHub.cli，不脚本化登录或提权。用户级不受支持时报告，只有用户明确授权才可 machine scope；成功但 PATH未刷新时先核实再检查，不重复安装。winget缺失时报告系统依赖，不猜第三方下载入口。首次配置只确认一次本人私有库，验证后 `sync-configure`；已有库用 `sync-download`，必须读回私有属性、完整历史与准确远端提交。全新空库按已确认初始化授权 enrol／upload，已有控制权不覆盖。已有工作区沿原配置，pending／分叉／活跃／Unknown先核销。最后核对 install-status、self-test和status；中断用 install-recover，不手改记录。
-6. **安装用户级入口并报告。** 按实际 CODEX_HOME（未设则本人 `~/.codex`）解析 skills 目录，使用 `skill-install-preview --home <home> --skills-root <目录>`，再 `skill-install`，用 `skill-status` 逐项验证。支持 `bp-independent-update-skill-v1` 的 core 同一事务安装 `bridgepilot`、`bridgeforge-update` 两个入口；已有单入口安装可原位补齐。可直接选择 `/bridgeforge-update` 或输入 `$bridgeforge-update <项目与范围>`。其来源仍在 BP home，每个用户级入口只有受管投影和本机 home 绑定；不进入 Forge 共享分发，未知或用户修改的同名 Skill 拒绝覆盖。中断用 `skill-recover`；已安装独立升级入口时，回退 core 也必须支持该能力。返回 home、core版本、档案id／revision、项目、owner与本机身份、Skill安装结果和缺口。文件安装与客户端发现分别核验；未出现时刷新客户端或重启 Codex 后核对。只恢复档案的请求不接管、不上传、不恢复任务或heartbeat、不创建聊天；首次新库初始化另按用户确认的授权。显式 `$bridgepilot handoff restore` 才包含核验后的接管，成功后任务仍暂停。项目代码和业务环境不在私有档案中，恢复和执行分别按实际授权进行。
+6. **安装用户级入口并报告。** 按实际 CODEX_HOME（未设则本人 `~/.codex`）解析 skills 目录，使用 `skill-install-preview --home <home> --skills-root <目录>`，再 `skill-install`，用 `skill-status` 逐项验证。支持 `bp-parallel-cleanup-skill-v1` 的 core 同一事务安装 `bridgepilot`、`bridgeforge-update`、`bridgepilot-cleanup` 三个入口；已有安装可原位补齐。可直接选择 `/bridgeforge-update` 或输入 `$bridgeforge-update <项目与范围>`。其来源仍在 BP home，每个用户级入口只有受管投影和本机 home 绑定；不进入 Forge 共享分发，未知或用户修改的同名 Skill 拒绝覆盖。中断用 `skill-recover`；已安装独立升级入口时，回退 core 也必须支持该能力。返回 home、core版本、档案id／revision、项目、owner与本机身份、Skill安装结果和缺口。文件安装与客户端发现分别核验；未出现时刷新客户端或重启 Codex 后核对。只恢复档案的请求不接管、不上传、不恢复任务或heartbeat、不创建聊天；首次新库初始化另按用户确认的授权。显式 `$bridgepilot handoff restore` 才包含核验后的接管，成功后任务仍暂停。项目代码和业务环境不在私有档案中，恢复和执行分别按实际授权进行。
 
 公开 Release 的安装引导从本节生成，包资产从同一已验证便携包取得。公开产品资产不能包含个人档案、配置、凭据、日志或原生会话／Memory。恢复成功不等于已经完成物理换机接续；缺少旧机交接时，保留可查看档案的状态并报告。
 
@@ -219,13 +252,13 @@ $bpWorkspace = Join-Path $env:USERPROFILE 'Documents/Codex/BridgePilotWorkspace'
 3. 每次实际唤醒先 wake-check，核对本机、当前控制对话和原生配置。原生配置缺失、暂停、周期／提示词／目标漂移时停止依赖动作，不从旧 Active 记录继续派发。保持电脑和桌面应用运行；关闭应用／关机后的执行不在保证范围。
 4. 修改范围时先在原生接口暂停，绑定实际 Paused，再 wake-revise／wake-plan 获取同 native ID 的更新动作；更新后重新绑定。不用重新创建、删除历史或恢复旧配置来绕过未知状态。换机不复制旧机自动化／本机身份，也不自动接管旧机任务。
 
-开发与发布核验由当前 BP Agent 操作，你无需手填命令。verify-development 需要当前 Completed Run、明确包集合和项目已有受管工具；它只核对现有收口，不补做 develop。发布前仍需本任务的明确发布权限及受管 git-sync release；把真实 JSON 收据保存到项目 .runtime，再 verify-publication。该命令只读核对固定提交和实际 push URL，不替用户提交、推送或升版。模型说已完成和普通同步都不会自动标为 Released。原生归类使用 chat-group 的实际项目／成员读回，摘要空值或 move 确认不能单独代替证据。
+开发与发布沿项目原生构建、版本、发布入口及本任务授权核对。BP 的旧账本 verify-development／verify-publication 自动认证已退役，调用时明确拒绝并保持任务状态，不恢复旧配置续用。模型 completed 和普通同步均不能自动标为 Released；原生归类仍须读取 chat-group 的实际项目／成员，摘要空值或 move 确认不能单独代替证据。
 
 ## 维护者协议
 
 本页说明安装、迁移与阻断行为；内部合同见：
 
-- [Codex 项目同步设计](doc/0_architecture/design/codex-project-sync.md)：版本路由、规划、确认、事务和回滚合同。
+- [Codex 项目同步设计](doc/0_architecture/design/codex-project-sync.md)：通用模板、来源证明、规划、精确退役、事务和回滚合同。
 - [设计依据](doc/0_architecture/design/design-rationale.md)：资产归属与安全取舍。
 - [原生指令架构](doc/0_architecture/design/codex-native-instruction-architecture.md)：AGENTS、Hook、Skill 与文档的职责边界。
 

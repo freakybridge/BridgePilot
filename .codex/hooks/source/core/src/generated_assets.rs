@@ -370,6 +370,13 @@ fn generated_writes_internal(
                 }
             } else {
                 let mut request = ProcessRequest::new("cargo", &inputs.snapshot);
+                for (environment, field) in [
+                    ("BRIDGEFORGE_BUILD_SOURCE_SHA", "source_tree_sha256"),
+                    ("BRIDGEFORGE_BUILD_LOCK_SHA", "lockfile_sha256"),
+                ] {
+                    request.env.insert(environment.into(), inputs.hashes[field].as_str()
+                        .ok_or("build provenance is missing")?.into());
+                }
                 request.args = vec![
                     OsString::from("build"),
                     OsString::from("--locked"),

@@ -176,7 +176,12 @@ fn user_skill_projection_is_previewable_idempotent_and_preserves_user_edits() {
     assert!(!skills.exists());
     user_skill::install(&home, &skills, false).unwrap();
     assert_eq!(user_skill::status(&home, &skills).unwrap()["current"], true);
-    for name in ["bridgepilot", "bridgeforge-update"] {
+    let updater = "bridgepilot/scripts/bridgepilot_update.ps1";
+    assert_eq!(
+        fs::read(home.join("source/orchestrator/skills").join(updater)).unwrap(),
+        fs::read(skills.join(updater)).unwrap()
+    );
+    for name in ["bridgepilot", "bridgeforge-update", "bridgepilot-cleanup"] {
         let source = home.join(format!("source/orchestrator/skills/{name}/SKILL.md"));
         assert_eq!(
             fs::read(source).unwrap(),
@@ -198,6 +203,92 @@ fn user_skill_projection_is_previewable_idempotent_and_preserves_user_edits() {
     fs::write(&entry, b"user customization").unwrap();
     assert!(user_skill::install(&home, &skills, false).is_err());
     assert_eq!(fs::read(&entry).unwrap(), b"user customization");
+}
+#[test]
+fn source_entry_fresh_install_does_not_create_a_private_archive() {
+    let f = Fixture::new("complete");
+    let package = f.root.join("source-entry-package");
+    install::bundle(
+        &package,
+        Path::new(env!("CARGO_BIN_EXE_bp")),
+        Path::new(env!("CARGO_BIN_EXE_bp-launcher")),
+    )
+    .unwrap();
+    let home = f.root.join("source-entry-home");
+    install::install(&package, &home, None, true).unwrap();
+    assert!(!home.exists());
+    install::install(&package, &home, None, false).unwrap();
+    let skills = f.root.join("source-entry-skills");
+    user_skill::install(&home, &skills, false).unwrap();
+    install::install(&package, &home, None, false).unwrap();
+    user_skill::install(&home, &skills, false).unwrap();
+    assert_eq!(user_skill::status(&home, &skills).unwrap()["current"], true);
+    assert!(!home.join(".runtime/config/bridgepilot.json").exists());
+    assert!(
+        !home
+            .join("doc/5_project_knowledgebase/bridgepilot/bridgepilot.sqlite3")
+            .exists()
+    );
+}
+
+#[test]
+fn product_versions_are_attested_by_actual_core_before_any_install_writes() {
+    let f = Fixture::new("complete");
+    let package = f.root.join("versioned-package");
+    install::bundle(&package, Path::new(env!("CARGO_BIN_EXE_bp")), Path::new(env!("CARGO_BIN_EXE_bp-launcher"))).unwrap();
+    let path = package.join("package.json");
+    let original = fs::read(&path).unwrap();
+    let mut manifest: Value = serde_json::from_slice(&original).unwrap();
+    assert_eq!(manifest["schema"], 2);
+    assert!(manifest["components"]["orchestrator"]["version"].is_string());
+    assert_eq!(manifest["components"]["forge"]["delivery"], "source-reference");
+    let home = f.root.join("versioned-home");
+    install::install(&package, &home, None, true).unwrap();
+    assert!(!home.exists());
+    manifest["components"]["orchestrator"]["version"] = json!("0.99.0");
+    fs::write(&path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+    assert!(install::install(&package, &home, None, true).unwrap_err().contains("component versions"));
+    assert!(!home.exists());
+    fs::write(&path, original).unwrap();
+    install::install(&package, &home, None, false).unwrap();
+    let identity = install::inspect(&home).unwrap();
+    assert_eq!(identity.schema, 2);
+    assert!(identity.current.components.is_some());
+    install::install(&package, &home, None, false).unwrap();
+    assert_eq!(install::inspect(&home).unwrap(), identity);
+}
+#[test]
+fn cleanup_entry_upgrades_two_entry_install_and_preserves_unknown_or_edited_skills() {
+    let f = Fixture::new("complete");
+    f.store.update(|s| s.pause(true, &[])).unwrap();
+    let home = installed(&f, "cleanup");
+    let skills = f.root.join("cleanup-profile");
+    fs::create_dir(&skills).unwrap();
+    user_skill::install(&home, &skills, false).unwrap();
+    let entry = skills.join("bridgepilot-cleanup");
+    let before = fs::read(entry.join("SKILL.md")).unwrap();
+    fs::remove_file(entry.join("SKILL.md")).unwrap();
+    fs::remove_file(entry.join("bridgepilot-local.json")).unwrap();
+    fs::remove_dir(&entry).unwrap();
+    assert_eq!(
+        user_skill::status(&home, &skills).unwrap()["skills"]["bridgepilot-cleanup"]["installed"],
+        false
+    );
+    user_skill::install(&home, &skills, true).unwrap();
+    assert!(!entry.exists());
+    user_skill::install(&home, &skills, false).unwrap();
+    assert_eq!(fs::read(entry.join("SKILL.md")).unwrap(), before);
+    let binding = fs::read(entry.join("bridgepilot-local.json")).unwrap();
+    fs::remove_file(entry.join("bridgepilot-local.json")).unwrap();
+    assert!(user_skill::install(&home, &skills, true).is_err());
+    assert_eq!(fs::read(entry.join("SKILL.md")).unwrap(), before);
+    fs::write(entry.join("bridgepilot-local.json"), binding).unwrap();
+    fs::write(entry.join("SKILL.md"), b"user edited cleanup").unwrap();
+    assert!(user_skill::install(&home, &skills, false).is_err());
+    assert_eq!(
+        fs::read(entry.join("SKILL.md")).unwrap(),
+        b"user edited cleanup"
+    );
 }
 #[test]
 fn user_skill_adds_independent_entry_to_legacy_install_and_preserves_conflicts() {

@@ -34,5 +34,5 @@ pub(crate) fn program_version() -> &'static str {
     PROGRAM_VERSION
         .get()
         .copied()
-        .unwrap_or(env!("CARGO_PKG_VERSION"))
+        .unwrap_or(include_str!("../../../VERSION").trim())
 }

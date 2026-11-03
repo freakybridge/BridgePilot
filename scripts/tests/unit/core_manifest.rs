@@ -5,6 +5,18 @@ mod fixture_product;
 use super::*;
 
 #[test]
+fn factory_project_config_is_generated_from_template_without_writes() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors()
+        .find(|path| path.join("bridgeforge-manifest.json").is_file()).unwrap();
+    let target = root.join(".codex/config.toml");
+    let before = fs::read(&target).unwrap();
+    let expected = fs::read(root.join("source/forge/templates/config.toml")).unwrap();
+    let writes = render_targets(root).unwrap();
+    assert_eq!(writes.iter().find(|(path, _)| path == &target).map(|(_, bytes)| bytes), Some(&expected));
+    assert_eq!(fs::read(&target).unwrap(), before);
+}
+
+#[test]
 fn unified_manifest_emits_one_source_and_project_only_projection() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("bridgeforge-manifest.json").is_file()).expect("factory repository");
     let before = fs::read(root.join(bridgeforge_core::product_manifest::FILE)).unwrap();

@@ -602,7 +602,7 @@ fn safe_file(root: &Path, relative: &str) -> Result<Option<Vec<u8>>, String> {
 }
 pub fn worktree(root: &Path) -> StructureReport {
     let result = (|| -> Result<StructureReport, String> {
-        let cfg = effective_config(safe_file(root, CONFIG)?.as_deref())?;
+        let cfg = Config::default();
         let mut report = StructureReport::default();
         for path in bridgeforge_core::artifact_migration::legacy_test_outputs(root)?.keys() {
             report.errors.push(finding(
@@ -651,7 +651,7 @@ pub fn worktree(root: &Path) -> StructureReport {
                 &BTreeSet::new(),
             ));
         }
-        let managed = managed_paths(safe_file(root, MANAGED)?.as_deref())?;
+        let managed = BTreeSet::new();
         let skipped = [".git", ".venv", "node_modules", "target"];
         let cfg = &cfg;
         let mut tree = BTreeSet::new();
@@ -897,15 +897,10 @@ fn staged_inner(root: &Path, runner: &dyn ProcessRunner) -> Result<StructureRepo
     }
     let index = index_entries(&git(root, runner, &["ls-files", "--stage", "-z"], vec![])?)?;
     let tree: BTreeSet<_> = index.keys().chain(old.keys()).cloned().collect();
-    let config_entry = index
-        .iter()
-        .find(|(path, _)| key(path) == key(CONFIG))
-        .map(|(_, e)| e);
-    let config_touched = changed.iter().any(|p| key(p) == key(CONFIG));
-    let old_config_entry = old
-        .iter()
-        .find(|(path, _)| key(path) == key(CONFIG))
-        .map(|(_, entry)| entry);
+    // Project layout sidecars are retired. Native paths use generic rules.
+    let config_entry: Option<&Entry> = None;
+    let config_touched = false;
+    let old_config_entry: Option<&Entry> = None;
     let mut wanted = BTreeSet::new();
     let ignore_affected = config_touched
         || changed.iter().any(|p| key(p) == ".gitignore")
@@ -953,15 +948,9 @@ fn staged_inner(root: &Path, runner: &dyn ProcessRunner) -> Result<StructureRepo
     if config_changed || changed.iter().any(|p| key(p) == ".gitignore") {
         selected.extend(index.keys().cloned());
     }
-    let managed_entry = index
-        .iter()
-        .find(|(path, _)| key(path) == key(MANAGED))
-        .map(|(_, entry)| entry);
-    let managed_touched = changed.iter().any(|p| key(p) == key(MANAGED));
-    let old_managed_entry = old
-        .iter()
-        .find(|(path, _)| key(path) == key(MANAGED))
-        .map(|(_, entry)| entry);
+    let managed_entry: Option<&Entry> = None;
+    let managed_touched = false;
+    let old_managed_entry: Option<&Entry> = None;
     let cargo_affected = !cfg.cargo_registration.manifest_roots.is_empty()
         && (config_changed
             || changed.iter().any(|p| {
@@ -1089,8 +1078,8 @@ pub fn pre_commit(root: &Path) -> StructureReport {
 pub fn edited(root: &Path, path: &str) -> StructureReport {
     let result = (|| -> Result<StructureReport, String> {
         let path = repository_relative(path)?;
-        let cfg = effective_config(safe_file(root, CONFIG)?.as_deref())?;
-        let managed = managed_paths(safe_file(root, MANAGED)?.as_deref())?;
+        let cfg = Config::default();
+        let managed = BTreeSet::new();
         let mut report = StructureReport::default();
         if key(&path) == ".gitignore" || key(&path) == key(CONFIG) || artifact_paths::local(&path) {
             report

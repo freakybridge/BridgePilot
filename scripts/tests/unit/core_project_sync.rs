@@ -316,7 +316,7 @@ fn legacy_project_hook_outputs_are_preserved_without_relocation() {
 }
 
 #[test]
-fn project_hooks_are_independent_without_policy_and_old_state_is_preserved() {
+fn project_hooks_are_independent_and_recognized_old_state_retires() {
     struct NoBuild;
     impl crate::ProcessRunner for NoBuild {
         fn run(&self, _: &crate::ProcessRequest) -> std::io::Result<crate::ProcessOutput> {
@@ -325,8 +325,7 @@ fn project_hooks_are_independent_without_policy_and_old_state_is_preserved() {
     }
     for policy in [
         None,
-        Some(b"{}".as_slice()),
-        Some(b"invalid old policy".as_slice()),
+        Some(br#"{"schema":1,"owner":"bridgeforge-project-hook-policy-v1","migration_id":"project-hooks-independent-v1","legacy_versions_through":"2.6.2","runtime_compatible":true}"#.as_slice()),
     ] {
         for mode in [SyncMode::Adopt, SyncMode::Update] {
             let (root, project, factory) = upgrade_fixture("8.0.1", "8.1.0");
@@ -354,14 +353,16 @@ fn project_hooks_are_independent_without_policy_and_old_state_is_preserved() {
                     ".build/bridgeforge/bin/build-receipt-project-demo.json",
                     b"invalid private receipt".as_slice(),
                 ),
-                (
-                    ".codex/project-hook-migrations.json",
-                    b"old opaque state".as_slice(),
-                ),
             ];
             for (path, bytes) in private {
                 write_role_input(&project, path, bytes);
             }
+            write_role_input(&project, ".codex/project-hook-migrations.json", &serde_json::to_vec(&json!({
+                "schema":1,"owner":"bridgeforge-project-hook-migration-v1",
+                "migration_id":"project-hooks-independent-v1",
+                "registration":format!("sha256:{}", "0".repeat(64)),
+                "state":"pending","evidence":null
+            })).unwrap());
             let policy_path = project.join(".codex/project-hook-policy.json");
             if let Some(bytes) = policy {
                 fs::write(&policy_path, bytes).unwrap();
@@ -395,10 +396,128 @@ fn project_hooks_are_independent_without_policy_and_old_state_is_preserved() {
             for (path, bytes) in private {
                 assert_eq!(fs::read(project.join(path)).unwrap(), bytes);
             }
-            assert_eq!(fs::read(&policy_path).ok().as_deref(), policy);
+            assert!(!policy_path.exists());
+            assert!(!project.join(".codex/project-hook-migrations.json").exists());
             fs::remove_dir_all(root).unwrap();
         }
     }
+}
+
+#[test]
+fn retired_configuration_plan_is_read_only_and_repeatable() {
+    let (root, project, factory) = upgrade_fixture("8.0.1", "8.1.0");
+    let path = project.join(".codex/settings.json");
+    let original = include_bytes!("../fixtures/retired-project-settings.json");
+    fs::write(&path, original).unwrap();
+    let plan = build_plan(&project, &factory, SyncMode::Update).unwrap();
+    assert_eq!(fs::read(&path).unwrap(), original);
+    assert!(!project.join(".runtime").exists());
+    assert!(plan.safe.iter().any(|action| action.id == "retired:codex.settings" && action.operation == "delete"));
+    let fp = plan.aggregate_fingerprint.clone();
+    apply_plan(plan, &fp, true).unwrap();
+    assert!(!path.exists());
+    let next = build_plan(&project, &factory, SyncMode::Update).unwrap();
+    assert!(!next.safe.iter().chain(&next.risk).any(|action| action.id.starts_with("retired:codex.")));
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn retired_configuration_unknown_content_blocks_without_deletion() {
+    for target in [".codex/settings.json", ".codex/project-hook-policy.json", ".codex/project-hook-migrations.json"] {
+        let (root, project, factory) = upgrade_fixture("8.0.1", "8.1.0");
+        write_role_input(&project, target, b"project-specific content");
+        let error = build_plan(&project, &factory, SyncMode::Update).unwrap_err();
+        assert!(error.contains("unrecognized or project-modified"), "{error}");
+        assert_eq!(fs::read(project.join(target)).unwrap(), b"project-specific content");
+        assert!(!project.join(".runtime").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[test]
+fn retired_configuration_valid_json_with_unknown_ownership_is_not_deleted() {
+    let policy = json!({"schema":1,"owner":"bridgeforge-project-hook-policy-v1",
+        "migration_id":"project-hooks-independent-v1","legacy_versions_through":"2.6.2","runtime_compatible":true});
+    let migration = json!({"schema":1,"owner":"bridgeforge-project-hook-migration-v1",
+        "migration_id":"project-hooks-independent-v1","registration":format!("sha256:{}", "0".repeat(64)),
+        "state":"pending","evidence":null});
+    let mut changed_owner = policy.clone();
+    changed_owner["owner"] = json!("project-owned");
+    let mut extra_field = policy.clone();
+    extra_field["project_setting"] = json!(true);
+    let mut evidence = migration.clone();
+    evidence["evidence"] = json!({"project":"private evidence"});
+    let mut state = migration.clone();
+    state["state"] = json!("verified");
+    for (target, value) in [
+        (".codex/project-hook-policy.json", changed_owner),
+        (".codex/project-hook-policy.json", extra_field),
+        (".codex/project-hook-migrations.json", evidence),
+        (".codex/project-hook-migrations.json", state),
+    ] {
+        let (root, project, factory) = upgrade_fixture("8.0.1", "8.1.0");
+        let bytes = serde_json::to_vec(&value).unwrap();
+        write_role_input(&project, target, &bytes);
+        assert!(build_plan(&project, &factory, SyncMode::Update).unwrap_err().contains("project-modified"));
+        assert_eq!(fs::read(project.join(target)).unwrap(), bytes);
+        assert!(!project.join(".runtime").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[test]
+fn retired_configuration_preserves_registered_version_inputs() {
+    for config in [
+        json!({"record_inputs":[".codex/settings.json"]}),
+        json!({"product_inputs":[".codex/"]}),
+        json!({"shared_inputs":[{"path":".codex/"}]}),
+        json!({"build_inputs":[".codex/settings.json"]}),
+        json!({"development":{"fixture":{"checks":[{"inputs":[".codex/settings.json"]}]}}}),
+        json!({"development":{"fixture":{"environment":{"files":[".codex/settings.json"]}}}}),
+    ] {
+        let (root, _) = transaction_fixture(true);
+        fs::write(root.join(".codex/settings.json"), include_bytes!("../fixtures/retired-project-settings.json")).unwrap();
+        fs::write(root.join(".codex/bridgeforge-version.json"), serde_json::to_vec(&config).unwrap()).unwrap();
+        let error = plan_config_retirement(&root, &mut Vec::new(), &mut Vec::new(), &mut BTreeMap::new()).unwrap_err();
+        assert!(error.contains("still a current version input"), "{error}");
+        assert!(root.join(".codex/settings.json").exists());
+        assert!(!root.join(".runtime").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+    let (root, _) = transaction_fixture(true);
+    fs::write(root.join(".codex/settings.json"), include_bytes!("../fixtures/retired-project-settings.json")).unwrap();
+    fs::write(root.join(".codex/bridgeforge-version.json"), br#"{"baseline":{"record_inputs":[".codex/settings.json"]}}"#).unwrap();
+    let mut deletes = Vec::new();
+    plan_config_retirement(&root, &mut Vec::new(), &mut deletes, &mut BTreeMap::new()).unwrap();
+    assert_eq!(deletes, vec![root.join(".codex/settings.json")]);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn retired_configuration_drift_and_failed_finalize_restore_original() {
+    let (root, mut plan) = transaction_fixture(true);
+    let path = root.join(".codex/settings.json");
+    let original = include_bytes!("../fixtures/retired-project-settings.json");
+    fs::write(&path, original).unwrap();
+    plan_config_retirement(&root, &mut plan.safe, &mut plan.deletes, &mut plan.project_hook_reads).unwrap();
+    plan.aggregate_fingerprint = plan_fingerprint(&plan.mode, &plan.current_version, &plan.safe, &plan.risk, &plan.preservation_manifest, &plan.generated_source_fingerprints).unwrap();
+    let fp = plan.aggregate_fingerprint.clone();
+    fs::write(root.join(".codex/project-hook-policy.json"), b"late external file").unwrap();
+    assert!(apply_plan(plan.clone(), &fp, true).is_err());
+    assert_eq!(fs::read(root.join(".codex/project-hook-policy.json")).unwrap(), b"late external file");
+    fs::remove_file(root.join(".codex/project-hook-policy.json")).unwrap();
+    fs::write(root.join(".codex/bridgeforge-version.json"), br#"{"record_inputs":[".codex/settings.json"]}"#).unwrap();
+    assert!(apply_plan(plan.clone(), &fp, true).is_err());
+    fs::remove_file(root.join(".codex/bridgeforge-version.json")).unwrap();
+    fs::write(&path, b"external edit").unwrap();
+    assert!(apply_plan(plan.clone(), &fp, true).is_err());
+    assert_eq!(fs::read(&path).unwrap(), b"external edit");
+    fs::write(&path, original).unwrap();
+    let error = apply_plan_internal(plan, &fp, true, Some(&|_, _| Err("injected finalization failure".into()))).unwrap_err();
+    assert!(error.contains("rolled back"), "{error}");
+    assert_eq!(fs::read(&path).unwrap(), original);
+    assert_eq!(fs::read(root.join("managed.txt")).unwrap(), b"old\n");
+    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

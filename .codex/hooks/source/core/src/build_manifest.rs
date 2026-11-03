@@ -103,5 +103,6 @@ pub fn generated_build_recipe(binary: &str) -> Value {
         "args": ["build", "--locked", "--profile", "release", "--manifest-path", "{manifest}", "--target-dir", "{target_dir}", "--bin", "{binary_name}"],
         "profile": "release",
         "binary_name": binary,
+        "compiled_identity_protocol": 1,
     })
 }

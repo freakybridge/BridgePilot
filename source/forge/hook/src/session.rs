@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use crate::StepResult;
 use crate::post::source_tree_hash;
-use crate::util::{codex_root, repo_root, run_command};
+use crate::util::{repo_root, run_command};
 
 fn git(args: &[String], timeout: Duration) -> Option<std::process::Output> {
     let root = repo_root();
@@ -24,11 +24,7 @@ fn git(args: &[String], timeout: Duration) -> Option<std::process::Output> {
 }
 
 fn skeleton_version() -> String {
-    fs::read_to_string(codex_root().join(".bridgeforge_codex_version"))
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| "?".into())
+    "template-only-v1".into()
 }
 
 fn hooks_table(text: &str) -> Result<bool, String> {
@@ -61,14 +57,8 @@ pub fn config_health(strict: bool) -> StepResult {
         .or_else(|| std::env::var_os("HOME"))
         .map(PathBuf::from)
         .unwrap_or_default();
-    for (label, path) in [
-        ("~/.codex/settings.json", home.join(".codex/settings.json")),
-        (".codex/settings.json", root.join(".codex/settings.json")),
-        (
-            ".codex/settings.local.json",
-            root.join(".codex/settings.local.json"),
-        ),
-    ] {
+    // User-level configuration remains outside project skeleton retirement.
+    for (label, path) in [("~/.codex/settings.json", home.join(".codex/settings.json"))] {
         if path.is_file()
             && fs::read_to_string(&path)
                 .ok()
@@ -82,22 +72,6 @@ pub fn config_health(strict: bool) -> StepResult {
         }
     }
     let mut source = Vec::new();
-    for (label, path) in [
-        (".codex/settings.json", root.join(".codex/settings.json")),
-        (
-            ".codex/settings.local.json",
-            root.join(".codex/settings.local.json"),
-        ),
-    ] {
-        if let Ok(text) = fs::read_to_string(path)
-            && serde_json::from_str::<Value>(&text)
-                .ok()
-                .and_then(|value| value.get("hooks").cloned())
-                .is_some()
-        {
-            source.push(format!("{label} contains hooks"));
-        }
-    }
     let config = root.join(".codex/config.toml");
     if let Ok(text) = fs::read_to_string(config) {
         match hooks_table(&text) {
@@ -439,5 +413,6 @@ pub fn skill_sync() -> StepResult {
 pub fn build_identity() -> Value {
     let mut hasher = Sha256::new();
     hasher.update(include_bytes!(env!("BRIDGEFORGE_WORKSPACE_LOCK")));
-    json!({"schema":1,"name":"bridgeforge-hook","status":"ok","platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"lock_sha256":format!("{:x}",hasher.finalize())})
+    json!({"schema":1,"name":"bridgeforge-hook","status":"ok","platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"lock_sha256":format!("{:x}",hasher.finalize()),
+        "build_identity":bridgeforge_core::build_identity::identity()})
 }

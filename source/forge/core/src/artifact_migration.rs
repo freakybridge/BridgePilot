@@ -1,10 +1,9 @@
 //! Retirement of the old generated runtime layout. Every deletion is a precise
 //! file with receipt-bound bytes; callers incorporate these into their existing
 //! snapshot, drift-check and rollback transaction.
-use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
 };
@@ -177,100 +176,8 @@ pub fn legacy_runtime_with_owned(
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(BTreeMap::new()),
         Err(e) => return Err(e.to_string()),
     }
-    let profiles: Vec<Value> = serde_json::from_str(include_str!("legacy_artifact_receipts.json"))
-        .map_err(|e| e.to_string())?;
-    let mut owned = additional.clone();
-    let mut recognized = BTreeSet::new();
-    for (path, expected) in additional {
-        if path.parent() != Some(directory.as_path())
-            || crate::managed_paths::read_metadata(path, 512 * 1024 * 1024)?.as_ref()
-                != Some(expected)
-        {
-            return Err("project-owned legacy runtime changed".into());
-        }
-        recognized.insert(
-            path.file_name()
-                .ok_or("legacy file name missing")?
-                .to_string_lossy()
-                .into_owned(),
-        );
-    }
-    for (name, id, receipt) in [
-        (
-            "bridgeforge",
-            "codex.bridgeforge-cli",
-            "build-receipt-cli.json",
-        ),
-        ("bridgeforge-hook", "codex.hooks", "build-receipt-hook.json"),
-        (
-            "bridgeforge-factory",
-            "codex.factory-cli",
-            "build-receipt-factory.json",
-        ),
-    ] {
-        let binary_name = format!("{name}{}", std::env::consts::EXE_SUFFIX);
-        let binary_path = directory.join(&binary_name);
-        let receipt_path = directory.join(receipt);
-        let binary = crate::managed_paths::read_metadata(&binary_path, 512 * 1024 * 1024)?;
-        let document = crate::managed_paths::read_metadata(&receipt_path, 128 * 1024)?;
-        if binary.is_none() && document.is_none() {
-            continue;
-        }
-        let (binary, document) = binary
-            .zip(document)
-            .ok_or_else(|| format!("legacy runtime pair is incomplete: {name}; preserve it"))?;
-        let record = crate::json::parse_unique_json(&document, "legacy runtime receipt")?;
-        let inputs = [
-            "source_tree_sha256",
-            "lockfile_sha256",
-            "build_recipe_sha256",
-            "self_test_sha256",
-        ];
-        if record["schema_version"] != 2
-            || record["generated_asset_id"] != id
-            || record["platform"] != crate::build_receipt::platform_key()?
-            || record["binary_sha256"] != format!("sha256:{:x}", Sha256::digest(&binary))
-            || !profiles
-                .iter()
-                .any(|p| p["id"] == id && inputs.iter().all(|field| p[field] == record[field]))
-        {
-            return Err(format!(
-                "legacy runtime ownership is unknown: {name}; preserve it"
-            ));
-        }
-        recognized.extend([binary_name, receipt.into()]);
-        owned.insert(binary_path, binary);
-        owned.insert(receipt_path, document);
-    }
-    let mut preserved = false;
-    for entry in fs::read_dir(&directory).map_err(|e| e.to_string())? {
-        let entry = entry.map_err(|e| e.to_string())?;
-        if !entry.file_type().map_err(|e| e.to_string())?.is_file()
-            || crate::persistence::is_link_or_reparse(&entry.path()).map_err(|e| e.to_string())?
-        {
-            return Err(format!(
-                "unsafe legacy runtime entry preserved: {}",
-                entry.path().display()
-            ));
-        }
-        let name = entry.file_name();
-        if name != ".gitignore" && !recognized.contains(&name.to_string_lossy().to_string()) {
-            // Unowned regular files are opaque project data, not retirements.
-            preserved = true;
-        }
-    }
-    // Keep the directory's ignore policy whenever project files remain. Their
-    // contents and receipts are outside the public runtime ownership contract.
-    if !preserved
-        && let Some(bytes) =
-            crate::managed_paths::read_metadata(&directory.join(".gitignore"), 4096)?
-    {
-        if String::from_utf8_lossy(&bytes).replace("\r\n", "\n") != "*\n!.gitignore\n" {
-            return Err("legacy binary ignore file has external changes; preserve it".into());
-        }
-        owned.insert(directory.join(".gitignore"), bytes);
-    }
-    Ok(owned)
+    let _ = additional;
+    Err("automatic legacy binary fingerprint migration is retired; preserve .codex/bin and review it explicitly".into())
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]

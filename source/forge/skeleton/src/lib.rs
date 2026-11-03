@@ -11,5 +11,6 @@ pub use bridgeforge_core::{
 };
 pub mod attributes;
 pub mod baseline;
+pub mod template;
 pub mod content;
 pub mod project_hooks;

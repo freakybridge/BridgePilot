@@ -468,6 +468,9 @@ fn sync_impl(
     timings: &timing::Timings,
     remote_only: bool,
 ) -> CommandOutcome {
+    if options.release {
+        return CommandOutcome::blocked("[git-sync] BLOCKED: configuration-based release is retired; no Git or project state inspected or changed\n");
+    }
     if options.remote.is_empty() {
         options.remote = "origin".into();
     }
@@ -481,7 +484,7 @@ fn sync_impl(
     if git_dir.is_empty() {
         return blocked("not a Git repository".into());
     }
-    if let Err(error) = crate::release::schema4::development::require_completed_transaction(root) {
+    if let Err(error) = crate::template_sync::require_no_pending_development(root) {
         return blocked(error);
     }
     if let Err(error) = check_release_commit_guard(&git) {
@@ -649,12 +652,10 @@ fn sync_impl(
             "autostash_retained":autostashed
         }));
     }
-    let factory = root.join("bridgeforge-manifest.json").is_file();
+    let factory = options.release && root.join("bridgeforge-manifest.json").is_file();
     let policy_path = root.join(".codex/bridgeforge-version.json");
-    let policy_before = fs::read(&policy_path).ok();
-    if let Err(error) = crate::release::explicit_release_policy(root) {
-        return blocked(error);
-    }
+    let policy_before = if options.release { fs::read(&policy_path).ok() } else { None };
+    if options.release { return blocked("configuration-based release is retired; use native project release tools".into()); }
     let version_before = fs::read_to_string(root.join("VERSION"))
         .ok()
         .map(|v| v.trim().to_string());
@@ -663,10 +664,7 @@ fn sync_impl(
     let mut package_events = Vec::new();
     let mut lifecycle_events = Vec::new();
     let mut release_details = None;
-    let version_strategy = match crate::release::version_strategy(root) {
-        Ok(strategy) => strategy,
-        Err(error) => return blocked(error),
-    };
+    let version_strategy = "native-project-tools";
     let mut generated_reused = 0;
     let mut generated_built = 0;
     let release_plan_reused = false;
@@ -740,7 +738,7 @@ fn sync_impl(
         let release_status = release.as_ref().and_then(|p| p.release_status.clone());
         let (mut release_inputs, release_writes) =
             release.map(|p| (p.inputs, p.writes)).unwrap_or_default();
-        release_inputs.insert(policy_path, policy_before);
+        if options.release { release_inputs.insert(policy_path, policy_before); }
         let plan = match timings.measure("artifact_preparation", || {
             write_plan::WritePlan::prepare(root, release_writes, release_inputs, factory, runner)
         }) {
@@ -825,7 +823,7 @@ fn sync_impl(
             }
         }
         if let Err(error) = timings.measure("baseline_checks", || {
-            crate::baseline::verify(root, None, true)
+            bridgeforge_skeleton::template::verify(root, true)
         }) {
             return fail(
                 format!("current baseline blocked git-sync: {error}"),
@@ -976,7 +974,7 @@ fn sync_impl(
     }
     if factory
         && let Err(error) = timings.measure("baseline_checks", || {
-            crate::baseline::verify(root, None, true)
+            bridgeforge_skeleton::template::verify(root, true)
         })
     {
         return blocked(format!("current baseline blocked git-sync: {error}"));

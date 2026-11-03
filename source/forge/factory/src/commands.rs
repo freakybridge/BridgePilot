@@ -26,7 +26,7 @@ mod task_package_tests {
             args.extend(flags.into_iter().map(str::to_string));
             let result = super::run(&args);
             assert_ne!(result.code, 0);
-            assert!(result.stderr.contains("packages"), "{}", result.stderr);
+            assert!(result.stderr.contains("retired"), "{}", result.stderr);
         }
     }
 }
@@ -59,27 +59,13 @@ fn factory_context(args: &[String]) -> Result<ProjectContext, String> {
 }
 
 pub fn self_test() -> CommandOutcome {
-    let product = include_str!(env!("BRIDGEFORGE_WORKSPACE_MANIFEST"))
-        .parse::<toml_edit::DocumentMut>()
-        .map_err(|error| error.to_string())
-        .and_then(|manifest| {
-            manifest["workspace"]["package"]["version"]
-                .as_str()
-                .map(str::to_owned)
-                .ok_or_else(|| "compiled product version is missing".into())
-        });
+    let product = bridgeforge_core::product_version::explicit(include_str!(env!("BRIDGEFORGE_PRODUCT_MANIFEST")));
     match product {
         Ok(product) => CommandOutcome::with_receipt(json!({
             "schema":1,"name":"bridgeforge-factory","status":"ok",
             "version":env!("CARGO_PKG_VERSION"),"product_version":product,
-            "capabilities":["artifact-cleanup-v1","three-directory-layout-v1","factory-runtime-prepare-v1","factory-transaction-v1","factory-source-projection-v1",
-                "package-development-v1","package-stability-v1","git-sync-development-closure-v1",
-                "rust-mixed-workspace-v1","package-adoption-v1","scoped-rust-evidence-v1",
-                "release-external-analysis-preview-v1",
-                "scoped-release-evidence-v1","task-scoped-development-v1","resumable-development-checks-v1",
-                "task-selected-development-checks-v1","version-coverage-v1",
-                "staged-development-validation-v1","direct-development-apply-v1",
-                "git-sync-release-only-v1","git-sync-explicit-release-v1","git-sync-direct-release-v1","git-sync-remote-context-v1", "git-sync-preflight-v1"]
+            "capabilities":["template-only-v1","compiled-build-provenance-v1","factory-runtime-prepare-v1","factory-source-projection-v1","git-sync-preflight-v1"],
+            "build_identity":bridgeforge_core::build_identity::identity()
         })),
         Err(error) => blocked("factory-self-test", error),
     }
@@ -90,6 +76,19 @@ pub fn run(args: &[String]) -> CommandOutcome {
 }
 
 pub fn run_with_runner(args: &[String], inner: &dyn ProcessRunner) -> CommandOutcome {
+    if args.first().is_some_and(|c| c == "develop" || c == "cleanup") {
+        return blocked("retired-command", "configuration-based development ledger and cleanup are retired; use native build/test/version tools; no files changed");
+    }
+    if args.first().is_some_and(|c| c == "template-standard") {
+        return match context(args).and_then(|c| {
+            let bytes = crate::manifest::render_template_standard(c.root())?;
+            let path = c.root().join("source/forge/core/src/template_assets.rs");
+            if has(args, "--check") || has(args, "--dry-run") {
+                if std::fs::read(&path).ok().as_ref() != Some(&bytes) { return Err("compiled Template rules need regeneration".into()); }
+            } else { crate::persistence::atomic_write(&path, &bytes).map_err(|e| e.to_string())?; }
+            Ok(json!({"schema":1,"status":"current","target":path}))
+        }) { Ok(r) => CommandOutcome::with_receipt(r), Err(e) => blocked("template-standard", e) };
+    }
     let runner = FactoryRunner::new(inner);
     let Some(command) = args.first().map(String::as_str) else {
         return blocked("factory", "a command is required");
@@ -251,12 +250,12 @@ mod tests {
         let receipt = outcome.receipt.unwrap();
         assert_eq!(receipt["name"], "bridgeforge-factory");
         assert_eq!(receipt["version"], env!("CARGO_PKG_VERSION"));
-        let product = include_str!(env!("BRIDGEFORGE_WORKSPACE_MANIFEST"))
+        let product = include_str!(env!("BRIDGEFORGE_PRODUCT_MANIFEST"))
             .parse::<toml_edit::DocumentMut>()
             .unwrap();
         assert_eq!(
             receipt["product_version"],
-            product["workspace"]["package"]["version"].as_str().unwrap()
+            product["package"]["version"].as_str().unwrap()
         );
     }
 

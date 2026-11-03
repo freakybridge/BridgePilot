@@ -114,6 +114,9 @@ pub(super) fn parse(payload: &[u8]) -> Result<Option<Config>, String> {
     for p in &cfg.product_inputs {
         relative(p)?;
     }
+    if cfg.product_inputs.iter().collect::<BTreeSet<_>>().len() != cfg.product_inputs.len() {
+        return Err("overlapping shared/product ownership".into());
+    }
     for mapping in &cfg.shared_inputs {
         relative(&mapping.path)?;
         if mapping.packages.is_empty() {
@@ -130,6 +133,11 @@ pub(super) fn parse(payload: &[u8]) -> Result<Option<Config>, String> {
     let patterns = cfg
         .product_inputs
         .iter()
+        // Nested product declarations all select the same owner. Keep the
+        // original config intact, but check overlap using only covering roots.
+        .filter(|path| !cfg.product_inputs.iter().any(|parent| {
+            parent != *path && owns(parent.as_str(), path.as_str())
+        }))
         .chain(cfg.shared_inputs.iter().map(|m| &m.path))
         .collect::<Vec<_>>();
     for (i, a) in patterns.iter().enumerate() {

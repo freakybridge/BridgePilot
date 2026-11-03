@@ -59,10 +59,7 @@ pub fn validate_product(
     if !manifest.is_file() || !lockfile.is_file() || !binary.is_file() {
         return Err("managed product runtime is missing or incomplete".into());
     }
-    let product_version = std::fs::read_to_string(root.join("VERSION"))
-        .map_err(|e| e.to_string())?
-        .trim()
-        .to_owned();
+    let product_version = crate::product_version::forge(&root)?;
     product_version.parse::<crate::SemVer>()?;
     let cargo_version = tool_version("cargo", &root, runner)?;
     let rustc_version = tool_version("rustc", &root, runner)?;

@@ -187,130 +187,95 @@ fn project_sync_plan_apply_and_fingerprint_gate_are_transactional() {
 }
 
 #[test]
-fn project_settings_remain_project_owned_across_init_adopt_and_update() {
-    let temp = TestDirectory::new("settings-ownership");
-    let repository = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .unwrap();
+fn recognized_settings_retire_and_project_modified_settings_block_without_loss() {
+    let temp = TestDirectory::new("settings-retirement");
+    let repository = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().nth(2).unwrap();
     let factory = temp.0.join("factory");
     let mut contract: serde_json::Value = serde_json::from_slice(
         &fixture_product::read(repository.join("bridgeforge-manifest.json")).unwrap(),
-    )
-    .unwrap();
+    ).unwrap();
     for key in ["assets", "retired_assets"] {
         assert!(contract[key].as_array().unwrap().iter().all(|asset| {
             asset["id"] != "codex.settings" && asset["target"] != ".codex/settings.json"
         }));
     }
-    // Exercise the real distributed file contract without compiling binaries.
     contract["generated_assets"] = json!([]);
     for asset in contract["assets"].as_array().unwrap() {
-        if asset.get("content").is_some() {
-            continue;
-        }
+        if asset.get("content").is_some() { continue; }
         let source = asset["source"].as_str().unwrap();
-        write(
-            &factory.join(source),
-            &fs::read(repository.join(source)).unwrap(),
-        );
+        write(&factory.join(source), &fs::read(repository.join(source)).unwrap());
     }
-    write(
-        &factory.join("VERSION"),
-        &fs::read(repository.join("VERSION")).unwrap(),
-    );
+    write(&factory.join("VERSION"), &fs::read(repository.join("VERSION")).unwrap());
     let contract_path = factory.join("bridgeforge-manifest.json");
-    fixture_product::install(&contract_path,
-        &serde_json::to_vec_pretty(&contract).unwrap(),
-    );
-    let original = b"{\r\n  \"effortLevel\":\"high\", \"permissions\":{}, \"custom\":42\r\n}\r\n";
-    for (name, mode, settings) in [
-        ("init", SyncMode::Init, None),
-        ("adopt", SyncMode::Adopt, Some(original.as_slice())),
-        (
-            "adopt-invalid",
-            SyncMode::Adopt,
-            Some(b"project-owned non-JSON".as_slice()),
-        ),
-    ] {
+    fixture_product::install(&contract_path, &serde_json::to_vec_pretty(&contract).unwrap());
+    let known = include_bytes!("../fixtures/retired-project-settings.json").as_slice();
+    for (name, mode) in [("init", SyncMode::Init), ("adopt", SyncMode::Adopt)] {
         let project = temp.0.join(name);
-        fs::create_dir_all(&project).unwrap();
         let path = project.join(".codex/settings.json");
-        if let Some(bytes) = settings {
-            write(&path, bytes);
-            write(&path.with_extension("json.bak"), b"previous backup");
-        }
-        for current_mode in [mode, SyncMode::Update] {
-            let plan = build_plan(&project, &factory, current_mode).unwrap();
-            if matches!(current_mode, SyncMode::Adopt) {
-                for target in [".codex/settings.json", ".codex/settings.json.bak"] {
-                    assert!(
-                        plan.preservation_manifest["entries"]
-                            .as_array()
-                            .unwrap()
-                            .iter()
-                            .any(|item| {
-                                item["target"] == target
-                                    && item["disposition"] == "required-preserve"
-                            })
-                    );
-                    let decisions = json!({"delete": [format!("P:project-file:{target}")]});
-                    let result =
-                        build_plan_with_inputs(&project, &factory, current_mode, Some(&decisions));
-                    assert!(
-                        result
-                            .unwrap_err()
-                            .contains("unknown project asset decision")
-                    );
-                }
-            }
-            assert!(
-                plan.safe
-                    .iter()
-                    .chain(&plan.risk)
-                    .all(|a| a.target != ".codex/settings.json")
-            );
-            let fingerprint = plan.aggregate_fingerprint.clone();
-            let receipt = apply_plan(plan, &fingerprint, true).unwrap();
-            assert_eq!(receipt.execution_status, "succeeded");
-            assert_eq!(fs::read(&path).ok().as_deref(), settings);
-            assert_eq!(
-                fs::read(path.with_extension("json.bak")).ok().as_deref(),
-                settings.map(|_| b"previous backup".as_slice())
-            );
-        }
+        fs::create_dir_all(&project).unwrap();
+        if matches!(mode, SyncMode::Adopt) { write(&path, known); }
+        let before = fs::read(&path).ok();
+        let plan = build_plan(&project, &factory, mode).unwrap();
+        assert_eq!(fs::read(&path).ok(), before);
+        assert!(!project.join(".runtime").exists());
+        assert_eq!(plan.safe.iter().any(|action| action.id == "retired:codex.settings"), matches!(mode, SyncMode::Adopt));
+        let fp = plan.aggregate_fingerprint.clone();
+        apply_plan(plan, &fp, true).unwrap();
+        assert!(!path.exists());
+        assert!(!path.with_extension("json.bak").exists());
+        write(&path, known);
+        let update = build_plan(&project, &factory, SyncMode::Update).unwrap();
+        let fp = update.aggregate_fingerprint.clone();
+        apply_plan(update, &fp, true).unwrap();
+        assert!(!path.exists());
+        let next = build_plan(&project, &factory, SyncMode::Update).unwrap();
+        assert!(!next.safe.iter().chain(&next.risk).any(|action| action.target == ".codex/settings.json"));
+        let fp = next.aggregate_fingerprint.clone();
+        apply_plan(next, &fp, true).unwrap();
+        assert!(!path.exists());
+        write(&path, b"project-owned non-JSON");
+        let error = build_plan(&project, &factory, SyncMode::Update).unwrap_err();
+        assert!(error.contains("project-modified"), "{error}");
+        assert_eq!(fs::read(&path).unwrap(), b"project-owned non-JSON");
     }
-    // An old installation declared settings as managed. Dropping ownership must
-    // preserve both an unchanged old payload and a locally modified payload.
-    let old_payload = b"{\"permissions\":{\"defaultMode\":\"acceptEdits\"}}\n";
+    for (name, bytes) in [("custom", b"{\"permissions\":{},\"custom\":42}".as_slice()), ("invalid", b"project-owned non-JSON".as_slice())] {
+        let project = temp.0.join(name);
+        let path = project.join(".codex/settings.json");
+        write(&path, bytes);
+        write(&path.with_extension("json.bak"), b"previous backup");
+        let error = build_plan(&project, &factory, SyncMode::Adopt).unwrap_err();
+        assert!(error.contains("project-modified"), "{error}");
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        assert_eq!(fs::read(path.with_extension("json.bak")).unwrap(), b"previous backup");
+        assert!(!project.join(".runtime").exists());
+    }
+    // An old installed contract owned settings. The new target contract may
+    // retire a known default, but must not treat local modifications as owned.
     let mut legacy = contract.clone();
     legacy["assets"].as_array_mut().unwrap().push(json!({
-        "id":"codex.settings", "source":"templates/settings.json",
-        "target":".codex/settings.json", "strategy":"whole",
-        "current_sha256": format!("sha256:{:x}", Sha256::digest(old_payload))
+        "id":"codex.settings", "source":"templates/settings.json", "target":".codex/settings.json",
+        "strategy":"whole", "current_sha256":format!("sha256:{:x}", Sha256::digest(known))
     }));
-    write(&factory.join("templates/settings.json"), old_payload);
-    for (name, bytes) in [
-        ("old-default", old_payload.as_slice()),
-        ("old-custom", original.as_slice()),
-    ] {
+    write(&factory.join("templates/settings.json"), known);
+    for (name, modified) in [("old-default", false), ("old-custom", true)] {
         let project = temp.0.join(name);
         fs::create_dir_all(&project).unwrap();
         fixture_product::install(&contract_path, &serde_json::to_vec_pretty(&legacy).unwrap());
         let plan = build_plan(&project, &factory, SyncMode::Init).unwrap();
-        let fingerprint = plan.aggregate_fingerprint.clone();
-        apply_plan(plan, &fingerprint, true).unwrap();
+        let fp = plan.aggregate_fingerprint.clone();
+        apply_plan(plan, &fp, true).unwrap();
         let path = project.join(".codex/settings.json");
-        write(&path, bytes);
-        fixture_product::install(&contract_path,
-            &serde_json::to_vec_pretty(&contract).unwrap(),
-        );
-        let plan = build_plan(&project, &factory, SyncMode::Update).unwrap();
-        let fingerprint = plan.aggregate_fingerprint.clone();
-        let receipt = apply_plan(plan, &fingerprint, true).unwrap();
-        assert_eq!(receipt.execution_status, "succeeded");
-        assert_eq!(fs::read(&path).unwrap(), bytes);
-        assert!(!path.with_extension("json.bak").exists());
+        if modified { write(&path, b"{\"custom\":true}"); }
+        fixture_product::install(&contract_path, &serde_json::to_vec_pretty(&contract).unwrap());
+        if modified {
+            assert!(build_plan(&project, &factory, SyncMode::Update).unwrap_err().contains("project-modified"));
+            assert_eq!(fs::read(&path).unwrap(), b"{\"custom\":true}");
+        } else {
+            let plan = build_plan(&project, &factory, SyncMode::Update).unwrap();
+            let fp = plan.aggregate_fingerprint.clone();
+            apply_plan(plan, &fp, true).unwrap();
+            assert!(!path.exists());
+        }
     }
 }
 

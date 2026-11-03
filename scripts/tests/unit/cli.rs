@@ -38,76 +38,26 @@ fn retired_operations_fail_before_repository_or_process_access() {
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[test]
-fn baseline_uses_installed_contract_for_factory_and_downstream() {
-    let repository = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .find(|path| path.join("bridgeforge-manifest.json").is_file())
-        .unwrap();
-    for factory in [false, true] {
-        let root = test_artifacts::root(env!("CARGO_MANIFEST_DIR"), "cli").join(format!(
-            "installed-baseline-{}-{factory}",
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        fs::create_dir_all(root.join(".codex")).unwrap();
-        let mut contract: Value = if factory {
-            serde_json::from_slice(&fs::read(repository.join(".codex/managed-skeleton.json")).unwrap()).unwrap()
-        } else {
-            bridgeforge_core::product_manifest::project(repository).unwrap()
-        };
-        contract["assets"]
-            .as_array_mut()
-            .unwrap()
-            .retain(|asset| asset["id"] == "codex.hooks-config");
-        contract["generated_assets"] = json!([]);
-        let contract_path = root.join(".codex/managed-skeleton.json");
-        fs::write(&contract_path, serde_json::to_vec(&contract).unwrap()).unwrap();
-        let hooks_path = root.join(".codex/hooks.json");
-        let hooks_source = if factory { repository.join(".codex/hooks.json") }
-            else { bridgeforge_core::source_projection::template_path(repository, "templates/hooks.json") };
-        fs::copy(hooks_source, &hooks_path).unwrap();
-        let version = contract["release_version"].as_str().unwrap();
-        if factory {
-            fs::create_dir_all(root.join("templates")).unwrap();
-            fs::copy(
-                repository.join("bridgeforge-manifest.json"),
-                root.join("bridgeforge-manifest.json"),
-            )
-            .unwrap();
-            fs::write(root.join("VERSION"), version).unwrap();
-        } else {
-            fs::write(root.join(".codex/.bridgeforge_codex_version"), version).unwrap();
-        }
-        let args = vec![
-            "check".into(),
-            "baseline".into(),
-            "--root".into(),
-            root.display().to_string(),
-        ];
-        let result = run(&args);
-        assert_eq!(result.code, 0, "factory={factory}: {}", result.stderr);
-        let mut hooks: Value = serde_json::from_slice(&fs::read(&hooks_path).unwrap()).unwrap();
-        hooks["hooks"]["PostToolUse"][0]["hooks"][0]["command"] = json!("unexpected-hook");
-        fs::write(&hooks_path, serde_json::to_vec(&hooks).unwrap()).unwrap();
-        let drift = run(&args);
-        assert_eq!(drift.code, EXIT_BLOCKED);
-        assert!(
-            drift.stderr.contains("managed hook payload drifted"),
-            "{}",
-            drift.stderr
-        );
-        fs::remove_file(&contract_path).unwrap();
-        let missing = run(&args);
-        assert_eq!(missing.code, EXIT_BLOCKED);
-        assert!(
-            missing.stderr.contains("cannot read current baseline"),
-            "{}",
-            missing.stderr
-        );
-        fs::remove_dir_all(root).unwrap();
+fn baseline_uses_compiled_template_and_never_initializes_project_contract() {
+    let root = test_artifacts::root(env!("CARGO_MANIFEST_DIR"), "cli").join(format!("template-baseline-{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
+    for asset in bridgeforge_core::template_standard::assets() {
+        let bytes = bridgeforge_skeleton::content::render(asset.rule["id"].as_str().unwrap(), &asset.payload, None, &asset.rule, &root, true).unwrap();
+        let path = root.join(asset.rule["target"].as_str().unwrap());
+        fs::create_dir_all(path.parent().unwrap()).unwrap(); fs::write(path, bytes).unwrap();
     }
+    let args = vec!["check".into(),"baseline".into(),"--root".into(),root.display().to_string(),"--skip-generated-runtime".into()];
+    let result = run(&args); assert_eq!(result.code,0,"{}",result.stderr);
+    assert!(!root.join(".codex/managed-skeleton.json").exists());
+    let hooks_path = root.join(".codex/hooks.json"); let bytes = fs::read(&hooks_path).unwrap();
+    let mut hooks: Value = serde_json::from_slice(&bytes).unwrap();
+    hooks["hooks"]["PostToolUse"][0]["hooks"][0]["command"] = json!("unexpected-hook");
+    fs::write(&hooks_path,serde_json::to_vec(&hooks).unwrap()).unwrap();
+    assert!(run(&args).stderr.contains("managed hook payload drifted"));
+    fs::write(&hooks_path,bytes).unwrap();
+    fs::write(root.join(".codex/managed-skeleton.json"),b"invalid never parsed").unwrap();
+    assert!(run(&args).stderr.contains("exactly hooks.json"));
+    fs::remove_file(root.join(".codex/managed-skeleton.json")).unwrap();
+    assert_eq!(run(&args).code,0); fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
@@ -125,7 +75,7 @@ fn retired_asset_migration_arguments_reject_before_reading_stdin_or_project() {
         ]);
         assert_eq!(result.code, EXIT_BLOCKED);
         assert!(
-            result.stderr.contains("migration is retired"),
+            result.stderr.contains("retired"),
             "{}",
             result.stderr
         );
@@ -133,60 +83,17 @@ fn retired_asset_migration_arguments_reject_before_reading_stdin_or_project() {
 }
 
 #[test]
-fn development_capabilities_and_mutation_flags_are_explicit() {
+fn retired_development_capabilities_are_not_advertised() {
     let identity = self_test().receipt.unwrap();
-    for capability in [
-        "package-development-v1",
-        "task-scoped-development-v1",
-        "resumable-development-checks-v1",
-        "package-stability-v1",
-        "git-sync-development-closure-v1",
-        "task-selected-development-checks-v1",
-        "staged-development-validation-v1",
-        "direct-development-apply-v1",
-        "version-coverage-v1",
-        "scoped-release-evidence-v1",
-        "release-external-analysis-preview-v1",
-    ] {
-        assert!(
-            identity["capabilities"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|v| v == capability)
-        );
+    for capability in ["template-only-v1","compiled-build-provenance-v1","user-cli-reuse-v1","public-artifacts-v1"] {
+        assert!(identity["capabilities"].as_array().unwrap().iter().any(|c| c==capability));
     }
-    for retired in [
-        "portable-development-evidence-v1",
-        "git-eol-development-evidence-v1",
-        "cross-machine-development-evidence-v1",
-    ] {
-        assert!(
-            !identity["capabilities"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|value| value == retired)
-        );
+    for capability in ["package-development-v1","package-stability-v1","git-sync-development-closure-v1","version-coverage-v1","git-sync-explicit-release-v1"] {
+        assert!(!identity["capabilities"].as_array().unwrap().iter().any(|c| c==capability));
     }
-    for flags in [
-        vec!["--apply", "--dry-run"],
-        vec!["--validate", "--dry-run"],
-        vec!["--validate", "--check"],
-        vec!["--validate", "--apply"],
-        vec!["--recover", "--check"],
-        vec!["--preview", "--apply"],
-        vec![],
-    ] {
-        let mut args = vec!["develop".into()];
-        args.extend(flags.into_iter().map(String::from));
-        let result = run(&args);
-        assert_eq!(result.code, EXIT_BLOCKED);
-        assert!(
-            result.stderr.contains("choose exactly one"),
-            "{}",
-            result.stderr
-        );
+    for flags in [vec!["--apply","--dry-run"],vec!["--validate"],vec!["--recover"],vec!["--preview"],vec![]] {
+        let mut args=vec!["develop".into()]; args.extend(flags.into_iter().map(String::from));
+        let out=run(&args); assert_eq!(out.code,2); assert!(out.stderr.contains("retired"));
     }
 }
 
@@ -204,7 +111,7 @@ fn task_development_cli_rejects_malformed_selection_before_forwarding() {
         args.extend(flags.into_iter().map(str::to_string));
         let result = run(&args);
         assert_eq!(result.code, EXIT_BLOCKED);
-        assert!(result.stderr.contains("packages"), "{}", result.stderr);
+        assert!(result.stderr.contains("retired"), "{}", result.stderr);
     }
 }
 
@@ -331,7 +238,7 @@ fn cleanup_factory_routing_requires_the_private_tool_before_deleting_anything() 
     ]);
     assert_eq!(result.code, EXIT_BLOCKED);
     assert!(
-        result.stderr.contains("factory runtime is not prepared"),
+        result.stderr.contains("retired"),
         "{}",
         result.stderr
     );
@@ -567,7 +474,7 @@ fn git_sync_preflight_is_capability_gated_and_mutually_exclusive() {
         .unwrap()
         .clone();
     assert!(capabilities.iter().any(|v| v == "git-sync-preflight-v1"));
-    assert!(capabilities.iter().any(|v| v == "git-sync-phase-timing-v1"));
+    assert!(capabilities.iter().any(|v| v == "template-only-v1"));
     let root = test_artifacts::root(env!("CARGO_MANIFEST_DIR"), "cli").join(format!(
         "bf-cli-preflight-{}-{}",
         std::process::id(),
@@ -586,7 +493,7 @@ fn git_sync_preflight_is_capability_gated_and_mutually_exclusive() {
             mode.into(),
         ]);
         assert_eq!(result.code, EXIT_BLOCKED);
-        assert!(result.stderr.contains("mutually exclusive"));
+        assert!(result.stderr.contains("retired"));
         assert!(!root.join(".git").exists());
         assert!(!root.join(".runtime").exists());
     }
@@ -639,7 +546,7 @@ fn ordinary_sync_does_not_require_release_choice_but_release_does() {
         let output = run(&args);
         assert_eq!(output.code, EXIT_BLOCKED);
         if release {
-            assert_eq!(output.receipt.unwrap()["status"], "configuration-required");
+            assert!(output.stderr.contains("retired"));
         } else {
             assert_eq!(output.receipt.unwrap()["status"], "blocked");
             assert!(

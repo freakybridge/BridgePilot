@@ -804,7 +804,7 @@ pub fn verify_asset_payload(asset: &Value, payload: &[u8]) -> Result<String, Str
     verify_asset_payload_mode(asset, payload, false, None)
 }
 
-fn verify_asset_payload_mode(
+pub fn verify_asset_payload_mode(
     asset: &Value,
     payload: &[u8],
     zero_write: bool,

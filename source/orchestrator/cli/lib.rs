@@ -7,3 +7,4 @@ use bridgepilot_storage::{migration, store};
 pub use bridgepilot_tasks::{Result, digest, domain, new_id, valid_id};
 use bridgepilot_transfer::{handoff, sync};
 pub mod cli;
+pub mod project_list;

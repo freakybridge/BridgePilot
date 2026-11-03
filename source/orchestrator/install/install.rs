@@ -10,6 +10,7 @@ use bridgeforge_core::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use crate::versions::Components;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -21,9 +22,15 @@ const RULES:&[u8]="# BridgePilot\n\n这是 BridgePilot 的安装控制入口。�
 const README:&[u8]="# BridgePilot\n\n在 Codex 中打开本目录并给出项目目标。由 BP 读取私有任务档案，确认必要方向后推进。\n\n- [安装、升级与换机](INSTALL.md)\n- [BP 工作流](source/orchestrator/skills/bridgepilot/SKILL.md)\n".as_bytes();
 const GUIDE: &[u8] = r#"# BridgePilot 安装与恢复
 
+BP 主产品从 1.0.0 起独立编号，bp versions 展示 BP、BF 来源引用和 orchestrator 版本。package/installation schema 2 使用 launcher protocol 2，固定十三项资产；BF 来源引用不表示外部 BF 已安装。旧 schema 1 的 0.x 版本按 orchestrator 解释，升级核对组件不降级及档案读兼容。使用新 core 直接执行 preview/install，旧 launcher 和 home claim 的升级纳入恢复事务；正在运行的旧 launcher 占用时停止并保留现场。新身份不回退到不能读取它的旧 core，不迁移私有档案或外部 BF。
+
 这些是 Agent 的执行摘要；用户继续在 Codex 中给目标，无需手填 JSON。
 
 统一入口为 `$bridgepilot init`、`$bridgepilot project add <目录>`、`$bridgepilot handoff prepare all`、`$bridgepilot handoff restore` 和 `$bridgepilot status`。首次init只确认一次本人私有存档库，保存后复用；项目登记不启动开发；旧机prepare all保存已确认进度到工作分支，新机restore核验后接管但任务与heartbeat仍暂停。
+
+无参数 `$bridgepilot` 运行受管 Skill 的 scripts/bridgepilot_update.ps1，从官方 freakybridge/BridgePilot 的 main 快进拉取源码，锁定 Cargo.lock 构建后执行程序与 Skill 的预览、安装和核验。默认源码 ~/.bridgepilot-source；需要 Git、Rust 1.88+ 及 Windows C++ 构建环境。首次只安装，不创建私有档案；已有 home／workspace 原位复用。完整源码引导见官方源码根 INSTALL.md“无参数源码安装与更新”；咨询及带参数模式不自动更新。失败保留现场，程序与 Skill 两阶段分别报告，中断先对应 recover；不从安装推导接管、同步或恢复任务授权。
+
+0.12.0起同一受管安装事务另安装 bridgepilot-cleanup 私有入口。项目名单由只读 project-list 提供，支持指定子集及只读 preview；旧配置化 cleanup 已退役，缺少可靠原生成品保护时阻断删除。安装此入口不执行清理。用户修改、事务中断及回退能力保护同时覆盖三个入口；新入口的原生客户端发现另行核对。
 
 0.6.0起包另含四个Skill模式引用，均由BP固定资产表核验。程序install无需Git／gh；先安装程序，再由 `environment-check --context <已有目录>` 核对必要依赖，缺失时经本次授权用 `environment-install --home <已安装home> --scope user --source <来源>` 静默准备Git／GitHub CLI。状态与锁固定在home，用户级不支持或结果未知时报告，不自动提权或换目录重发；机器级scope只在明确授权后使用。登录本人完成，PATH未刷新不重复安装。
 
@@ -112,6 +119,8 @@ pub struct Package {
     pub schema: u32,
     pub product: String,
     pub version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub components: Option<Components>,
     pub launcher_protocol: u32,
     pub assets: Vec<Asset>,
 }
@@ -126,6 +135,8 @@ pub struct OwnedFile {
 #[serde(deny_unknown_fields)]
 pub struct Version {
     pub version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub components: Option<Components>,
     pub executable: String,
     pub sha256: String,
 }
@@ -145,6 +156,15 @@ struct Change {
     target: String,
     old: Option<Vec<u8>>,
     new_hash: String,
+}
+
+fn apply_change(home: &Path, change: &Change, body: &[u8]) -> Result<()> {
+    let path = owned_target(home, &change.target)?;
+    if !matches_bytes(&path, change.old.as_deref())? {
+        return Err(format!("installation target changed before write; preserve external edits: {}", change.target));
+    }
+    if digest(body) != change.new_hash { return Err("installation change payload mismatch".into()); }
+    persistence::atomic_write(&path, body).map_err(|e| e.to_string())
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -284,6 +304,20 @@ fn assets() -> Vec<(
             "source/orchestrator/skills/bridgeforge-update/SKILL.md",
             Some(include_bytes!("../skills/bridgeforge-update/SKILL.md")),
         ),
+        (
+            "bp.controller.skill.source-update",
+            "payload/bridgepilot-update.ps1",
+            "source/orchestrator/skills/bridgepilot/scripts/bridgepilot_update.ps1",
+            Some(include_bytes!(
+                "../skills/bridgepilot/scripts/bridgepilot_update.ps1"
+            )),
+        ),
+        (
+            "bp.controller.skill.cleanup",
+            "payload/bridgepilot-cleanup-skill.md",
+            "source/orchestrator/skills/bridgepilot-cleanup/SKILL.md",
+            Some(include_bytes!("../skills/bridgepilot-cleanup/SKILL.md")),
+        ),
     ]
 }
 pub fn bundle(output: &Path, core: &Path, launcher: &Path) -> Result<Value> {
@@ -298,16 +332,22 @@ pub fn bundle(output: &Path, core: &Path, launcher: &Path) -> Result<Value> {
         .ok_or("core version missing")?
         .to_owned();
     SemVer::from_str(&version)?;
-    if status["program"] != "bridgepilot" || protocol["launcher_protocol"] != 1 {
+    let launcher_protocol = protocol["launcher_protocol"].as_u64().ok_or("launcher protocol missing")? as u32;
+    if status["program"] != "bridgepilot" || !matches!(launcher_protocol, 1 | 2) {
         return Err("portable binaries have incompatible identity".into());
     }
+    let components: Option<Components> = status.get("components").cloned()
+        .map(serde_json::from_value).transpose().map_err(|e| e.to_string())?;
     let mut package = Package {
-        schema: 1,
+        schema: if components.is_some() { 2 } else { 1 },
         product: "BridgePilot".into(),
         version,
-        launcher_protocol: 1,
+        components,
+        launcher_protocol,
         assets: Vec::new(),
     };
+    validate_product_identity(package.schema, &package.version, package.components.as_ref())?;
+    if !matches!((package.schema, launcher_protocol), (1, 1) | (2, 2)) { return Err("product-version package requires launcher protocol 2".into()); }
     for (id, source, target, body) in assets() {
         let body = match body {
             Some(b) => b.to_vec(),
@@ -326,21 +366,66 @@ pub fn bundle(output: &Path, core: &Path, launcher: &Path) -> Result<Value> {
     persistence::atomic_write_json(&output.join("package.json"), &package)
         .map_err(|e| e.to_string())?;
     Ok(
-        json!({"status":"portable_package_created","root":output,"version":package.version,"assets":package.assets.len(),"archive_included":false}),
+        json!({"status":"portable_package_created","root":output,"version":package.version,"components":package.components,"package_schema":package.schema,"assets":package.assets.len(),"archive_included":false}),
     )
 }
+fn validate_product_identity(schema: u32, version: &str, components: Option<&Components>) -> Result<()> {
+    let version = SemVer::from_str(version)?;
+    let first_bp = SemVer::from_str("1.0.0")?;
+    match (schema, components) {
+        (1, None) if version < first_bp => Ok(()),
+        (2, Some(components)) if version >= first_bp => components.validate(),
+        _ => Err("package schema and product version namespace disagree".into()),
+    }
+}
+
+fn validate_transition(old: &Installation, candidate: &Version, rollback: bool) -> Result<()> {
+    let approved_rollback = rollback && old.previous.as_ref() == Some(candidate);
+    match (&old.current.components, &candidate.components) {
+        (None, Some(after)) => {
+            // Legacy version denoted orchestrator, never the BP product.
+            if SemVer::from_str(&after.orchestrator.version)? < SemVer::from_str(&old.current.version)? {
+                return Err("BP migration would downgrade the legacy orchestrator".into());
+            }
+        }
+        (Some(_), None) => return Err("legacy core cannot read product-version installation metadata; cross-namespace rollback is blocked".into()),
+        _ => {
+            let before = SemVer::from_str(&old.current.version)?;
+            let after = SemVer::from_str(&candidate.version)?;
+            if after < before && !approved_rollback || after == before && old.current != *candidate {
+                return Err("installation cannot downgrade or reuse a version for different program bytes or components".into());
+            }
+            if let (Some(before), Some(after)) = (&old.current.components, &candidate.components) {
+                if !approved_rollback && (SemVer::from_str(&after.orchestrator.version)? < SemVer::from_str(&before.orchestrator.version)?
+                    || SemVer::from_str(&after.forge.version)? < SemVer::from_str(&before.forge.version)?) {
+                    return Err("component downgrade requires an exact retained rollback".into());
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 fn package(root: &Path) -> Result<Package> {
     ordinary(root)?;
     let p: Package = read_json(&root.join("package.json"))?;
-    if p.schema != 1 || p.product != "BridgePilot" || p.launcher_protocol != 1 {
+    if !matches!((p.schema, p.launcher_protocol), (1, 1) | (2, 2)) || p.product != "BridgePilot" {
         return Err("unsupported BridgePilot package".into());
     }
-    SemVer::from_str(&p.version)?;
+    validate_product_identity(p.schema, &p.version, p.components.as_ref())?;
     let mut expected = assets();
+    // Only legacy schema 1 inferred its historical asset table from 0.x.
+    // Schema 2 has one explicit thirteen-asset format, independent of BP version.
+    if p.schema == 1 {
     if p.assets.len() == 6 && SemVer::from_str(&p.version)? < SemVer::from_str("0.6.0")? {
         expected.truncate(6);
     } else if p.assets.len() == 10 && SemVer::from_str(&p.version)? < SemVer::from_str("0.8.0")? {
         expected.truncate(10);
+    } else if p.assets.len() == 11 && SemVer::from_str(&p.version)? < SemVer::from_str("0.11.0")? {
+        expected.truncate(11);
+    } else if p.assets.len() == 12 && SemVer::from_str(&p.version)? < SemVer::from_str("0.12.0")? {
+        expected.truncate(12);
+    }
     }
     if expected.len() != p.assets.len() {
         return Err("portable asset registry mismatch".into());
@@ -358,11 +443,16 @@ fn package(root: &Path) -> Result<Package> {
     if status["program"] != "bridgepilot" || status["version"] != p.version {
         return Err("portable core version differs from its actual program".into());
     }
+    let actual_components: Option<Components> = status.get("components").cloned()
+        .map(serde_json::from_value).transpose().map_err(|e| e.to_string())?;
+    if actual_components != p.components {
+        return Err("portable component versions differ from actual program".into());
+    }
     if probe(
         &root.join("payload/bp-launcher.exe"),
         &["--launcher-self-test".into()],
     )?["launcher_protocol"]
-        != 1
+        != p.launcher_protocol
     {
         return Err("incompatible portable launcher".into());
     }
@@ -371,9 +461,10 @@ fn package(root: &Path) -> Result<Package> {
 pub fn inspect(home: &Path) -> Result<Installation> {
     ordinary(home)?;
     let installation: Installation = read_json(&config(home))?;
-    if installation.schema != 1 || installation.product != "BridgePilot" {
+    if !matches!(installation.schema, 1 | 2) || installation.product != "BridgePilot" {
         return Err("invalid installed-home identity".into());
     }
+    validate_product_identity(installation.schema, &installation.current.version, installation.current.components.as_ref())?;
     let executable = owned_target(home, &installation.current.executable)?;
     if digest_file(&executable)? != installation.current.sha256 {
         return Err("installed core digest mismatch".into());
@@ -531,6 +622,20 @@ fn install_before_lock(
             return Err("rollback target cannot maintain the installed BP user Skill".into());
         }
         let marker: Value = read_json(&skill_marker)?;
+        if marker["parallel_cleanup"] == true
+            && !candidate["capabilities"]
+                .as_array()
+                .is_some_and(|v| v.iter().any(|x| x == "bp-parallel-cleanup-skill-v1"))
+        {
+            return Err("rollback target cannot maintain the bridgepilot-cleanup Skill".into());
+        }
+        if marker["source_update"] == true
+            && !candidate["capabilities"]
+                .as_array()
+                .is_some_and(|v| v.iter().any(|x| x == "bp-source-update-v1"))
+        {
+            return Err("rollback target cannot maintain the source-update Skill".into());
+        }
         if marker["independent_update"] == true
             && !candidate["capabilities"]
                 .as_array()
@@ -548,26 +653,11 @@ fn install_before_lock(
     );
     let current = Version {
         version: p.version.clone(),
+        components: p.components.clone(),
         executable: rel,
         sha256: core.sha256.clone(),
     };
-    if let Some(old) = &old {
-        let before = SemVer::from_str(&old.current.version)?;
-        let after = SemVer::from_str(&p.version)?;
-        let approved_rollback = rollback
-            && old
-                .previous
-                .as_ref()
-                .is_some_and(|v| v.version == p.version && v.sha256 == core.sha256);
-        if after < before && !approved_rollback
-            || after == before && old.current.sha256 != core.sha256
-        {
-            return Err(
-                "installation cannot downgrade or reuse a version for different program bytes"
-                    .into(),
-            );
-        }
-    }
+    if let Some(old) = &old { validate_transition(old, &current, rollback)?; }
     let mut changes = Vec::new();
     let mut owned = Vec::new();
     for asset in p.assets.iter().skip(2) {
@@ -599,22 +689,35 @@ fn install_before_lock(
             sha256: asset.sha256.clone(),
         });
     }
+    let launcher_target = ".build/bridgepilot/bin/bp.exe";
+    let launcher_path = home.join(launcher_target);
+    let mut replace_launcher = !launcher_path.exists();
     let launcher_hash = if let Some(hash) = old
         .as_ref()
         .map(|i| i.launcher_sha256.clone())
         .or(claimed_launcher)
     {
-        let path = home.join(".build/bridgepilot/bin/bp.exe");
-        if path.exists()
-            && (digest_file(&path)? != hash
-                || probe(&path, &["--launcher-self-test".into()])?["launcher_protocol"] != 1)
-        {
-            return Err("stable launcher needs an explicit offline maintenance update".into());
+        if launcher_path.exists() {
+            if digest_file(&launcher_path)? != hash { return Err("stable launcher has external changes".into()); }
+            let identity = probe(&launcher_path, &["--launcher-self-test".into()])?;
+            let protocol = identity["launcher_protocol"].as_u64().ok_or("stable launcher protocol missing")?;
+            if !matches!(protocol, 1 | 2) { return Err("unsupported stable launcher protocol".into()); }
+            replace_launcher = p.schema == 2 && protocol == 1;
         }
-        hash
+        if replace_launcher { p.assets[1].sha256.clone() } else { hash }
     } else {
         p.assets[1].sha256.clone()
     };
+    let launcher_body = if replace_launcher {
+        let body = asset_bytes(package_root, &p.assets[1])?;
+        changes.push(Change { target: launcher_target.into(), old: if launcher_path.exists() { Some(bytes(&launcher_path)?) } else { None }, new_hash: launcher_hash.clone() });
+        Some(body)
+    } else { None };
+    let claim_body = serde_json::to_vec_pretty(&json!({"schema":1,"product":"BridgePilot","launcher_sha256":launcher_hash})).map_err(|e| e.to_string())?;
+    let update_claim = home_claim(home).exists() && claim(home)?.as_ref() != Some(&launcher_hash);
+    if update_claim {
+        changes.push(Change { target: ".runtime/config/bridgepilot-home.json".into(), old: Some(bytes(&home_claim(home))?), new_hash: digest(&claim_body) });
+    }
     let previous = old.as_ref().and_then(|i| {
         if i.current == current {
             i.previous.clone()
@@ -623,7 +726,7 @@ fn install_before_lock(
         }
     });
     let new = Installation {
-        schema: 1,
+        schema: p.schema,
         product: "BridgePilot".into(),
         current: current.clone(),
         previous,
@@ -632,7 +735,7 @@ fn install_before_lock(
     };
     if preview {
         return Ok(
-            json!({"status":"installation_planned","home":home,"version":p.version,"workspace":workspace,"writes":false,"legacy_forge_unchanged":true}),
+            json!({"status":"installation_planned","home":home,"version":p.version,"components":p.components,"package_schema":p.schema,"workspace":workspace,"writes":false,"legacy_forge_unchanged":true}),
         );
     }
     if let Some(path) = &workspace {
@@ -712,13 +815,16 @@ fn install_before_lock(
         }
         persistence::atomic_write_json(&retained.join("package.json"), &p)
             .map_err(|e| e.to_string())?;
-        let launcher = home.join(".build/bridgepilot/bin/bp.exe");
-        if !launcher.exists() {
-            let body = asset_bytes(package_root, &p.assets[1])?;
+        if let Some(body) = &launcher_body {
+            let change = transaction.changes.iter().find(|c| c.target == launcher_target).ok_or("launcher change missing")?;
             if digest(&body) != new.launcher_sha256 {
-                return Err("cannot silently replace the claimed launcher".into());
+                return Err("candidate launcher differs from its package identity".into());
             }
-            persistence::atomic_write(&launcher, &body).map_err(|e| e.to_string())?;
+            apply_change(home, change, body)?;
+        }
+        if update_claim {
+            let change = transaction.changes.iter().find(|c| c.target == ".runtime/config/bridgepilot-home.json").ok_or("home claim change missing")?;
+            apply_change(home, change, &claim_body)?;
         }
         for asset in p.assets.iter().skip(2) {
             let change = transaction
@@ -749,6 +855,7 @@ fn install_before_lock(
         if digest_file(&executable)? != new.current.sha256 {
             return Err("candidate runtime changed during install".into());
         }
+        if digest_file(&launcher_path)? != new.launcher_sha256 { return Err("stable launcher changed during install".into()); }
         for file in &new.files {
             if digest_file(&owned_target(home, &file.target)?)? != file.sha256 {
                 return Err("candidate owned asset changed during install".into());
@@ -765,7 +872,7 @@ fn install_before_lock(
         ));
     }
     Ok(
-        json!({"status":"installation_current","home":home,"version":p.version,"launcher":home.join(".build/bridgepilot/bin/bp.exe"),"workspace":workspace,"archive_migrated":false,"legacy_forge_unchanged":true}),
+            json!({"status":"installation_current","home":home,"version":p.version,"components":p.components,"package_schema":p.schema,"launcher":home.join(".build/bridgepilot/bin/bp.exe"),"workspace":workspace,"archive_migrated":false,"legacy_forge_unchanged":true}),
     )
 }
 pub fn recover(home: &Path) -> Result<Value> {
@@ -864,7 +971,7 @@ pub fn launch() -> Result<i32> {
     if args == ["--launcher-self-test"] {
         println!(
             "{}",
-            json!({"program":"bridgepilot-launcher","launcher_protocol":1})
+            json!({"program":"bridgepilot-launcher","launcher_protocol":2,"installation_schemas":[1,2]})
         );
         return Ok(0);
     }
@@ -894,6 +1001,10 @@ pub fn launch() -> Result<i32> {
 }
 
 #[cfg(test)]
+#[path = "../../../scripts/tests/orchestrator/version_identity.rs"]
+mod version_identity_tests;
+
+#[cfg(test)]
 mod recovery_tests {
     use super::*;
     #[test]
@@ -910,6 +1021,7 @@ mod recovery_tests {
             product: "BridgePilot".into(),
             current: Version {
                 version: "0.4.0".into(),
+                components: None,
                 executable: ".build/bridgepilot/versions/test/bp-core.exe".into(),
                 sha256: "fixture".into(),
             },

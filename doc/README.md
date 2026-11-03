@@ -4,9 +4,15 @@ delivery_layout: flat
 
 # BridgePilot Documents
 
+- 已验收：[BP、BF 与 orchestrator 三产品版本治理](1_delivery/plan_2026-11-03_three-product-versions.md#用户验收与发布授权2026-11-03)（2026-11-03用户验收BP1.0.0／BF17.0.0／orchestrator0.14.0并授权源码发布；构建、定向验证、旧真实产物隔离迁移、dogfood及独立复核通过。发布结果以受管Git收据为准；未更新用户级安装或真实下游）。
+
 本仓库采用 Forge 六层文档体系。`1_delivery/` 采用扁平布局：每个 topic 直接位于该目录下；若未来交付规模需要里程碑，可改为 `milestone` 并迁入 `M1/<topic>/`。
 
 ## 从这里开始
+
+- 用户已验收：[四个下游 Template-only JSON 退役](1_delivery/template-retirement/requirements_2026-11-02_four-projects.md#用户验收2026-11-03)（2026-11-03；四真实项目递归均仅 hooks.json，23份 JSON＋4戳清理，固定工具基线／重复更新及独立终审通过；私有 Hook、Skill、业务差异与 Git 状态保持。本项目发布另行执行，不含四下游 Git 操作）。
+
+- 实施完成、待用户验收：[BP 源码根迁移与公共目录规则补强](1_delivery/source-workspace-refactor/plan_2026-11-02_bp-source-root-migration.md)（2026-11-02；完整仓库已迁至本机正式开发根，Git 及既有改动保持；公共指令区回归、工具身份、安装绑定及独立复核通过，旧副本冻结保留；未提交、推送或发布，下游规则未传播）。
 
 - 已验收：[BP 六包职责拆分](1_delivery/bridgepilot-package-split/plan_2026-11-02_package-split.md#用户验收与发布授权2026-11-02)（2026-11-02；13 项最终候选检查及受管收口通过；BP 0.9.0、五个新包 0.1.0、lifecycle 0.8.5；用户已授权 release，memory 的共享 workspace 构建覆盖已按明确授权补齐且保持 0.1.1，正继续受管发布，实际结果以收据为准）。
 

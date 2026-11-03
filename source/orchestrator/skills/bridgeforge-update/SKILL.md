@@ -7,9 +7,11 @@ argument: 项目目录或项目集合，以及 dry-run、升级或本轮已授�
 
 # bridgeforge-update
 
+当前源码候选使用 Template-only：项目不再保留版本戳、分发旁文件、版本配置或收口账本。骨架升级按当前 bridgeforge-codex 计划／事务执行；后文涉及旧收口／受管 release 的说明不再作为入口，发布改按项目真实原生流程及本次明确授权。不要调用已退役的 Forge develop、setup/migration/release 参数，不为放行恢复旧 JSON。BP 旧账本自动认证不可用时保持实际状态并报告，不伪称 Released。
+
 由 BP 主对话编排整轮骨架升级，沿用 [BP 入口](../bridgepilot/SKILL.md) 的项目绑定、控制权和任务核验。实际维护、开发收口和发布分别使用当前可用的 bridgeforge-codex、develop、git-sync；能力缺失时报告具体缺口，不另造执行器。
 
-本入口由 BP 独立安装和维护，不进入 Forge 共享分发。用户级安装时，先读取本 Skill 目录的 `bridgepilot-local.json`，以实际 `home` 定位 `.build/bridgepilot/bin/bp.exe`，通过 `skill-status --home <home> --skills-root <实际根>` 核验两个入口的归属与完整性，再读取该 home 下 `source/orchestrator/skills/bridgepilot/SKILL.md`。源码候选没有本机绑定时，先按 BP 入口核对当前项目根与实际安装，不猜 home；本入口被选择不等于获准 apply 或发布。
+本入口由 BP 独立安装和维护，不进入 Forge 共享分发。用户级安装时，先读取本 Skill 目录的 `bridgepilot-local.json`，以实际 `home` 定位 `.build/bridgepilot/bin/bp.exe`，通过 `skill-status --home <home> --skills-root <实际根>` 核验各受管入口的归属与完整性，再读取该 home 下 `source/orchestrator/skills/bridgepilot/SKILL.md`。源码候选没有本机绑定时，先按 BP 入口核对当前项目根与实际安装，不猜 home；本入口被选择不等于获准 apply 或发布。
 
 ## 1. 确定批次
 

@@ -15,6 +15,44 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [BP 1.0.0] - 2026-11-03
+
+首次 BP 主产品源码发布，组件组合为 BF17.0.0／orchestrator0.14.0。既有16.x谱系归BF，不作为BP的前一版本；用户级安装和下游部署另行执行。
+
+- [repo] BP 主产品版本独立为 1.0.0；BF 继续使用原生 CLI manifest 的 17.0.0 候选，orchestrator 由 0.13.0 候选调整为 0.14.0，安装包不再将 orchestrator 版本当作 BP 版本。
+- [repo] BP 便携包及安装身份使用 schema 2，显式记录组件版本与交付方式；保留旧 schema 1 的 0.x 读取，按 orchestrator 版本检查迁移。launcher protocol 2 兼容两种安装身份，旧 launcher 的升级与 home claim 纳入恢复事务；跨版本命名空间回退到旧 reader 明确阻断。
+- [product][repo] BF 产品版本读取、manifest 和自检从 BP 根 VERSION 解耦；公共与工厂执行器分别核对对应来源指纹，工厂检查公共运行产物时使用公共投影。
+- [repo] bridgepilot-install 由 0.4.0 候选调整为 0.5.0，反映不兼容的原生包／安装协议变化。其余前序候选包不重复升版；本次源码发布不更新用户级安装。
+
+## [17.0.0] - 2026-11-03
+
+本节为 BF17.0.0 及同次源码交付的累计改动；17.x 版本谱系归 BF，不作为 BP 主版本。
+
+### Changed
+
+- [product][repo] **BREAKING:** 下游 `.codex` 递归 JSON 统一为 `hooks.json`；退出项目分发合同、版本配置、开发账本、目录覆盖、Hook 旁文件和骨架版本戳，不迁移旧配置续用。
+- [product][repo] **BREAKING:** Forge 配置化 develop、release/setup/migration、项目本地公共工具构建及旧自动 cleanup 明确退役；普通受管 Git 同步保留，版本与发布回到项目原生文件与构建流程。BP 旧账本认证明确拒绝，CLI 不再宣称该能力。
+- [product] 新增编译期公共源码／锁文件来源证明、Template-only 基线及删除后事务验证；保护并发外部改动、原生 Hook、Skill 和提交扩展，未知 JSON 或运行工具归属不明时阻断。
+- [repo] BP／Forge 正式维护源统一位于仓库 `source/orchestrator/` 与 `source/forge/`，补齐 BP 源码安装更新、项目列表及独立清理入口的安装与恢复保护。
+- [meta] 四个真实下游已完成 23 份 JSON＋4 个戳的精确退役，原生 Hook 回归、重复更新、Git／业务保护及独立终审通过；2026-11-03 用户验收。真实 GUI、Vault 复制及用户级安装不冒充通过。
+
+### Native package versions since 16.1.0
+
+| Package | Before | After | Reason |
+|---|---|---|---|
+| bridgeforge-core | 10.2.0 | 11.0.0 | 旧指纹迁移行为退役，新增原生模板规则与编译来源证明 |
+| bridgeforge-skeleton | 0.6.0 | 0.7.0 | 基线退出项目旁文件，增加模板及暂存树校验 |
+| bridgeforge-checks | 0.2.2 | 0.3.0 | 目录与指令检查退出旧 JSON，TODO 规则原生化 |
+| bridgeforge-workflow | 0.9.2 | 0.11.0 | Template-only 事务与普通 Git，退出配置化开发发布／清理入口 |
+| bridgeforge-factory | 0.10.1 | 0.11.0 | 新模板规则生成、工厂镜像边界及无旁文件构建 |
+| bridgeforge-lifecycle | 0.8.5 | 0.8.6 | 修复同 owner 严格嵌套输入冗余判定，保持冲突保护 |
+| bridgepilot-execution | 0.1.0 | 0.2.0 | 旧账本交付认证明确退役，不伪称 Released |
+| bridgepilot-install | 0.2.0 | 0.5.0 | 源码更新、入口保护及三版本安装身份和launcher迁移累计变化 |
+| bridgepilot-orchestrator | 0.10.0 | 0.14.0 | 项目目录、源码更新、认证退役及BP／组件版本输出分离 |
+| bridgeforge-cli / bridgeforge-hook | 16.1.0 | 17.0.0 | 显式原生版本，分发不兼容的BF工具协议，与BP主版本解耦 |
+
+bridgeforge-memory 0.1.1、bridgepilot-tasks／storage／transfer 0.1.0 保持；不重复升级无行为变更的包。此版本是源码发布，四下游工作区仍保留已验收的 16.1.0 本地候选，不自动升级、提交或推送下游。
+
 ## [16.1.0] - 2026-11-02
 
 ### Added

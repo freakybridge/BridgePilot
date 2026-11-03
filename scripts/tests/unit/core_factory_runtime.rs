@@ -62,17 +62,17 @@ fn benchmark_fixture(fixture: Factory, reference: bool, label: &str) -> Vec<Valu
     let mut candidate = BTreeMap::new();
     for phase in ["cold", "same", "version", "module"] {
         if phase == "version" {
-            let mut cargo = fs::read_to_string(root.join("Cargo.toml"))
+            let mut cargo = fs::read_to_string(root.join(crate::source_projection::physical_path(root, "source/cli/Cargo.toml")))
                 .unwrap()
                 .parse::<toml_edit::DocumentMut>()
                 .unwrap();
-            let old = cargo["workspace"]["package"]["version"]
+            let old = cargo["package"]["version"]
                 .as_str()
                 .unwrap()
                 .parse::<bridgeforge_core::SemVer>()
                 .unwrap();
             let next = format!("{}.{}.{}", old.major, old.minor, old.patch + 1);
-            cargo["workspace"]["package"]["version"] = toml_edit::value(&next);
+            cargo["package"]["version"] = toml_edit::value(&next);
             let mut lock = fs::read_to_string(root.join("Cargo.lock"))
                 .unwrap()
                 .parse::<toml_edit::DocumentMut>()
@@ -85,8 +85,11 @@ fn benchmark_fixture(fixture: Factory, reference: bool, label: &str) -> Vec<Valu
                     package["version"] = toml_edit::value(&next);
                 }
             }
-            candidate.insert(root.join("VERSION"), format!("{next}\n").into_bytes());
-            candidate.insert(root.join("Cargo.toml"), cargo.to_string().into_bytes());
+            let hook_path = root.join(crate::source_projection::physical_path(root, "source/hook/Cargo.toml"));
+            let mut hook = fs::read_to_string(&hook_path).unwrap().parse::<toml_edit::DocumentMut>().unwrap();
+            hook["package"]["version"] = toml_edit::value(&next);
+            candidate.insert(hook_path, hook.to_string().into_bytes());
+            candidate.insert(root.join(crate::source_projection::physical_path(root, "source/cli/Cargo.toml")), cargo.to_string().into_bytes());
             candidate.insert(root.join("Cargo.lock"), lock.to_string().into_bytes());
         }
         if phase == "module" {
@@ -213,19 +216,19 @@ fn mixed_product_release_materializer_updates_consumer_lock_without_bumping_harn
         .unwrap();
     }
     let before = tree(root);
-    let mut cargo = fs::read_to_string(root.join("Cargo.toml"))
+    let mut cargo = fs::read_to_string(root.join(crate::source_projection::physical_path(root, "source/cli/Cargo.toml")))
         .unwrap()
         .parse::<toml_edit::DocumentMut>()
         .unwrap();
     // Always exercise an actual product-version change, including after the
     // factory itself has released the version used by an earlier fixture.
-    let current = cargo["workspace"]["package"]["version"]
+    let current = cargo["package"]["version"]
         .as_str()
         .unwrap()
         .parse::<bridgeforge_core::SemVer>()
         .unwrap();
     let next = format!("{}.{}.{}", current.major, current.minor, current.patch + 1);
-    cargo["workspace"]["package"]["version"] = toml_edit::value(next.as_str());
+    cargo["package"]["version"] = toml_edit::value(next.as_str());
     let mut lock = fs::read_to_string(root.join("Cargo.lock"))
         .unwrap()
         .parse::<toml_edit::DocumentMut>()
@@ -239,8 +242,12 @@ fn mixed_product_release_materializer_updates_consumer_lock_without_bumping_harn
         }
     }
     let writes = BTreeMap::from([
-        (root.join("VERSION"), format!("{next}\n").into_bytes()),
-        (root.join("Cargo.toml"), cargo.to_string().into_bytes()),
+        (root.join(crate::source_projection::physical_path(root, "source/hook/Cargo.toml")), {
+            let mut hook = fs::read_to_string(root.join(crate::source_projection::physical_path(root, "source/hook/Cargo.toml"))).unwrap().parse::<toml_edit::DocumentMut>().unwrap();
+            hook["package"]["version"] = toml_edit::value(&next);
+            hook.to_string().into_bytes()
+        }),
+        (root.join(crate::source_projection::physical_path(root, "source/cli/Cargo.toml")), cargo.to_string().into_bytes()),
         (root.join("Cargo.lock"), lock.to_string().into_bytes()),
     ]);
     struct CandidateRunner(Runner);
@@ -262,14 +269,14 @@ fn mixed_product_release_materializer_updates_consumer_lock_without_bumping_harn
                 .and_then(|s| s.to_str())
                 == Some("bridgeforge-factory")
             {
-                let cargo = fs::read_to_string(request.cwd.join("Cargo.toml"))?
+                let cargo = fs::read_to_string(request.cwd.join("source/cli/Cargo.toml"))?
                     .parse::<toml_edit::DocumentMut>()
                     .unwrap();
                 let factory = fs::read_to_string(request.cwd.join("source/factory/Cargo.toml"))?
                     .parse::<toml_edit::DocumentMut>()
                     .unwrap();
                 return Ok(ProcessOutput{code:0,stdout:serde_json::to_vec(&json!({"schema":1,"name":"bridgeforge-factory","status":"ok",
-                    "version":factory["package"]["version"].as_str().unwrap(),"product_version":cargo["workspace"]["package"]["version"].as_str().unwrap()})).unwrap(),stderr:vec![],timed_out:false});
+                    "version":factory["package"]["version"].as_str().unwrap(),"product_version":cargo["package"]["version"].as_str().unwrap()})).unwrap(),stderr:vec![],timed_out:false});
             }
             self.0.run(request)
         }
@@ -502,9 +509,7 @@ impl ProcessRunner for Runner {
                 fs::write(self.root.join(".codex/bin/unknown.txt"), b"external")?;
             }
         } else {
-            let contract: Value =
-                serde_json::from_slice(&fs::read(self.root.join(".codex/managed-skeleton.json"))?)
-                    .unwrap();
+            let contract: Value = serde_json::from_slice(&manifest::render_managed_contract(&self.root).unwrap()).unwrap();
             let runtime = manifest::runtime_contract(&self.root, &contract).unwrap();
             let asset = runtime["generated_assets"]
                 .as_array()
@@ -589,7 +594,6 @@ fn factory_prepare_checks_without_writes_and_reuses_healthy_cli_and_hook() {
 fn factory_prepare_stops_on_manifest_mirror_source_build_or_target_drift() {
     for failure in [
         "manifest",
-        "mirror",
         "build",
         "source",
         "target",
@@ -599,15 +603,8 @@ fn factory_prepare_stops_on_manifest_mirror_source_build_or_target_drift() {
         let runner = Runner::new(&fixture.0, failure);
         if failure == "manifest" {
             fs::write(
-                fixture.0.join(".codex/managed-skeleton.json"),
+                fixture.0.join("bridgeforge-manifest.json"),
                 b"invalid contract",
-            )
-            .unwrap();
-        }
-        if failure == "mirror" {
-            fs::write(
-                fixture.0.join(".codex/hooks/source/hook/src/main.rs"),
-                b"mirror drift",
             )
             .unwrap();
         }
@@ -648,7 +645,7 @@ fn factory_prepare_stops_on_manifest_mirror_source_build_or_target_drift() {
                 b"external change"
             );
         }
-        if matches!(failure, "manifest" | "mirror") {
+        if failure == "manifest" {
             assert_eq!(runner.calls.load(Ordering::Relaxed), 0);
         }
     }
@@ -659,16 +656,37 @@ fn factory_prepare_preserves_unowned_legacy_files_created_during_build() {
     let fixture = Factory::new();
     let runner = Runner::new(&fixture.0, "legacy-new");
     let result = prepare(&fixture.0, false, &runner);
+    assert_eq!(result.code, 2, "{}", result.stderr);
+    assert!(result.stderr.contains("retired"));
+    assert_eq!(
+        fs::read(fixture.0.join(".codex/bin/unknown.txt")).unwrap(),
+        b"external"
+    );
+    assert_eq!(prepare(&fixture.0, true, &runner).code, 2);
+    assert!(!fixture.0.join(".build/bridgeforge/bin/bridgeforge.exe").exists());
+    assert_eq!(
+        fs::read(fixture.0.join(".codex/bin/unknown.txt")).unwrap(),
+        b"external"
+    );
+}
+
+#[test]
+fn factory_prepare_repairs_declared_mirror_only_after_zero_write_check_rejects_drift() {
+    let fixture = Factory::new();
+    let runner = Runner::new(&fixture.0, "");
+    let source = crate::source_projection::render(&fixture.0, false).unwrap();
+    let mirror = fixture.0.join(".codex/hooks/source/hook/src/main.rs");
+    let expected = manifest::render_targets(&fixture.0).unwrap().into_iter().find(|(p,_)| p == &mirror).unwrap().1;
+    fs::write(&mirror, b"stale declared mirror").unwrap();
+    let before = tree(&fixture.0);
+    assert_eq!(prepare(&fixture.0, true, &runner).code, 2);
+    assert_eq!(runner.calls.load(Ordering::Relaxed), 0);
+    assert_eq!(tree(&fixture.0), before);
+    let result = prepare(&fixture.0, false, &runner);
     assert_eq!(result.code, 0, "{}", result.stderr);
-    assert_eq!(
-        fs::read(fixture.0.join(".codex/bin/unknown.txt")).unwrap(),
-        b"external"
-    );
+    assert_eq!(fs::read(&mirror).unwrap(), expected);
+    assert_eq!(crate::source_projection::render(&fixture.0, false).unwrap(), source);
     assert_eq!(prepare(&fixture.0, true, &runner).code, 0);
-    assert_eq!(
-        fs::read(fixture.0.join(".codex/bin/unknown.txt")).unwrap(),
-        b"external"
-    );
 }
 
 #[test]
@@ -677,14 +695,7 @@ fn legacy_factory_tools_retire_only_after_verified_install() {
     let root = &fixture.0;
     let old = root.join(".codex/bin");
     fs::create_dir_all(&old).unwrap();
-    let profiles: Vec<Value> = serde_json::from_str(include_str!(
-        "../../../source/forge/core/src/legacy_artifact_receipts.json"
-    ))
-    .unwrap();
-    let profile = profiles
-        .iter()
-        .find(|p| p["id"] == "codex.bridgeforge-cli")
-        .unwrap();
+    let profile = json!({"source_tree_sha256":"retired","lockfile_sha256":"retired","build_recipe_sha256":"retired","self_test_sha256":"retired"});
     use sha2::{Digest, Sha256};
     let payload = b"known legacy binary fixture";
     let record = json!({"schema_version":2,"generated_asset_id":"codex.bridgeforge-cli",
@@ -705,19 +716,12 @@ fn legacy_factory_tools_retire_only_after_verified_install() {
     let before = tree(root);
     let failed = prepare(root, false, &Runner::new(root, "installed-test"));
     assert_ne!(failed.code, 0, "{}", failed.stderr);
-    assert_eq!(
-        crate::project_sync::legacy_artifact_retirements(root)
-            .unwrap()
-            .len(),
-        3
-    );
-    for (path, bytes) in &before {
-        assert_eq!(&fs::read(root.join(path)).unwrap(), bytes);
-    }
+    assert!(crate::project_sync::legacy_artifact_retirements(root).unwrap_err().contains("fingerprint migration is retired"));
+    for (path, bytes) in &before { assert_eq!(&fs::read(root.join(path)).unwrap(), bytes); }
     let result = prepare(root, false, &Runner::new(root, "ok"));
-    assert_eq!(result.code, 0, "{}", result.stderr);
-    assert_eq!(fs::read_dir(&old).unwrap().count(), 0);
-    assert_eq!(prepare(root, true, &Runner::new(root, "ok")).code, 0);
+    assert_ne!(result.code, 0);
+    assert!(result.stderr.contains("fingerprint migration is retired"));
+    for (path, bytes) in &before { assert_eq!(&fs::read(root.join(path)).unwrap(), bytes); }
 }
 
 #[test]
@@ -898,20 +902,21 @@ fn factory_prepare_serializes_with_sync_and_detects_binary_lock_and_recipe_drift
         fs::write(fixture.0.join(".codex/hooks").join(relative), bytes).unwrap();
     }
     assert_eq!(
-        prepare(&fixture.0, false, &runner).code,
+        prepare(&fixture.0, true, &runner).code,
         2,
-        "stale manifest must not be repaired by preparation"
+        "zero-write inspection must reject stale derived files"
     );
-    manifest::rebuild(&fixture.0, false).unwrap();
     assert_eq!(prepare(&fixture.0, false, &runner).code, 0);
     assert_eq!(runner.builds.load(Ordering::Relaxed), 7);
-    let path = fixture.0.join(".codex/managed-skeleton.json");
+    let (_, path) = paths(&fixture.0, &contract["generated_assets"][0]).unwrap();
     let mut altered: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
-    altered["generated_assets"][0]["build"]["args"] = json!(["unsafe"]);
+    altered["build_recipe_sha256"] = json!("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
     fs::write(path, serde_json::to_vec(&altered).unwrap()).unwrap();
     let calls = runner.calls.load(Ordering::Relaxed);
-    assert_eq!(prepare(&fixture.0, false, &runner).code, 2);
+    assert_eq!(prepare(&fixture.0, true, &runner).code, 2);
     assert_eq!(runner.calls.load(Ordering::Relaxed), calls);
+    assert_eq!(prepare(&fixture.0, false, &runner).code, 0);
+    assert_eq!(runner.builds.load(Ordering::Relaxed), 8);
 }
 
 #[cfg(windows)]
