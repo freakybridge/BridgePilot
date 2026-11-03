@@ -5,10 +5,6 @@ mod fixture_product;
 #[cfg(test)]
 mod build_provenance;
 #[cfg(test)]
-mod version_governance;
-#[cfg(test)]
-mod factory_version_config;
-#[cfg(test)]
 mod high_cost_native;
 #[cfg(test)]
 mod hook_guards;
@@ -24,10 +20,12 @@ mod project_map_performance;
 mod runtime_flows;
 #[cfg(test)]
 mod security_guards;
+#[cfg(test)]
+mod version_governance;
 
 #[cfg(test)]
 mod tests {
-    use crate::{test_artifacts, fixture_product};
+    use crate::{fixture_product, test_artifacts};
     use serde_json::json;
     use sha2::{Digest, Sha256};
     use std::collections::BTreeMap;
@@ -135,8 +133,20 @@ mod tests {
     #[test]
     fn windows_subsystem_is_split_between_cli_and_hook() {
         let repository = root();
-        let cli = fs::read_to_string(repository.join(bridgeforge_core::source_projection::physical_path(&repository, "source/cli/src/main.rs"))).unwrap();
-        let hook = fs::read_to_string(repository.join(bridgeforge_core::source_projection::physical_path(&repository, "source/hook/src/main.rs"))).unwrap();
+        let cli = fs::read_to_string(repository.join(
+            bridgeforge_core::source_projection::physical_path(
+                &repository,
+                "source/cli/src/main.rs",
+            ),
+        ))
+        .unwrap();
+        let hook = fs::read_to_string(repository.join(
+            bridgeforge_core::source_projection::physical_path(
+                &repository,
+                "source/hook/src/main.rs",
+            ),
+        ))
+        .unwrap();
         assert!(
             !cli.contains("windows_subsystem"),
             "bridgeforge CLI must remain a console application"
@@ -337,13 +347,18 @@ mod tests {
     fn managed_manifests_are_current_and_python_free() {
         let repository = root();
         assert!(!bridgeforge_factory::manifest::rebuild(&repository, true).unwrap());
-        let contract =
-            fixture_product::read_to_string(repository.join("source/forge/bridgeforge-manifest.json")).unwrap();
+        let contract = fixture_product::read_to_string(
+            repository.join("source/forge/bridgeforge-manifest.json"),
+        )
+        .unwrap();
         assert!(!contract.contains(".py\""));
         assert!(contract.contains("codex.bridgeforge-cli"));
         assert!(contract.contains("codex.hooks"));
         let distribution: serde_json::Value = serde_json::from_slice(
-            &fixture_product::read_shared(repository.join("source/forge/bridgeforge-manifest.json")).unwrap(),
+            &fixture_product::read_shared(
+                repository.join("source/forge/bridgeforge-manifest.json"),
+            )
+            .unwrap(),
         )
         .unwrap();
         for platform in distribution["platforms"].as_object().unwrap().values() {
@@ -358,10 +373,12 @@ mod tests {
                     .as_array()
                     .unwrap()
                     .iter()
-                    .any(
-                        |f| f["source"] == bridgeforge_core::source_projection::template_relative(&repository, "templates/skills/git-sync/references/first-use.md")
-                            && f["target"] == "references/first-use.md"
-                    ),
+                    .any(|f| f["source"]
+                        == bridgeforge_core::source_projection::template_relative(
+                            &repository,
+                            "templates/skills/git-sync/references/first-use.md"
+                        )
+                        && f["target"] == "references/first-use.md"),
                 "first-use reference must be shipped with git-sync"
             );
         }
@@ -375,9 +392,12 @@ mod tests {
             "templates/.githooks/pre-commit",
             "scripts/bridgeforge_codex_shared_update.ps1",
         ] {
-            let text = fs::read_to_string(bridgeforge_core::source_projection::template_path(&repository, relative))
-                .unwrap()
-                .to_lowercase();
+            let text = fs::read_to_string(bridgeforge_core::source_projection::template_path(
+                &repository,
+                relative,
+            ))
+            .unwrap()
+            .to_lowercase();
             assert!(
                 text.contains("bridgeforge") || text.contains("cargo"),
                 "{relative}"
@@ -391,8 +411,11 @@ mod tests {
         ] {
             assert!(!repository.join(retired).exists(), "{retired}");
         }
-        let precommit =
-            fs::read_to_string(bridgeforge_core::source_projection::template_path(&repository, "templates/.githooks/pre-commit")).unwrap();
+        let precommit = fs::read_to_string(bridgeforge_core::source_projection::template_path(
+            &repository,
+            "templates/.githooks/pre-commit",
+        ))
+        .unwrap();
         assert!(precommit.contains("for CLI in .deps/bridgeforge/bin"));
         assert!(precommit.contains("build-receipt-cli.json"));
         assert!(precommit.contains("schema_version"));
@@ -400,17 +423,6 @@ mod tests {
         assert!(!precommit.contains("grep "));
         assert!(!precommit.contains(".runtime/bridgeforge-target"));
         assert!(!precommit.contains("--skip-generated-runtime"));
-    }
-
-    #[test]
-    fn factory_structure_keeps_formal_rust_requirements() {
-        let repository = root();
-        let requirements = fs::read_to_string(repository.join(
-            "doc/1_delivery/rust-only-bridgeforge/requirements_2026-09-01_rust-only-bridgeforge.md",
-        ))
-        .unwrap();
-        assert!(requirements.contains("lifecycle:"));
-        assert!(requirements.contains("validation_status:"));
     }
 
     #[test]
@@ -438,12 +450,6 @@ mod distribution_regressions;
 
 #[cfg(test)]
 mod artifact_layout_runtime;
-#[cfg(test)]
-mod git_sync_polyglot_runtime;
-#[cfg(test)]
-mod git_sync_runtime;
-#[cfg(test)]
-mod schema4_fixture;
 
 #[allow(dead_code)]
 #[path = "../support/artifact_paths.rs"]

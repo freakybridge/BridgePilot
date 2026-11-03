@@ -21,7 +21,3 @@ pub mod runner;
 #[cfg(all(test, bridgeforge_factory_tests))]
 #[path = "../../../../scripts/tests/unit/factory/public_artifact_cache.rs"]
 mod public_artifact_cache_tests;
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/factory/git_sync.rs"]
-mod git_sync_tests;

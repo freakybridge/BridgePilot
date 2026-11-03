@@ -3,6 +3,7 @@
 mod fixture_product;
 
 use super::*;
+use std::fs;
 
 #[test]
 fn retired_operations_fail_before_repository_or_process_access() {
@@ -303,15 +304,16 @@ fn factory_relay_requires_current_source_binary_and_receipt_before_running() {
     ));
     for directory in [
         "source/core/src",
+        "source/cli/src",
         "source/factory/src",
         "templates",
         ".build/bridgeforge/bin",
     ] {
         fs::create_dir_all(root.join(directory)).unwrap();
     }
-    fs::write(root.join("Cargo.toml"),b"[workspace]\nmembers=['source/core','source/factory']\n[workspace.package]\nversion='6.0.0'\n").unwrap();
-    fs::write(root.join("Cargo.lock"),b"version=4\n[[package]]\nname='bridgeforge-core'\nversion='6.0.0'\n[[package]]\nname='bridgeforge-factory'\nversion='0.1.0'\n").unwrap();
-    for (directory, version) in [("core", "6.0.0"), ("factory", "0.1.0")] {
+    fs::write(root.join("Cargo.toml"),b"[workspace]\nmembers=['source/core','source/cli','source/factory']\n[workspace.package]\nversion='6.0.0'\n").unwrap();
+    fs::write(root.join("Cargo.lock"),b"version=4\n[[package]]\nname='bridgeforge-core'\nversion='6.0.0'\n[[package]]\nname='bridgeforge-cli'\nversion='6.0.0'\n[[package]]\nname='bridgeforge-factory'\nversion='0.1.0'\n").unwrap();
+    for (directory, version) in [("core", "6.0.0"), ("cli", "6.0.0"), ("factory", "0.1.0")] {
         fs::write(
             root.join(format!("source/{directory}/Cargo.toml")),
             format!("[package]\nname='bridgeforge-{directory}'\nversion='{version}'\n"),
@@ -367,6 +369,7 @@ fn factory_relay_requires_current_source_binary_and_receipt_before_running() {
     assert_eq!(runner.0.get(), 1);
     for changed in [
         root.join("source/core/src/lib.rs"),
+        root.join("source/cli/Cargo.toml"),
         binary.clone(),
         receipt_path.clone(),
     ] {
@@ -412,6 +415,10 @@ fn factory_relay_requires_current_source_binary_and_receipt_before_running() {
                 .unwrap()
                 .replace("version='6.0.0'", "version='7.0.0'");
             fs::write(self.root.join("Cargo.toml"), cargo).unwrap();
+            let cli = self.root.join("source/cli/Cargo.toml");
+            let cargo = fs::read_to_string(&cli).unwrap()
+                .replace("version='6.0.0'", "version='7.0.0'");
+            fs::write(cli, cargo).unwrap();
             let image = b"managed refreshed factory image";
             fs::write(self.binary, image).unwrap();
             if self.valid_receipt {
@@ -432,6 +439,7 @@ fn factory_relay_requires_current_source_binary_and_receipt_before_running() {
         }
     }
     let original_cargo = fs::read(root.join("Cargo.toml")).unwrap();
+    let original_cli = fs::read(root.join("source/cli/Cargo.toml")).unwrap();
     for (valid_receipt, valid_self_test, drift_after_probe) in [
         (false, true, false),
         (true, false, false),
@@ -440,6 +448,7 @@ fn factory_relay_requires_current_source_binary_and_receipt_before_running() {
     ] {
         fs::write(root.join("VERSION"), b"6.0.0\n").unwrap();
         fs::write(root.join("Cargo.toml"), &original_cargo).unwrap();
+        fs::write(root.join("source/cli/Cargo.toml"), &original_cli).unwrap();
         fs::write(&binary, image).unwrap();
         fs::write(&receipt_path, serde_json::to_vec(&receipt).unwrap()).unwrap();
         let refresh = Refresh {

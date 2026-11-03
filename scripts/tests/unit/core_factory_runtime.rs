@@ -810,7 +810,7 @@ fn generated_install_rolls_back_own_changes_and_preserves_external_changes() {
 }
 
 #[test]
-fn generated_install_rolls_back_ignore_retirement_when_private_file_appears() {
+fn retired_legacy_binary_migration_rolls_back_and_preserves_private_files() {
     let root = factory_repository::from_manifest_dir(env!("CARGO_MANIFEST_DIR"))
         .join(".runtime/tests/generated-ignore-retirement")
         .join(std::process::id().to_string());
@@ -838,7 +838,7 @@ fn generated_install_rolls_back_ignore_retirement_when_private_file_appears() {
     );
     let error = result.unwrap_err();
     assert!(error.contains("rolled back"), "{error}");
-    assert!(error.contains("project files appeared"), "{error}");
+    assert!(error.contains("automatic legacy binary fingerprint migration is retired"), "{error}");
     assert_eq!(fs::read(ignore).unwrap(), policy);
     assert_eq!(fs::read(private).unwrap(), b"late independent program");
     assert!(!installed.exists());

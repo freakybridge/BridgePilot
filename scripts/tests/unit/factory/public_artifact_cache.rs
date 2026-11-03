@@ -212,10 +212,11 @@ fn bootstrap_product_identity_is_explicit_and_preserves_provenance_guards() {
 }
 #[test]
 fn project_plan_builds_are_reused_without_writing_project_targets() {
-    use std::cell::Cell;
+    use std::cell::{Cell, RefCell};
     struct Builds {
         builds: Cell<usize>,
         hits: Cell<usize>,
+        identities: RefCell<std::collections::BTreeMap<String, Value>>,
     }
     impl ProcessRunner for Builds {
         fn artifact_cache_enabled(&self) -> bool {
@@ -240,10 +241,16 @@ fn project_plan_builds_are_reused_without_writing_project_targets() {
                 let output = PathBuf::from(&r.args[7]).join("release");
                 fs::create_dir_all(&output)?;
                 let name = r.args[9].to_string_lossy();
+                self.identities.borrow_mut().insert(name.to_string(), json!({
+                    "protocol": 1,
+                    "source_tree_sha256": r.env.get(std::ffi::OsStr::new("BRIDGEFORGE_BUILD_SOURCE_SHA")).unwrap().to_str().unwrap(),
+                    "lockfile_sha256": r.env.get(std::ffi::OsStr::new("BRIDGEFORGE_BUILD_LOCK_SHA")).unwrap().to_str().unwrap(),
+                }));
                 fs::write(
                     output.join(format!("{name}{}", std::env::consts::EXE_SUFFIX)),
                     name.as_bytes(),
                 )?;
+                return Ok(ProcessOutput { code: 0, stdout: vec![], stderr: vec![], timed_out: false });
             }
             let name = if r.program.to_string_lossy().contains("bridgeforge-hook") {
                 "bridgeforge-hook"
@@ -252,7 +259,8 @@ fn project_plan_builds_are_reused_without_writing_project_targets() {
             };
             Ok(ProcessOutput {
                 code: 0,
-                stdout: serde_json::to_vec(&json!({"schema":1,"name":name,"status":"ok"})).unwrap(),
+                stdout: serde_json::to_vec(&json!({"schema":1,"name":name,"status":"ok",
+                    "build_identity": self.identities.borrow().get(name).unwrap()})).unwrap(),
                 stderr: vec![],
                 timed_out: false,
             })
@@ -272,6 +280,7 @@ fn project_plan_builds_are_reused_without_writing_project_targets() {
     let r = Builds {
         builds: Cell::new(0),
         hits: Cell::new(0),
+        identities: Default::default(),
     };
     let first =
         crate::generated_assets::generated_writes_reusing(&f.0, "source_root", &f.0, &contract, &r)

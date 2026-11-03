@@ -120,7 +120,3 @@ pub fn apply(
         confirmed,
     )
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../../scripts/tests/unit/core_release_setup.rs"]
-mod tests;

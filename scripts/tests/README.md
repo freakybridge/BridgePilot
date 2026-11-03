@@ -1,39 +1,42 @@
-# Rust Factory Regression Tests
+# BridgePilot 回归测试
 
-这个目录放 bridgeforge-codex 自身的 Rust 回归检查。Git 集成测试只在隔离临时仓库中提交和推送，不修改真实项目或访问真实 Memory 远端。
+本目录包含 Forge 工厂与 BP 总管的私有测试。Git 集成检查只操作隔离临时仓库和本地 remote；真实用户安装、项目、档案和 Memory 远端不属于默认测试目标。
 
-开发收口按[工厂分层验证合同](../../doc/0_architecture/design/development-completion.md)选择必要检查并复用有效证据。下列是完整检查命令，不是每轮开发的默认执行列表。独立发布候选准备及其专用清单已退役；正常 develop 的确定性检查复用保留。工厂测试在根九包 workspace 执行；公共八包投影只做独立构建。
+## 运行入口
 
-受管 `factory-unit` 排除 `factory_runtime::tests::legacy_factory_tools_retire_only_after_verified_install`，该项由主对话在 `develop` 进程之外独立执行，其余检查仍由 `develop` 执行。执行顺序、失败处理和最终版本复验要求见[工厂退役测试的独立执行](../../doc/0_architecture/design/development-completion.md#工厂退役测试的独立执行)。这项测试仍保留在下列独立 workspace 全量命令中。
+从仓库根执行，所有编译输出显式进入 `.build/`。根 workspace 的 Forge 私有单元测试由 `factory-cargo.toml` 启用 `bridgeforge_factory_tests`；BP 测试也在根 workspace。`src/` 是独立集成测试 crate，通过自己的 manifest 运行。
 
 ```powershell
-cargo test --locked --config scripts/tests/factory-cargo.toml --manifest-path Cargo.toml --target-dir .build/bridgeforge/test-target --workspace -- --test-threads=1
-cargo check --locked --manifest-path .codex/hooks/Cargo.toml --target-dir .build/bridgeforge/cargo/public-check --workspace
-cargo test --locked --manifest-path scripts/tests/Cargo.toml --target-dir .build/bridgeforge/integration-target -- --test-threads=1
+# 编译测试，检查跨包注册与辅助模块引用。
+cargo test --locked --config scripts/tests/factory-cargo.toml --manifest-path Cargo.toml --target-dir .build/bridgeforge/test-target --workspace --no-run
+cargo test --locked --manifest-path scripts/tests/Cargo.toml --target-dir .build/bridgeforge/integration-target --no-run
+
+# 先列出实际用例，再按改动选择 package 与测试名称运行。
+cargo test --locked --config scripts/tests/factory-cargo.toml --manifest-path Cargo.toml --target-dir .build/bridgeforge/test-target -p bridgeforge-workflow -- --list
+cargo test --locked --manifest-path scripts/tests/Cargo.toml --target-dir .build/bridgeforge/integration-target -- --list
 ```
 
-私有单元测试实体位于本目录的 unit 子目录，通过工厂专用配置启用
-`bridgeforge_factory_tests`。产品中只保留条件注册，不下发测试实体，也不通过 Cargo feature
-自动启用。下游正常构建及 `cargo test --all-features --target-dir .build/bridgeforge/test-target` 不需要本工厂的 scripts/tests；
-工厂私有单元测试必须使用带配置的根 workspace 命令，并按影响范围添加 package / test filter；筛选到 0 项不能当作验证通过。
-上述命令从仓库根目录执行，`--target-dir` 位于 Cargo 参数区（测试程序参数分隔符 `--` 之前）。不依赖根 `.cargo/config.toml` 或全局环境变量设置输出目录；新增实际编译调用也须显式指定 `.build/` 下的目标。
+完整 workspace 回归不是每轮开发的默认要求。按[工厂验证说明](../../doc/0_architecture/design/development-completion.md)选择必要检查；筛选为零、编译成功和实际测试通过分别报告。下游公共源码构建不需要本目录，也不分发测试实体。
 
-当前覆盖：
+普通同步和真实 CLI 布局 fixture 验证完整的当前模板与运行时合同。运行前须完成根 AGENTS／INSTALL 中的受管准备；测试原样复制准备后的公共 CLI、Hook 及真实收据到隔离项目。编译这类测试时，从公共 CLI 的 `self-test --json` 取真实身份，仅向本次 Cargo 进程传入官方构建同名变量；不使用工厂身份或自行构造哈希／收据。
 
-- 仓库中不存在产品或测试 `.py` 文件。
-- 显式八包公共投影与 factory dogfood 镜像逐字一致，factory 不进入公共分发。
-- 受管 manifest 已重建且不再登记 Python 资产。
-- pre-commit、共享更新器和 active Skills 只调用 Rust runtime。
-- 工厂结构要求保留 Rust 规范检查；proposal 专项检查及批次功能已退役。
-- Git 暂存守卫的启动失败、超时、非零退出及敏感文件保护。
-- 混合 workspace、独立子包收口、原生来源证明、产品载体与派生锁一致性，预览零写入；旧整 workspace 产品映射保留隔离历史 fixture，旧 CPython 需求卡不再作为活动运行合同。
-- project-sync apply/build-assets 全程互斥、Git 主仓库与 worktree 共享锁，以及已识别旧收据的事务退役和回滚。
-- SessionStart、Stop、PostToolUse 生命周期及收据落盘失败；会话快照退役后不创建状态目录、保留历史文件、拒绝旧手动入口；Memory 恢复排除未声明文件并在损坏时保留原目录。
-- 进程的大输入/双路大输出、非零退出、无人读取 stdin、父进程退出后后代占用管道及 Windows 后代终止；子进程辅助测试仅由回归显式启动。
-- 构建收据的实测输入哈希、陈旧合同、原始输入/独立快照/产物漂移和失败零替换；另有真实 Cargo 构建与临时项目安装回归。
-- Native Memory 的精确 GitHub 身份、私有性与 Git URL 改写保护；GitHub 查询使用测试替身。
-- 产品目录 doctor、Rust 1.88 下限、骨架 8.0.0 最低支持版本拒绝零写入、8.x 定制保护、双戳拒绝、同版本修复及失败回滚。
-- Memory 正式配置后运行授权与远端漂移拒绝、三个生命周期事件复用 worker、pending 后续事件、过期队列锁下并发单持有者、Git 凭证私有性校验且不泄露凭证。
-- 真实本地 Git 收发、Memory 冲突恢复和单项目 project-sync 事务；测试进程适配器不会下发给下游。
+```powershell
+$identity = & .build/bridgeforge/bin/bridgeforge.exe self-test --json | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0 -or $identity.status -ne 'ok') { throw 'Public runtime identity unavailable' }
+$env:BRIDGEFORGE_BUILD_SOURCE_SHA = $identity.build_identity.source_tree_sha256
+$env:BRIDGEFORGE_BUILD_LOCK_SHA = $identity.build_identity.lockfile_sha256
+# 在此进程中执行选定的 cargo test；上述变量不写入用户或机器环境。
+```
 
-白话：这是工厂的总巡检，专门防止以后有人把退役的 Python 入口或依赖偷偷带回来。
+## 保留范围
+
+- 当前模板更新、来源证明、清单位置、分发与 dogfood 一致性。
+- 普通 Git 同步、preflight 零写入、冲突和 stash 保留、提交与推送失败、并发及索引保护。
+- 原生 `git-sync release` 的适配器边界、产物与远端发布状态核验；相关测试位于 `unit/native_release.rs` 和 `orchestrator/native_release.rs`，不执行真实发布。
+- 当前工厂运行时准备、公共产物缓存、输入漂移、安装事务和用户文件保护。
+- Memory 授权与私有性、排队并发、冲突恢复，以及进程、Hook、文件锁和路径安全。
+- BP 任务、存储、调度、换机、安装和版本身份，以及必要的原生格式解析和输入所有权检查。
+
+配置化 develop/release、旧收口账本、旧 cleanup 成功流程及其独占 fixture 和性能脚本已退役。保留旧入口拒绝、未完成事务保护与历史文件不丢失检查；历史资料中的旧测试命令不作为当前入口。旧参数 `--release` 与当前子命令 `git-sync release` 分别处理。
+
+`#[ignore]` 中既有显式基准，也有父测试启动的子进程辅助项。按用途和调用方判断，禁止一次运行全部 ignored 项；父测试负责传入子进程的必要环境。真实 Cargo 基准仅在有明确性能核验需求时单独执行。

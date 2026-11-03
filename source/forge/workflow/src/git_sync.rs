@@ -86,12 +86,21 @@ pub(crate) fn require_no_cleanup_commit_guard(root: &Path) -> Result<(), String>
     Ok(())
 }
 
-fn check_release_commit_guard(git: &Git<'_>) -> Result<(), String> {
-    let file = release_guard_path(git.root)?;
-    let bytes = match fs::read(&file) {
-        Ok(bytes) => bytes,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-        Err(e) => return Err(e.to_string()),
+pub(crate) struct CommitGuard {
+    pub parent: String,
+    pub tree: String,
+    pub before_commit: bool,
+    pub bytes: Vec<u8>,
+}
+
+pub(crate) fn inspect_commit_guard(
+    root: &Path,
+    runner: &dyn ProcessRunner,
+) -> Result<Option<CommitGuard>, String> {
+    let git = Git { root, runner };
+    let file = release_guard_path(root)?;
+    let Some(bytes) = crate::managed_paths::read_metadata(&file, 1024 * 1024)? else {
+        return Ok(None);
     };
     let guard = crate::json::parse_unique_json(&bytes, "release commit guard")?;
     let parent = guard["parent"]
@@ -100,14 +109,36 @@ fn check_release_commit_guard(git: &Git<'_>) -> Result<(), String> {
     let tree = guard["tree"]
         .as_str()
         .ok_or("invalid release commit guard")?;
+    let oid = |value: &str| {
+        matches!(value.len(), 40 | 64) && value.bytes().all(|b| b.is_ascii_hexdigit())
+    };
+    if guard["schema"] != 1 || !oid(parent) || !oid(tree) || parent.len() != tree.len() {
+        return Err("invalid release commit guard schema or object identity".into());
+    }
     let head = git.required(&["rev-parse", "HEAD"], Duration::from_secs(30))?;
+    if parent.len() != head.len() {
+        return Err("release commit guard object format differs from repository".into());
+    }
     let accepted = head == parent
         || (git.required(&["rev-parse", "HEAD^"], Duration::from_secs(30))? == parent
             && git.required(&["rev-parse", "HEAD^{tree}"], Duration::from_secs(30))? == tree);
     if !accepted {
         return Err("previous Git commit differs from reviewed content; commit preserved locally, manual review required before any push".into());
     }
-    if fs::read(&file).map_err(|e| e.to_string())? != bytes {
+    Ok(Some(CommitGuard {
+        parent: parent.into(),
+        tree: tree.into(),
+        before_commit: head == parent,
+        bytes,
+    }))
+}
+
+fn check_release_commit_guard(git: &Git<'_>) -> Result<(), String> {
+    let Some(guard) = inspect_commit_guard(git.root, git.runner)? else {
+        return Ok(());
+    };
+    let file = release_guard_path(git.root)?;
+    if fs::read(&file).map_err(|e| e.to_string())? != guard.bytes {
         return Err("release commit guard changed concurrently".into());
     }
     fs::remove_file(file).map_err(|e| e.to_string())
@@ -469,7 +500,9 @@ fn sync_impl(
     remote_only: bool,
 ) -> CommandOutcome {
     if options.release {
-        return CommandOutcome::blocked("[git-sync] BLOCKED: configuration-based release is retired; no Git or project state inspected or changed\n");
+        return CommandOutcome::blocked(
+            "[git-sync] BLOCKED: configuration-based release is retired; no Git or project state inspected or changed\n",
+        );
     }
     if options.remote.is_empty() {
         options.remote = "origin".into();
@@ -652,10 +685,21 @@ fn sync_impl(
             "autostash_retained":autostashed
         }));
     }
-    let factory = options.release && root.join(bridgeforge_core::product_manifest::FILE).is_file();
+    let factory = options.release
+        && root
+            .join(bridgeforge_core::product_manifest::FILE)
+            .is_file();
     let policy_path = root.join(".codex/bridgeforge-version.json");
-    let policy_before = if options.release { fs::read(&policy_path).ok() } else { None };
-    if options.release { return blocked("configuration-based release is retired; use native project release tools".into()); }
+    let policy_before = if options.release {
+        fs::read(&policy_path).ok()
+    } else {
+        None
+    };
+    if options.release {
+        return blocked(
+            "configuration-based release is retired; use native project release tools".into(),
+        );
+    }
     let version_before = fs::read_to_string(root.join("VERSION"))
         .ok()
         .map(|v| v.trim().to_string());
@@ -738,7 +782,9 @@ fn sync_impl(
         let release_status = release.as_ref().and_then(|p| p.release_status.clone());
         let (mut release_inputs, release_writes) =
             release.map(|p| (p.inputs, p.writes)).unwrap_or_default();
-        if options.release { release_inputs.insert(policy_path, policy_before); }
+        if options.release {
+            release_inputs.insert(policy_path, policy_before);
+        }
         let plan = match timings.measure("artifact_preparation", || {
             write_plan::WritePlan::prepare(root, release_writes, release_inputs, factory, runner)
         }) {

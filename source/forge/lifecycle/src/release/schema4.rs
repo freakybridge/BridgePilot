@@ -261,11 +261,3 @@ pub(super) fn verify_historical(
     }
     Ok(())
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../../scripts/tests/unit/core_release_schema4.rs"]
-mod tests;
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../../scripts/tests/support/schema4_agent.rs"]
-pub mod fixture;

@@ -1,10 +1,12 @@
-//! Offline CLI measurements. Every mutation belongs to a disposable fixture.
+//! Current layout checks through the real CLI in isolated Git repositories.
 use bridgeforge_core::{ProcessOutput, ProcessRequest, ProcessRunner, SystemProcessRunner};
-use serde_json::{Value, json};
+use serde_json::Value;
+#[path = "../support/current_template.rs"]
+mod current_template;
 use std::{
     fs,
     path::{Path, PathBuf},
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 struct Fixture(PathBuf);
@@ -13,13 +15,11 @@ impl Drop for Fixture {
         let _ = fs::remove_dir_all(&self.0);
     }
 }
-fn call(root: &Path, program: &Path, args: &[&str]) -> (ProcessOutput, u128) {
+fn call(root: &Path, program: &Path, args: &[&str]) -> ProcessOutput {
     let mut request = ProcessRequest::new(program.as_os_str(), root);
     request.args = args.iter().map(Into::into).collect();
     request.timeout = Duration::from_secs(180);
-    let start = Instant::now();
     let output = SystemProcessRunner.run(&request).unwrap();
-    let elapsed = start.elapsed().as_millis();
     assert_eq!(
         output.code,
         0,
@@ -28,10 +28,10 @@ fn call(root: &Path, program: &Path, args: &[&str]) -> (ProcessOutput, u128) {
         String::from_utf8_lossy(&output.stdout)
     );
     assert!(!output.timed_out);
-    (output, elapsed)
+    output
 }
 fn git(root: &Path, args: &[&str]) -> String {
-    String::from_utf8(call(root, Path::new("git"), args).0.stdout)
+    String::from_utf8(call(root, Path::new("git"), args).stdout)
         .unwrap()
         .trim()
         .into()
@@ -41,7 +41,12 @@ fn write(root: &Path, path: &str, bytes: &[u8]) {
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     fs::write(path, bytes).unwrap();
 }
-fn setup(cli: &Path, label: &str, configured: bool, modern: bool) -> Fixture {
+fn invoke(cli: &Path, root: &Path, args: &[&str]) -> Value {
+    let output = call(root, cli, args);
+    serde_json::from_slice(&output.stdout).unwrap()
+}
+
+fn setup(cli: &Path, label: &str) -> Fixture {
     let token = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -52,6 +57,7 @@ fn setup(cli: &Path, label: &str, configured: bool, modern: bool) -> Fixture {
     );
     let root = fixture.0.join("project");
     fs::create_dir_all(&root).unwrap();
+    current_template::write(&root);
     write(&root, "VERSION", b"1.0.0\n");
     write(&root, "CHANGELOG.md", b"# Changelog\n");
     write(
@@ -66,24 +72,6 @@ fn setup(cli: &Path, label: &str, configured: bool, modern: bool) -> Fixture {
     );
     write(&root, "src/lib.rs", b"pub fn sample() {}\n");
     write(&root, ".gitignore", b"/.runtime/\n/.deps/\n/.build/\n");
-    use sha2::{Digest, Sha256};
-    write(&root, "templates/seed.txt", b"seed\n");
-    write(&root, "seed.txt", b"seed\n");
-    write(&root, ".codex/.bridgeforge_codex_version", b"8.0.0\n");
-    write(&root, ".codex/managed-skeleton.json", &serde_json::to_vec(&json!({
-        "schema_version":4,"release_version":"8.0.0","host":"codex",
-        "stamp":".codex/.bridgeforge_codex_version","contract_target":".codex/managed-skeleton.json",
-        "baseline_model":"current-only","compatibility_baseline":"8.0.0","generated_assets":[],
-        "assets":[{"id":"fixture.seed","source":"templates/seed.txt","target":"seed.txt","strategy":"whole","current_sha256":format!("sha256:{:x}",Sha256::digest(b"seed\n"))}]
-    })).unwrap());
-    write(
-        &root,
-        ".codex/bridgeforge-version.json",
-        br#"{"schema_version":1,"release_policy":"explicit_release","manifests":["Cargo.toml"]}"#,
-    );
-    if configured {
-        write(&root, ".codex/artifact-layout.json", br#"{"schema":1,"source_roots":["src/"],"tests_root":"scripts/tests/","tools_root":"scripts/","python_artifacts":{"enabled":true,"allowed_roots":[".runtime/"]},"forbidden_source_components":["tests","benches","examples"],"cargo_registration":{"manifest_roots":["src/"],"forbidden_target_roots":["scripts/"]}}"#);
-    }
     for layer in [
         "0_architecture",
         "1_delivery",
@@ -94,45 +82,36 @@ fn setup(cli: &Path, label: &str, configured: bool, modern: bool) -> Fixture {
     ] {
         fs::create_dir_all(root.join("doc").join(layer)).unwrap();
     }
-    write(
-        &root,
-        "doc/README.md",
-        b"---\ndelivery_layout: flat\n---\n[demo](1_delivery/demo/requirements_demo.md)\n",
-    );
-    write(
-        &root,
-        "doc/1_delivery/demo/requirements_demo.md",
-        b"---\nlifecycle: active\nvalidation_status: not_started\n---\n# Demo\n",
-    );
-    for n in 0..16 {
-        write(
-            &root,
-            &format!("doc/1_delivery/demo/note_{n}.md"),
-            b"---\nlifecycle: active\nvalidation_status: not_started\n---\n# Note\n",
-        );
-    }
+    let index = fs::read_to_string(root.join("doc/README.md")).unwrap();
+    let index = index
+        .lines()
+        .map(|line| {
+            if line.starts_with("delivery_layout:") {
+                "delivery_layout: flat"
+            } else {
+                line
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    write(&root, "doc/README.md", index.as_bytes());
     git(&root, &["init"]);
     git(&root, &["config", "user.name", "Layout Fixture"]);
     git(&root, &["config", "user.email", "layout@example.invalid"]);
-    git(&root, &["config", "core.hooksPath", ".githooks"]);
+    git(&root, &["config", "core.hooksPath", ".git/hooks"]);
     git(&root, &["add", "."]);
     git(&root, &["commit", "-m", "chore: fixture seed"]);
-    super::schema4_fixture::migrate(cli, &root);
     let cli_path = cli
         .to_string_lossy()
         .replace('\\', "/")
         .replace('\'', "'\\''");
     write(
         &root,
-        ".githooks/pre-commit",
-        format!(
-            "#!/bin/sh\nexec '{cli_path}' check project-structure --root .{}\n",
-            if modern { " --pre-commit" } else { "" }
-        )
-        .as_bytes(),
+        ".git/hooks/pre-commit",
+        format!("#!/bin/sh\nexec '{cli_path}' check project-structure --root . --pre-commit\n")
+            .as_bytes(),
     );
-    git(&root, &["add", "."]);
-    git(&root, &["commit", "-m", "chore: fixture ready"]);
     let remote = fixture.0.join("remote.git");
     git(&root, &["init", "--bare", remote.to_str().unwrap()]);
     git(
@@ -140,6 +119,8 @@ fn setup(cli: &Path, label: &str, configured: bool, modern: bool) -> Fixture {
         &["remote", "add", "origin", remote.to_str().unwrap()],
     );
     git(&root, &["push", "-u", "origin", "HEAD"]);
+    call(&root, cli, &["check", "baseline", "--root", "."]);
+    call(&root, cli, &["check", "project-structure", "--root", "."]);
     fixture
 }
 
@@ -154,7 +135,7 @@ fn artifact_layout_real_git_sync_blocks_only_new_violations_and_keeps_remote() {
     } else {
         ".build/bridgeforge/bin/bridgeforge"
     });
-    let fixture = setup(&cli, "workflow", true, true);
+    let fixture = setup(&cli, "workflow");
     let root = fixture.0.join("project");
     let original = git(&root, &["rev-parse", "HEAD"]);
     write(&root, "tests/new.rs", b"fn probe() {}\n");
@@ -175,12 +156,7 @@ fn artifact_layout_real_git_sync_blocks_only_new_violations_and_keeps_remote() {
     assert_eq!(git(&root, &["rev-parse", "@{push}"]), original);
     fs::remove_file(root.join("tests/new.rs")).unwrap();
     write(&root, "src/lib.rs", b"pub fn changed() {}\n");
-    let output = super::schema4_fixture::invoke(
-        &cli,
-        &root,
-        &["git-sync", "--message", "fix: valid layout"],
-        &[],
-    );
+    let output = invoke(&cli, &root, &["git-sync", "--message", "fix: valid layout"]);
     assert_eq!(output["status"], "synced");
     assert_eq!(output["version_bumped"], false);
     assert_eq!(
@@ -204,11 +180,10 @@ fn artifact_layout_real_git_sync_blocks_only_new_violations_and_keeps_remote() {
     git(&root, &["commit", "-m", "chore: ignore legacy cache"]);
     write(&root, "legacy-cache/__pycache__/old.pyc", b"old\n");
     write(&root, "src/lib.rs", b"pub fn another() {}\n");
-    let output = super::schema4_fixture::invoke(
+    let output = invoke(
         &cli,
         &root,
         &["git-sync", "--message", "fix: unrelated cache"],
-        &[],
     );
     assert_eq!(output["status"], "synced");
     let mut request = ProcessRequest::new(cli.as_os_str(), &root);
@@ -232,7 +207,7 @@ fn artifact_layout_defaults_block_nested_tests_without_project_configuration() {
     } else {
         ".build/bridgeforge/bin/bridgeforge"
     });
-    let fixture = setup(&cli, "defaults", false, true);
+    let fixture = setup(&cli, "defaults");
     let root = fixture.0.join("project");
     let original = git(&root, &["rev-parse", "HEAD"]);
     write(&root, "src/tests/new.rs", b"fn probe() {}\n");
@@ -244,152 +219,23 @@ fn artifact_layout_defaults_block_nested_tests_without_project_configuration() {
     request.timeout = Duration::from_secs(180);
     let output = SystemProcessRunner.run(&request).unwrap();
     assert_ne!(output.code, 0);
-    assert!(String::from_utf8_lossy(&output.stderr).contains("misplaced-test-directory"));
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("misplaced-test-directory"),
+        "stderr: {}\nstdout: {}",
+        String::from_utf8_lossy(&output.stderr),
+        String::from_utf8_lossy(&output.stdout)
+    );
     assert_eq!(git(&root, &["rev-parse", "HEAD"]), original);
     assert_eq!(git(&root, &["rev-parse", "@{push}"]), original);
     fs::remove_file(root.join("src/tests/new.rs")).unwrap();
     write(&root, "scripts/tests/new.rs", b"fn probe() {}\n");
-    let receipt = super::schema4_fixture::invoke(
+    let receipt = invoke(
         &cli,
         &root,
         &["git-sync", "--message", "fix: valid nested test"],
-        &[],
     );
     assert_eq!(receipt["status"], "synced");
     assert!(!root.join(".codex/artifact-layout.json").exists());
-}
-
-#[test]
-#[ignore = "explicit artifact-layout offline performance baseline/comparison"]
-fn artifact_layout_performance() {
-    use sha2::{Digest, Sha256};
-    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .unwrap();
-    let defaults_comparison =
-        std::env::var("BRIDGEFORGE_LAYOUT_PERF_DEFAULTS").as_deref() == Ok("1");
-    let baseline = source.join(if defaults_comparison {
-        ".build/bridgeforge/layout-defaults-baseline/bridgeforge.exe"
-    } else {
-        ".build/bridgeforge/layout-baseline/bridgeforge.exe"
-    });
-    let current = source.join(".build/bridgeforge/bin/bridgeforge.exe");
-    let baseline_only = std::env::var("BRIDGEFORGE_LAYOUT_PERF_PHASE").as_deref() == Ok("baseline");
-    let focused = std::env::var("BRIDGEFORGE_LAYOUT_PERF_SCENARIOS").ok();
-    let mut measurements = Vec::new();
-    let scenarios = [
-        "clean",
-        "small",
-        "batch",
-        "documents",
-        "unconfigured",
-        "release-preview",
-        "release",
-        "configuration",
-        "minimal-configuration",
-        "deleted-configuration",
-    ];
-    if let Some(selected) = &focused {
-        assert!(selected.split(',').all(|item| scenarios.contains(&item)));
-    }
-    for scenario in scenarios {
-        if !defaults_comparison
-            && ["minimal-configuration", "deleted-configuration"].contains(&scenario)
-        {
-            continue;
-        }
-        if focused
-            .as_ref()
-            .is_some_and(|selected| !selected.split(',').any(|item| item == scenario))
-        {
-            continue;
-        }
-        for sample in 0..5 {
-            for modern in if sample % 2 == 0 {
-                [false, true]
-            } else {
-                [true, false]
-            } {
-                if modern && baseline_only {
-                    continue;
-                }
-                let cli = if modern { &current } else { &baseline };
-                let configured = !["documents", "unconfigured"].contains(&scenario);
-                // Both candidates already use the staged entry point in a defaults comparison.
-                let fixture = setup(cli, scenario, configured, modern || defaults_comparison);
-                let root = fixture.0.join("project");
-                match scenario {
-                    "clean" => (),
-                    "documents" => {
-                        write(&root, "doc/1_delivery/demo/note_0.md", b"# Revised note\n")
-                    }
-                    "batch" => {
-                        for n in 0..100 {
-                            write(&root, &format!("src/item_{n}.rs"), b"pub fn sample() {}\n");
-                        }
-                    }
-                    "configuration" => {
-                        let path = root.join(".codex/artifact-layout.json");
-                        let mut cfg: Value =
-                            serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
-                        cfg["forbidden_source_components"] =
-                            json!(["tests", "benches", "examples", "scripts"]);
-                        fs::write(path, serde_json::to_vec(&cfg).unwrap()).unwrap();
-                    }
-                    "minimal-configuration" => {
-                        write(&root, ".codex/artifact-layout.json", br#"{"schema":1}"#)
-                    }
-                    "deleted-configuration" => {
-                        fs::remove_file(root.join(".codex/artifact-layout.json")).unwrap()
-                    }
-                    _ => write(&root, "src/lib.rs", b"pub fn sample() { let _ = 1; }\n"),
-                }
-                let message = "fix: layout fixture";
-                let mut args = vec!["git-sync", "--message", message];
-                if scenario == "release" {
-                    super::schema4_fixture::analyze(cli, &root, message, "patch", &[], &[]);
-                    args.extend([
-                        "--release",
-                        "--release-analysis-file",
-                        ".runtime/schema4-analysis.json",
-                    ]);
-                } else if scenario == "release-preview" {
-                    args.push("--release-preview");
-                }
-                let (output, elapsed) = call(&root, cli, &args);
-                let receipt: Value = serde_json::from_slice(&output.stdout).unwrap();
-                if scenario == "release-preview" {
-                    assert_eq!(receipt["status"], "analysis-required");
-                } else {
-                    assert_eq!(receipt["status"], "synced");
-                    assert_eq!(receipt["version_bumped"], scenario == "release");
-                    assert_eq!(receipt["generated_assets_built"], 0);
-                    assert_eq!(receipt["ahead"], 0);
-                    assert_eq!(receipt["behind"], 0);
-                }
-                measurements.push(json!({"scenario":scenario,"sample":sample,"variant":if modern {"merged"}else{"baseline"},"configured":configured,"elapsed_ms":elapsed,"sync_elapsed_ms":receipt["sync_elapsed_ms"],"timings_ms":receipt["timings_ms"],"generated_assets_built":receipt["generated_assets_built"],"generated_assets_reused":receipt["generated_assets_reused"]}));
-            }
-        }
-        println!("performance scenario completed: {scenario}");
-    }
-    let result = json!({"scope":"offline_cli_local_bare_remote_not_chat_end_to_end","samples_per_variant":5,"baseline_sha256":format!("{:x}",Sha256::digest(fs::read(&baseline).unwrap())),"current_sha256":format!("{:x}",Sha256::digest(fs::read(&current).unwrap())),"measurements":measurements});
-    let file = source.join(if defaults_comparison && focused.is_some() {
-        ".runtime/tests/artifact-layout-defaults/performance-focused.json"
-    } else if defaults_comparison {
-        ".runtime/tests/artifact-layout-defaults/performance-comparison.json"
-    } else if focused.is_some() {
-        ".runtime/tests/artifact-layout/performance-focused.json"
-    } else if baseline_only {
-        ".runtime/tests/artifact-layout/performance-baseline.json"
-    } else {
-        ".runtime/tests/artifact-layout/performance-comparison.json"
-    });
-    fs::write(file, serde_json::to_vec_pretty(&result).unwrap()).unwrap();
-    println!(
-        "artifact-layout performance: {} measurements",
-        result["measurements"].as_array().unwrap().len()
-    );
 }
 
 #[allow(dead_code)]

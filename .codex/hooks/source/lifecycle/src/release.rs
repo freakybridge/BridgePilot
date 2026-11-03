@@ -1109,9 +1109,3 @@ pub fn verify_release_inputs(inputs: &BTreeMap<PathBuf, Option<Vec<u8>>>) -> Res
 #[cfg(all(test, bridgeforge_factory_tests))]
 #[path = "../../../../scripts/tests/unit/core_release.rs"]
 mod tests;
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/support/release_plan.rs"]
-mod test_plan;
-#[cfg(all(test, bridgeforge_factory_tests))]
-pub(crate) use test_plan::apply_file_release_plan;

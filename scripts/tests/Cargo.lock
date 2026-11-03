@@ -57,23 +57,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bridgeforge-factory-tests"
-version = "6.0.0"
-dependencies = [
- "bridgeforge-checks",
- "bridgeforge-core",
- "bridgeforge-factory",
- "bridgeforge-hook",
- "bridgeforge-lifecycle",
- "bridgeforge-memory",
- "bridgeforge-skeleton",
- "bridgeforge-workflow",
- "serde_json",
- "sha2",
- "windows-sys",
-]
-
-[[package]]
 name = "bridgeforge-core"
 version = "11.1.0"
 dependencies = [
@@ -90,7 +73,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-factory"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
@@ -170,7 +153,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-workflow"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
@@ -1108,3 +1091,20 @@ name = "zmij"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
+
+[[package]]
+name = "bridgeforge-factory-tests"
+version = "6.0.0"
+dependencies = [
+ "bridgeforge-checks",
+ "bridgeforge-core",
+ "bridgeforge-factory",
+ "bridgeforge-hook",
+ "bridgeforge-lifecycle",
+ "bridgeforge-memory",
+ "bridgeforge-skeleton",
+ "bridgeforge-workflow",
+ "serde_json",
+ "sha2",
+ "windows-sys",
+]

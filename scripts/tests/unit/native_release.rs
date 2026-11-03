@@ -76,6 +76,58 @@ impl Fixture {
         };
         Self { base, root, plan }
     }
+
+    fn current_project() -> Self {
+        let fixture = Self::new();
+        for asset in bridgeforge_core::template_standard::assets() {
+            let bytes = bridgeforge_skeleton::content::render(
+                asset.rule["id"].as_str().unwrap(),
+                &asset.payload,
+                None,
+                &asset.rule,
+                &fixture.root,
+                true,
+            )
+            .unwrap();
+            let path = fixture.root.join(asset.rule["target"].as_str().unwrap());
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, bytes).unwrap();
+        }
+        let repository = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .ancestors()
+            .find(|p| p.join("source/forge/bridgeforge-manifest.json").is_file())
+            .unwrap();
+        let target = fixture.root.join(".deps/bridgeforge/bin");
+        let public = std::env::var_os("BRIDGEFORGE_TEST_RUNTIME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| repository.join(".build/bridgeforge/bin"));
+        fs::create_dir_all(&target).unwrap();
+        for name in [
+            format!("bridgeforge{}", std::env::consts::EXE_SUFFIX),
+            format!("bridgeforge-hook{}", std::env::consts::EXE_SUFFIX),
+            "build-receipt-cli.json".into(),
+            "build-receipt-hook.json".into(),
+        ] {
+            fs::copy(public.join(&name), target.join(name)).unwrap();
+        }
+        // Real prepared public tools are fixture inputs, with their original receipts.
+        bridgeforge_skeleton::template::verify(&fixture.root, true).unwrap();
+        process(&fixture.root, &["add", "."]);
+        process(
+            &fixture.root,
+            &["commit", "-m", "chore: valid current project"],
+        );
+        process(&fixture.root, &["push"]);
+        fixture
+    }
+
+    fn state_path(&self) -> PathBuf {
+        self.root
+            .join(".runtime/bridgeforge-codex/native-release/current.json")
+    }
+    fn state(&self) -> State {
+        serde_json::from_slice(&fs::read(self.state_path()).unwrap()).unwrap()
+    }
 }
 impl Drop for Fixture {
     fn drop(&mut self) {
@@ -117,6 +169,9 @@ struct Runner {
     lose_tag_reply: Cell<bool>,
     lose_publish_reply: Cell<bool>,
     fail_build: Cell<bool>,
+    fail_commit: Cell<bool>,
+    fail_push: Cell<bool>,
+    replace_state_on_prepare: Cell<bool>,
 }
 impl Runner {
     fn new(plan: Plan) -> Self {
@@ -130,6 +185,9 @@ impl Runner {
             lose_tag_reply: Cell::new(false),
             lose_publish_reply: Cell::new(false),
             fail_build: Cell::new(false),
+            fail_commit: Cell::new(false),
+            fail_push: Cell::new(false),
+            replace_state_on_prepare: Cell::new(false),
         }
     }
     fn count(&self, word: &str) -> usize {
@@ -156,6 +214,15 @@ impl ProcessRunner for Runner {
         observed.extend(args.clone());
         self.commands.borrow_mut().push(observed);
         if program == "git" {
+            if (self.fail_commit.get() && args.first().is_some_and(|s| s == "commit"))
+                || (self.fail_push.get() && args.first().is_some_and(|s| s == "push"))
+            {
+                return Ok(ProcessOutput {
+                    code: 1,
+                    stderr: b"injected Git stage failure".to_vec(),
+                    ..empty()
+                });
+            }
             if args.windows(2).any(|a| a == ["remote", "get-url"]) {
                 return Ok(ProcessOutput {
                     stdout: b"https://github.com/fixture/repository.git\n".to_vec(),
@@ -176,7 +243,26 @@ impl ProcessRunner for Runner {
             });
         }
         if program == "mock" {
-            return Ok(ok(&serde_json::to_value(&self.plan).unwrap()));
+            let output = PathBuf::from(args.last().unwrap());
+            fs::create_dir_all(&output)?;
+            let mut plan = self.plan.clone();
+            for asset in &mut plan.assets {
+                let path = output.join(&asset.name);
+                fs::copy(q.cwd.join(&asset.path), &path)?;
+                asset.path = path
+                    .strip_prefix(&q.cwd)
+                    .unwrap()
+                    .to_string_lossy()
+                    .replace('\\', "/");
+            }
+            if self.replace_state_on_prepare.replace(false) {
+                fs::write(
+                    q.cwd
+                        .join(".runtime/bridgeforge-codex/native-release/current.json"),
+                    b"{\"external\":true}\n",
+                )?;
+            }
+            return Ok(ok(&serde_json::to_value(plan).unwrap()));
         }
         assert_eq!(program, "gh", "unexpected subprocess");
         if args.first().is_some_and(|a| a == "release") {
@@ -475,4 +561,255 @@ fn foreign_draft_is_rejected_before_any_tag_or_release_write() {
     assert_eq!(runner.count("PATCH"), 0);
     assert_eq!(runner.count("upload"), 0);
     assert!(runner.tag.borrow().is_none());
+}
+
+#[test]
+fn corrected_precommit_failure_reprepares_and_preserves_previous_attempt() {
+    let f = Fixture::current_project();
+    let runner = Runner::new(f.plan.clone());
+    fs::write(f.root.join("review.txt"), b"before correction").unwrap();
+    runner.fail_commit.set(true);
+    assert_ne!(run(&f.root, &runner, Default::default()).code, 0);
+    let old_bytes = fs::read(f.state_path()).unwrap();
+    let old = f.state();
+    assert_eq!(old.status, "blocked-before-commit");
+    assert!(old.commit.is_none());
+    assert_eq!(runner.count("POST"), 0);
+    fs::write(f.root.join("review.txt"), b"corrected").unwrap();
+    runner.fail_commit.set(false);
+    let out = run(&f.root, &runner, Default::default());
+    assert_eq!(out.code, 0, "{}", out.stderr);
+    let receipt = out.receipt.unwrap();
+    assert_eq!(receipt["status"], "released");
+    assert_eq!(receipt["recovery_action"], "reprepared");
+    assert_eq!(receipt["prepared_artifacts_reused"], false);
+    assert_eq!(runner.count("mock-build"), 2);
+    let archive = f.root.join(receipt["previous_attempt"].as_str().unwrap());
+    assert_eq!(fs::read(archive).unwrap(), old_bytes);
+    let current = f.state();
+    assert_ne!(current.plan.assets[0].path, old.plan.assets[0].path);
+    assert!(f.root.join(&old.plan.assets[0].path).is_file());
+}
+
+#[test]
+fn unchanged_precommit_retry_reuses_existing_artifacts() {
+    let f = Fixture::current_project();
+    let runner = Runner::new(f.plan.clone());
+    fs::write(f.root.join("review.txt"), b"pending").unwrap();
+    runner.fail_commit.set(true);
+    assert_ne!(run(&f.root, &runner, Default::default()).code, 0);
+    runner.fail_commit.set(false);
+    let out = run(&f.root, &runner, Default::default());
+    assert_eq!(out.code, 0, "{}", out.stderr);
+    assert_eq!(out.receipt.unwrap()["prepared_artifacts_reused"], true);
+    assert_eq!(runner.count("mock-build"), 1);
+}
+
+#[test]
+fn legacy_prepared_recovery_requires_real_before_commit_guard() {
+    for guard_kind in ["missing", "valid", "bad-schema", "bad-tree"] {
+        let f = Fixture::current_project();
+        let runner = Runner::new(f.plan.clone());
+        fs::write(f.root.join("review.txt"), b"pending").unwrap();
+        runner.fail_commit.set(true);
+        assert_ne!(run(&f.root, &runner, Default::default()).code, 0);
+        let mut value = serde_json::to_value(f.state()).unwrap();
+        value.as_object_mut().unwrap().remove("anchor");
+        value["status"] = json!("prepared");
+        let bytes = serde_json::to_vec_pretty(&value).unwrap();
+        fs::write(f.state_path(), &bytes).unwrap();
+        let guard_path = f
+            .root
+            .join(".runtime/bridgeforge-codex/release-preparation/commit-guard.json");
+        if guard_kind == "missing" {
+            fs::remove_file(&guard_path).unwrap();
+        } else if guard_kind.starts_with("bad-") {
+            let mut guard: Value = serde_json::from_slice(&fs::read(&guard_path).unwrap()).unwrap();
+            if guard_kind == "bad-schema" {
+                guard["schema"] = json!(99);
+            } else {
+                guard["tree"] = json!("bad");
+            }
+            fs::write(&guard_path, serde_json::to_vec(&guard).unwrap()).unwrap();
+        }
+        fs::write(f.root.join("review.txt"), b"corrected").unwrap();
+        runner.fail_commit.set(false);
+        let out = run(&f.root, &runner, Default::default());
+        if guard_kind == "valid" {
+            assert_eq!(out.code, 0, "{}", out.stderr);
+            let archive = f
+                .root
+                .join(out.receipt.unwrap()["previous_attempt"].as_str().unwrap());
+            assert_eq!(fs::read(archive).unwrap(), bytes);
+        } else {
+            assert_ne!(out.code, 0);
+            assert!(
+                out.stderr.contains(if guard_kind == "missing" {
+                    "before-commit evidence"
+                } else {
+                    "commit guard"
+                }),
+                "{}",
+                out.stderr
+            );
+            assert_eq!(fs::read(f.state_path()).unwrap(), bytes);
+            assert_eq!(runner.count("mock-build"), 1);
+        }
+    }
+}
+
+#[test]
+fn failed_reprepare_and_concurrent_state_write_preserve_original_state() {
+    for concurrent in [false, true] {
+        let f = Fixture::current_project();
+        let runner = Runner::new(f.plan.clone());
+        fs::write(f.root.join("review.txt"), b"pending").unwrap();
+        runner.fail_commit.set(true);
+        assert_ne!(run(&f.root, &runner, Default::default()).code, 0);
+        let old = fs::read(f.state_path()).unwrap();
+        fs::write(f.root.join("review.txt"), b"corrected").unwrap();
+        runner.fail_build.set(!concurrent);
+        runner.replace_state_on_prepare.set(concurrent);
+        let out = run(&f.root, &runner, Default::default());
+        assert_ne!(out.code, 0);
+        let expected: &[u8] = if concurrent {
+            b"{\"external\":true}\n"
+        } else {
+            &old
+        };
+        assert_eq!(fs::read(f.state_path()).unwrap(), expected);
+        assert_eq!(runner.count("POST"), 0);
+        let archive = f.root.join(format!(
+            ".runtime/bridgeforge-codex/native-release/attempts/{}/state.json",
+            &raw_sha(&old)[7..]
+        ));
+        assert_eq!(fs::read(archive).unwrap(), old);
+    }
+}
+
+#[test]
+fn committed_source_only_resumes_push_and_rejects_changed_inputs() {
+    for changed in [false, true] {
+        let f = Fixture::current_project();
+        let runner = Runner::new(f.plan.clone());
+        fs::write(f.root.join("review.txt"), b"pending").unwrap();
+        runner.fail_push.set(true);
+        assert_ne!(run(&f.root, &runner, Default::default()).code, 0);
+        let saved = f.state();
+        assert_eq!(saved.status, "source-committed");
+        assert!(saved.commit.is_some());
+        runner.fail_push.set(false);
+        if changed {
+            fs::write(f.root.join("review.txt"), b"later").unwrap();
+        }
+        let out = run(&f.root, &runner, Default::default());
+        if changed {
+            assert_ne!(out.code, 0);
+            assert!(out.stderr.contains("fixed source commit"));
+            assert_eq!(runner.count("POST"), 0);
+        } else {
+            assert_eq!(out.code, 0, "{}", out.stderr);
+            assert_eq!(f.state().commit, saved.commit);
+        }
+        assert_eq!(runner.count("mock-build"), 1);
+        assert_eq!(runner.count("commit"), 1);
+    }
+}
+
+#[test]
+fn crash_after_commit_reconciles_actual_git_before_resuming_push() {
+    let f = Fixture::current_project();
+    let runner = Runner::new(f.plan.clone());
+    fs::write(f.root.join("review.txt"), b"pending").unwrap();
+    runner.fail_push.set(true);
+    assert_ne!(run(&f.root, &runner, Default::default()).code, 0);
+    let mut state = f.state();
+    let commit = state.commit.take().unwrap();
+    state.status = "source-syncing".into();
+    fs::write(f.state_path(), serde_json::to_vec(&state).unwrap()).unwrap();
+    runner.fail_push.set(false);
+    let out = run(&f.root, &runner, Default::default());
+    assert_eq!(out.code, 0, "{}", out.stderr);
+    assert_eq!(f.state().commit.as_deref(), Some(commit.as_str()));
+    assert_eq!(runner.count("mock-build"), 1);
+    assert_eq!(runner.count("commit"), 1);
+}
+
+#[test]
+fn recovery_blocks_unfinished_git_operations_and_push_target_drift() {
+    for marker in ["MERGE_HEAD", "rebase-merge", "index.lock", "push-ref"] {
+        let f = Fixture::current_project();
+        let runner = Runner::new(f.plan.clone());
+        fs::write(f.root.join("review.txt"), b"pending").unwrap();
+        runner.fail_commit.set(true);
+        assert_ne!(run(&f.root, &runner, Default::default()).code, 0);
+        let old = fs::read(f.state_path()).unwrap();
+        fs::write(f.root.join("review.txt"), b"corrected").unwrap();
+        if marker == "push-ref" {
+            process(
+                &f.root,
+                &["config", "remote.origin.push", "HEAD:refs/heads/another"],
+            );
+        } else if marker == "rebase-merge" {
+            fs::create_dir_all(f.root.join(".git/rebase-merge")).unwrap();
+        } else if marker == "index.lock" {
+            fs::write(f.root.join(".git/index.lock"), b"active writer").unwrap();
+        } else {
+            fs::write(
+                f.root.join(".git/MERGE_HEAD"),
+                f.state().anchor.unwrap().head,
+            )
+            .unwrap();
+        }
+        let out = run(&f.root, &runner, Default::default());
+        assert_ne!(out.code, 0);
+        assert_eq!(runner.count("mock-build"), 1);
+        assert_eq!(runner.count("POST"), 0);
+        assert_eq!(fs::read(f.state_path()).unwrap(), old);
+    }
+}
+
+#[test]
+fn push_recovery_never_replaces_fixed_commit_with_same_tree_fast_forward() {
+    let f = Fixture::current_project();
+    let runner = Runner::new(f.plan.clone());
+    fs::write(f.root.join("review.txt"), b"pending").unwrap();
+    runner.fail_push.set(true);
+    assert_ne!(run(&f.root, &runner, Default::default()).code, 0);
+    let fixed = f.state().commit.unwrap();
+    process(&f.root, &["push"]);
+    process(
+        &f.base,
+        &["clone", "--branch", "main", "remote.git", "other"],
+    );
+    let other = f.base.join("other");
+    for (key, value) in [
+        ("user.name", "remote"),
+        ("user.email", "remote@example.invalid"),
+        ("core.hooksPath", ".runtime/no-hooks"),
+    ] {
+        process(&other, &["config", key, value]);
+    }
+    process(
+        &other,
+        &[
+            "commit",
+            "--allow-empty",
+            "-m",
+            "chore: same tree remote change",
+        ],
+    );
+    process(&other, &["push"]);
+    runner.fail_push.set(false);
+    let out = run(&f.root, &runner, Default::default());
+    assert_ne!(out.code, 0);
+    assert!(
+        out.stderr.contains("fixed source commit changed"),
+        "{}",
+        out.stderr
+    );
+    assert_eq!(f.state().commit.as_deref(), Some(fixed.as_str()));
+    assert_eq!(f.state().status, "source-uncertain");
+    assert_eq!(runner.count("POST"), 0);
+    assert_eq!(runner.count("mock-build"), 1);
 }

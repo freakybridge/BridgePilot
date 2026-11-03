@@ -5,6 +5,28 @@ mod fixture_product;
 use super::*;
 
 #[test]
+fn consumer_lock_projection_remains_stable_across_repeated_rendering() {
+    let root = test_artifacts::root(env!("CARGO_MANIFEST_DIR"), "consumer-lock-projection")
+        .join(format!("{}", std::process::id()));
+    fs::create_dir_all(root.join("scripts/tests")).unwrap();
+    fs::write(root.join("Cargo.lock"), "version=4\n[[package]]\nname='a-unused'\nversion='1.0.0'\n[[package]]\nname='b-unused'\nversion='1.0.0'\n[[package]]\nname='bridgeforge-core'\nversion='2.0.0'\n[[package]]\nname='z-unused'\nversion='1.0.0'\n").unwrap();
+    fs::write(root.join("scripts/tests/Cargo.toml"), "[package]\nname='bridgeforge-factory-tests'\nversion='6.0.0'\n").unwrap();
+    let target = root.join("scripts/tests/Cargo.lock");
+    fs::write(&target, "version=4\n[[package]]\nname='a-unused'\nversion='1.0.0'\n[[package]]\nname='bridgeforge-core'\nversion='1.0.0'\n[[package]]\nname='bridgeforge-factory-tests'\nversion='6.0.0'\ndependencies=['bridgeforge-core']\n").unwrap();
+    let first = consumer_lock(&root, &BTreeMap::new()).unwrap();
+    for _ in 0..2 {
+        fs::write(&target, &first).unwrap();
+        assert_eq!(consumer_lock(&root, &BTreeMap::new()).unwrap(), first);
+    }
+    let lock: toml_edit::DocumentMut = std::str::from_utf8(&first).unwrap().parse().unwrap();
+    let packages = lock["package"].as_array_of_tables().unwrap();
+    assert_eq!(packages.len(), 2, "unrelated native packages must stay outside the consumer closure");
+    assert_eq!(packages.iter().find(|p| p["name"].as_str()==Some("bridgeforge-core")).unwrap()["version"].as_str(), Some("2.0.0"));
+    assert_eq!(packages.iter().find(|p| p["name"].as_str()==Some("bridgeforge-factory-tests")).unwrap()["dependencies"].as_array().unwrap().get(0).unwrap().as_str(), Some("bridgeforge-core"));
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn factory_project_config_is_generated_from_template_without_writes() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors()
         .find(|path| path.join("source/forge/bridgeforge-manifest.json").is_file()).unwrap();

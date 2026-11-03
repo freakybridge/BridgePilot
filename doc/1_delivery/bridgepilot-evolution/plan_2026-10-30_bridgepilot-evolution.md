@@ -67,7 +67,7 @@ validation_status: in_progress
 | [根 workspace](../../../Cargo.toml) | 新增总管包；迁移九包路径；保留一个 workspace 与锁文件 |
 | [源码投影器](../../../source/forge/core/src/source_projection.rs) | 基线仅识别 `source/core/Cargo.toml` 与两层成员；首批已适配维护源与逻辑投影两种层级 |
 | [工厂清单生成](../../../source/forge/factory/src/manifest.rs) | 基线存在 `templates/hooks` 与 `source/factory` 等约定；首批已同步模板和物理来源映射 |
-| [产品分发清单](../../../bridgeforge-manifest.json) | 源路径、技能登记、目标、稳定资产 ID 与哈希需要一致维护 |
+| [产品分发清单](../../../source/forge/bridgeforge-manifest.json) | 源路径、技能登记、目标、稳定资产 ID 与哈希需要一致维护 |
 | [版本合同](../../../.codex/bridgeforge-version.json) | 包输入、检查命令、共享输入与收口范围需要更新 |
 | [共享更新器](../../../scripts/bridgeforge_codex_shared_update.ps1) | 现有远端、安装 home、日志及收据包含产品身份 |
 | [cleanup 合同](../../../source/forge/templates/skills/cleanup/SKILL.md) | `.runtime/` 除 config/download 外可清理，不能承载唯一长期任务事实 |

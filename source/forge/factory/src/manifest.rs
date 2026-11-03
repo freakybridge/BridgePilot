@@ -816,6 +816,11 @@ fn consumer_lock(root: &Path, native: &BTreeMap<String, Vec<u8>>) -> Result<Vec<
             entries.push(entry.clone());
         }
     }
+    // Cloned tables retain positions from a different document. Normalize them
+    // before serialization so reading our own projection cannot reorder it.
+    for (position, entry) in entries.iter_mut().enumerate() {
+        entry.set_position(position.try_into().map_err(|_| "too many lock packages")?);
+    }
     crate::source_projection::lock_dependency_closure(
         combined.to_string().as_bytes(),
         &BTreeSet::from([name]),

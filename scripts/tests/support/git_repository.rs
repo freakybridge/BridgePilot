@@ -1,7 +1,5 @@
 //! Shared isolated Git fixtures; no production dependency on this module.
 use bridgeforge_core::{ProcessOutput, ProcessRequest, ProcessRunner, SystemProcessRunner};
-use serde_json::json;
-use sha2::{Digest, Sha256};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -9,9 +7,8 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-fn payload_sha(payload: &[u8]) -> String {
-    format!("sha256:{:x}", Sha256::digest(payload))
-}
+#[path = "current_template.rs"]
+mod current_template;
 
 // Some package contexts only need git_ok; factory assertions also need output.
 #[allow(dead_code)]
@@ -75,45 +72,20 @@ pub(crate) fn real_repository(name: &str) -> RealRepository {
     RealRepository(root)
 }
 
-pub(crate) fn managed_contract(asset: &[u8]) -> Vec<u8> {
-    serde_json::to_vec_pretty(&json!({
-        "schema_version": 4,
-        "release_version": "8.0.0",
-        "host": "codex",
-        "stamp": ".codex/.bridgeforge_codex_version",
-        "contract_target": ".codex/managed-skeleton.json",
-        "assets": [{
-            "id": "managed.asset",
-            "source": "templates/managed.txt",
-            "target": "managed.txt",
-            "strategy": "whole",
-            "current_sha256": payload_sha(asset),
-        }],
-        "baseline_model": "current-only", "compatibility_baseline": "1.0.0",
-        "generated_assets": [],
-    }))
-    .unwrap()
-}
-
 pub(crate) fn managed_repository(name: &str) -> (RealRepository, PathBuf) {
     let repo = real_repository(name);
     let remote = repo.0.with_file_name(format!(
         "{}-remote.git",
         repo.0.file_name().unwrap().to_string_lossy()
     ));
-    fs::create_dir_all(repo.0.join(".codex")).unwrap();
+    current_template::write(&repo.0);
+    git_ok(&repo.0, &["config", "core.hooksPath", ".git/hooks"]);
     fs::write(repo.0.join("managed.txt"), b"old\n").unwrap();
     fs::write(
         repo.0.join(".gitignore"),
         bridgeforge_core::artifact_paths::IGNORE_RULES,
     )
     .unwrap();
-    fs::write(
-        repo.0.join(".codex/managed-skeleton.json"),
-        managed_contract(b"old\n"),
-    )
-    .unwrap();
-    fs::write(repo.0.join(".codex/.bridgeforge_codex_version"), b"8.0.0\n").unwrap();
     git_ok(&repo.0, &["add", "."]);
     git_ok(&repo.0, &["commit", "-m", "baseline"]);
     git_ok(
