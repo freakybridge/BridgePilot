@@ -7,3 +7,4 @@ pub mod install;
 pub mod user_skill;
 pub mod versions;
 pub mod release;
+pub mod release_source;

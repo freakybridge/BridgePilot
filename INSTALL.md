@@ -226,9 +226,9 @@ $bpWorkspace = Join-Path $env:USERPROFILE 'Documents/Codex/BridgePilotWorkspace'
 .build/bridgeforge/bin/bridgeforge-factory.exe git-sync release
 ```
 
-CLI 读取根 Cargo.toml 的 `workspace.metadata.bridgeforge.native-release` 执行入口，先接入远端，再通过原生锁定 Cargo 构建 BP core／launcher，调用内部 `release-prepare` 复用本节 bundle 逻辑。适配器声明完整 package.json 与十三项 payload；它不包含私人档案、用户配置、凭据或 Memory。版本必须已经在原生文件和 CHANGELOG 中确定；缺少关键决定或版本冲突时暂停，不能猜测不兼容级别或重复升版。
+CLI 读取根 Cargo.toml 的 `workspace.metadata.bridgeforge.native-release` 执行入口，接入远端后，由原生源码适配器按最近正式 BP Release、累计约定式提交和本次待提交消息确定版本。适配器提出 VERSION／CHANGELOG 修改，协调器在可恢复事务中应用；已有合理新版本直接复用，无新变化不升版，无法分类的改动明确暂停，不猜测不兼容级别。引导构建与版本确定后的最终构建分开，后者使用锁定 Cargo 构建 BP core／launcher，再调用内部 `release-prepare` 复用本节 bundle 逻辑。适配器声明完整 package.json 与十三项 payload；它不包含私人档案、用户配置、凭据或 Memory。
 
-CLI 随后受管提交推送固定源码，并发布 `bp-v<BP版本>` 标签的正式 GitHub Release。标签采用 BP 独立命名空间，既有 v13.x 等历史不改写。上传中的 draft 仅是内部事务状态，不增加人工审批；只有完整资产及 digest/size 核验通过才转正式并返回 released。安装消费者继续按上文读取正式 Release。
+CLI 在提交推送前核对目标版本占用，再受管提交推送固定源码，并发布 `bp-v<BP版本>` 标签的正式 GitHub Release。标签采用 BP 独立命名空间，既有 v13.x 等历史不改写。上传中的 draft 仅是内部事务状态，不增加人工审批；只有完整资产及 digest/size 核验通过才转正式并返回 released。安装消费者继续按上文读取正式 Release。
 
 有效 Cargo 输出会复用。中断后的固定源码、产物和已完成阶段只记录在 `.runtime/bridgeforge-codex/native-release/`，不是版本登记或开发认证；再次调用同一入口仅补缺失步骤。远端结果不确定先查询，不覆盖已有冲突标签、资产或版本。源码变化与未完成发布冲突时保留现场并报告，不能删除接续记录绕过保护。真实用户环境安装和下游部署不自动随发布执行。
 

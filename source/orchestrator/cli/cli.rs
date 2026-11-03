@@ -36,6 +36,7 @@ fn args(values: Vec<String>) -> Result<(String, BTreeMap<String, String>)> {
         "project-list" => &["workspace", "input"],
         "bundle" => &["output", "core", "launcher"],
         "release-prepare" => &["project-root", "output"],
+        "release-source" => &["project-root", "input"],
         "install" | "install-preview" => &["bundle", "home", "workspace"],
         "install-status" | "install-recover" | "install-rollback" => &["home"],
         "skill-install" | "skill-install-preview" | "skill-status" | "skill-recover" => {
@@ -168,6 +169,15 @@ pub fn run(values: Vec<String>) -> Result<Value> {
             Path::new(get(&options, "codex")?),
             Path::new(get(&options, "project-root")?),
         );
+    }
+    if command == "release-source" {
+        let root = Path::new(get(&options, "project-root")?);
+        return if let Some(input) = options.get("input") {
+            let context = serde_json::from_slice(&std::fs::read(input).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+            serde_json::to_value(bridgepilot_install::release_source::plan(root, &context)?).map_err(|e| e.to_string())
+        } else {
+            serde_json::to_value(bridgepilot_install::release_source::identity(root)?).map_err(|e| e.to_string())
+        };
     }
     if command == "release-prepare" {
         return bridgepilot_install::release::prepare(

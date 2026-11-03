@@ -190,7 +190,7 @@ fn verify_assets(plan: &Plan, release: &Value, allow_missing: bool) -> Result<Ve
     Ok(missing)
 }
 
-fn tag_commit(
+pub(super) fn tag_commit(
     root: &Path,
     runner: &dyn ProcessRunner,
     plan: &Plan,
@@ -244,6 +244,74 @@ fn owned(release: &Value, plan: &Plan, commit: &str, marker: &str) -> Result<(),
         return Err(conflict(
             "existing draft targets different source; draft preserved",
         ));
+    }
+    Ok(())
+}
+
+fn identity_plan(identity: &bridgeforge_core::native_release::SourceIdentity, version: &str) -> Plan {
+    Plan { schema: 1, product: identity.product.clone(), version: version.into(),
+        repository: identity.repository.clone(), tag: format!("{}{version}", identity.tag_prefix),
+        title: identity.product.clone(), notes: String::new(), assets: vec![] }
+}
+
+pub(super) fn baseline(root: &Path, runner: &dyn ProcessRunner, identity: &bridgeforge_core::native_release::SourceIdentity)
+    -> Result<Option<bridgeforge_core::native_release::PublishedVersion>, Stop> {
+    let mut latest: Option<bridgeforge_core::SemVer> = None;
+    let mut complete = false;
+    for page in 1..=10 {
+        let values = api(root, runner, "GET", &format!("repos/{}/releases?per_page=100&page={page}", identity.repository), None, false)?.unwrap();
+        let values = values.as_array().ok_or_else(|| condition("release listing malformed"))?;
+        for release in values {
+            if release["draft"] != false || release["prerelease"] != false { continue; }
+            let Some(raw) = release["tag_name"].as_str().and_then(|s| s.strip_prefix(&identity.tag_prefix)) else { continue; };
+            let version = raw.parse::<bridgeforge_core::SemVer>().map_err(decision)?;
+            if latest.is_none_or(|old| version > old) { latest = Some(version); }
+        }
+        if values.len() < 100 { complete = true; break; }
+    }
+    if !complete { return Err(condition("release history exceeds bounded lookup; baseline unknown")); }
+    latest.map(|version| {
+        let version = version.to_string();
+        let commit = tag_commit(root, runner, &identity_plan(identity, &version))?
+            .ok_or_else(|| conflict("published baseline has no source tag"))?;
+        Ok(bridgeforge_core::native_release::PublishedVersion { version, commit })
+    }).transpose()
+}
+
+pub(super) fn source_available(root: &Path, runner: &dyn ProcessRunner,
+    identity: &bridgeforge_core::native_release::SourceIdentity, unchanged: bool) -> Result<(), Stop> {
+    let plan = identity_plan(identity, &identity.version);
+    if tag_commit(root, runner, &plan)?.is_some() || release(root, runner, &plan)?.is_some() {
+        if unchanged { return Ok(()); }
+        return Err(conflict("proposed release version is occupied; no source commit or push performed"));
+    }
+    Ok(())
+}
+
+pub(super) fn obsolete_publication(root: &Path, runner: &dyn ProcessRunner, plan: &Plan, commit: &str) -> Result<bool, Stop> {
+    let Some(tag) = tag_commit(root, runner, plan)? else { return Ok(false); };
+    if tag == commit { return Ok(false); }
+    let Some(value) = release(root, runner, plan)? else { return Ok(false); };
+    if value["draft"] != false || value["prerelease"] != false || value["tag_name"] != plan.tag {
+        return Ok(false);
+    }
+    if !value["body"].as_str().is_some_and(|body| body.contains(&format!("<!-- native-release-v1 {tag} "))
+        && !body.contains(&format!("<!-- native-release-v1 {commit} "))) { return Ok(false); }
+    Ok(git(root, runner, &["merge-base", &tag, commit])? == tag)
+}
+
+pub(super) fn precheck(root: &Path, runner: &dyn ProcessRunner, plan: &Plan, head: &str, dirty: bool) -> Result<(), Stop> {
+    let tag = tag_commit(root, runner, plan)?;
+    if tag.as_deref().is_some_and(|tag| dirty || tag != head) {
+        return Err(conflict("release tag already identifies different source; stopped before commit/push"));
+    }
+    if let Some(value) = release(root, runner, plan)? {
+        if dirty { return Err(conflict("existing release cannot accept uncommitted source; stopped before commit/push")); }
+        let identity = raw_sha(&serde_json::to_vec(&json!({"product":plan.product,"version":plan.version,
+            "repository":plan.repository,"tag":plan.tag,"assets":plan.assets.iter().map(|a|json!({"name":a.name,"sha256":a.sha256,"size":a.size})).collect::<Vec<_>>()
+        })).map_err(|e| condition(e.to_string()))?);
+        owned(&value, plan, head, &format!("<!-- native-release-v1 {head} {identity} -->"))?;
+        verify_assets(plan, &value, true)?;
     }
     Ok(())
 }

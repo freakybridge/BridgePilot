@@ -65,6 +65,8 @@ impl ProcessRunner for Measured<'_> {
 
 #[path = "native_release_github.rs"]
 mod github;
+#[path = "native_release_source.rs"]
+mod source;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -72,6 +74,8 @@ struct Driver {
     build: Vec<String>,
     program: String,
     args: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    source_args: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -151,7 +155,7 @@ fn driver(root: &Path) -> Result<Driver, Stop> {
         })?;
     if table
         .iter()
-        .any(|(key, _)| !["build", "program", "args"].contains(&key))
+        .any(|(key, _)| !["build", "program", "args", "source-args"].contains(&key))
     {
         return Err(decision("unknown native release entry field"));
     }
@@ -171,6 +175,7 @@ fn driver(root: &Path) -> Result<Driver, Stop> {
     let d = Driver {
         build: array("build")?,
         args: array("args")?,
+        source_args: if table.contains_key("source-args") { array("source-args")? } else { vec![] },
         program: table
             .get("program")
             .and_then(toml_edit::Item::as_str)
@@ -233,6 +238,10 @@ fn git(root: &Path, runner: &dyn ProcessRunner, args: &[&str]) -> Result<String,
 
 /// Includes all tracked and untracked non-ignored inputs. Build/runtime output is ignored by project policy.
 fn fingerprint(root: &Path, runner: &dyn ProcessRunner) -> Result<String, Stop> {
+    fingerprint_without(root, runner, &BTreeSet::new())
+}
+
+fn fingerprint_without(root: &Path, runner: &dyn ProcessRunner, excluded: &BTreeSet<String>) -> Result<String, Stop> {
     use sha2::{Digest, Sha256};
     let files = request(
         root,
@@ -253,6 +262,7 @@ fn fingerprint(root: &Path, runner: &dyn ProcessRunner) -> Result<String, Stop> 
     let paths: BTreeSet<_> = files.split('\0').filter(|s| !s.is_empty()).collect();
     let mut hash = Sha256::new();
     for name in paths {
+        if excluded.contains(name) { continue; }
         let path = bridgeforge_core::managed_paths::safe_join(root, name, "release source")
             .map_err(conflict)?;
         let Some(bytes) = bridgeforge_core::managed_paths::read_metadata(&path, 128 * 1024 * 1024)
@@ -561,6 +571,7 @@ fn run_inner(
 ) -> CommandOutcome {
     let mut stage = "preflight";
     let mut archived_attempt = None;
+    let mut build_invocations = 0usize;
     let result = (|| -> Result<Value, Stop> {
         driver(root)?;
         if options.skip_fetch || options.skip_push {
@@ -575,7 +586,6 @@ fn run_inner(
         )
         .map_err(conflict)?;
         let state_path = root.join(".runtime/bridgeforge-codex/native-release/current.json");
-        let mut input = fingerprint(root, runner)?;
         let mut expected = state_bytes(&state_path)?;
         let old = expected
             .as_deref()
@@ -609,18 +619,27 @@ fn run_inner(
         }
         let observed = anchor(root, runner)?;
         require_idle_git(root, runner)?;
+        source::recover(root, runner)?;
+        let mut input = fingerprint(root, runner)?;
         if old.as_ref().is_some_and(|s| s.status == "source-uncertain") {
             return Err(conflict(
                 "source synchronization outcome is uncertain; inspect Git progress before continuing",
             ));
         }
+        let obsolete = match &old {
+            Some(prior) => source::can_replace_obsolete_attempt(root, runner, prior, &observed)?,
+            None => false,
+        };
         let recovering = old
             .as_ref()
-            .is_some_and(|s| s.status != "released" && s.fingerprint != input);
+            .is_some_and(|s| s.status != "released" && (s.fingerprint != input || obsolete));
         if recovering {
-            require_repreparable(root, runner, old.as_ref().unwrap(), &observed)?;
+            let prior = old.as_ref().unwrap();
+            if !obsolete {
+                require_repreparable(root, runner, prior, &observed)?;
+            }
         }
-        let resume = old.as_ref().is_some_and(|s| s.fingerprint == input);
+        let resume = !obsolete && old.as_ref().is_some_and(|s| s.fingerprint == input);
         if !resume && let Some(bytes) = &expected {
             unchanged_state(&state_path, &expected)?;
             let guard = git_sync::inspect_commit_guard(root, runner).map_err(conflict)?;
@@ -640,11 +659,21 @@ fn run_inner(
             }
             input = fingerprint(root, runner)?;
             unchanged_state(&state_path, &expected)?;
-            let prepared_from = anchor(root, runner)?;
+            let mut prepared_from = anchor(root, runner)?;
             // Fetch may update the native entry too. Never execute the pre-fetch command against new source.
             let native = driver(root)?;
             stage = if recovering { "reprepare" } else { "prepare" };
+            build_invocations += 1;
             request(root, runner, &native.build, 1800)?;
+            let mut selected_source = None;
+            if !native.source_args.is_empty() {
+                stage = "source-version";
+                let (changed, selected) = source::prepare(root, runner, &native, &options)?;
+                selected_source = Some(selected);
+                input = fingerprint(root, runner)?;
+                prepared_from = anchor(root, runner)?;
+                if changed { build_invocations += 1; request(root, runner, &native.build, 1800)?; }
+            }
             let output = format!(
                 ".build/native-release/{}-{}",
                 &input[..16],
@@ -668,6 +697,11 @@ fn run_inner(
             let plan: Plan = serde_json::from_str(&prepared)
                 .map_err(|e| condition(format!("native release plan invalid: {e}")))?;
             plan.validate(root).map_err(condition)?;
+            if selected_source.as_ref().is_some_and(|selected| selected.product != plan.product
+                || selected.repository != plan.repository || selected.version != plan.version
+                || format!("{}{}", selected.tag_prefix, selected.version) != plan.tag) {
+                return Err(conflict("artifact plan differs from the selected source version"));
+            }
             if fingerprint(root, runner)? != input {
                 return Err(conflict(
                     "release source changed during preparation; prepared artifacts preserved",
@@ -699,6 +733,7 @@ fn run_inner(
             return Err(conflict("native release entry differs from continuation"));
         }
         state.plan.validate(root).map_err(conflict)?;
+        source::finish(root, runner)?;
         let current = anchor(root, runner)?;
         if state
             .anchor
@@ -747,6 +782,9 @@ fn run_inner(
             save(&state_path, &state, &mut expected)?;
         }
         if !["pushed", "released"].contains(&state.status.as_str()) {
+            stage = "publication-preflight";
+            github::precheck(root, runner, &state.plan, &current.head,
+                !git(root, runner, &["status", "--porcelain"])?.is_empty())?;
             stage = "source-push";
             require_idle_git(root, runner)?;
             if options.message.is_none() && options.message_file.is_none() {
@@ -825,7 +863,7 @@ fn run_inner(
         save(&state_path, &state, &mut expected)?;
         let mut result = result;
         result["resumed"] = json!(resume);
-        result["build_invocations"] = json!(usize::from(!resume));
+        result["build_invocations"] = json!(build_invocations);
         result["prepared_artifacts_reused"] = json!(resume);
         result["source_fingerprint"] = json!(input);
         result["continuation"] = json!(state_path);

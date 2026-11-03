@@ -169,9 +169,12 @@ struct Runner {
     lose_tag_reply: Cell<bool>,
     lose_publish_reply: Cell<bool>,
     fail_build: Cell<bool>,
+    fail_build_at: Cell<usize>,
     fail_commit: Cell<bool>,
     fail_push: Cell<bool>,
     replace_state_on_prepare: Cell<bool>,
+    source_version: Option<String>,
+    history: RefCell<Vec<(String, String, Value)>>,
 }
 impl Runner {
     fn new(plan: Plan) -> Self {
@@ -185,9 +188,12 @@ impl Runner {
             lose_tag_reply: Cell::new(false),
             lose_publish_reply: Cell::new(false),
             fail_build: Cell::new(false),
+            fail_build_at: Cell::new(0),
             fail_commit: Cell::new(false),
             fail_push: Cell::new(false),
             replace_state_on_prepare: Cell::new(false),
+            source_version: None,
+            history: RefCell::new(vec![]),
         }
     }
     fn count(&self, word: &str) -> usize {
@@ -232,7 +238,7 @@ impl ProcessRunner for Runner {
             return SystemProcessRunner.run(q);
         }
         if program == "mock-build" {
-            return Ok(if self.fail_build.get() {
+            return Ok(if self.fail_build.get() || self.fail_build_at.get() == self.count("mock-build") {
                 ProcessOutput {
                     code: 1,
                     stderr: b"build failed".to_vec(),
@@ -243,9 +249,26 @@ impl ProcessRunner for Runner {
             });
         }
         if program == "mock" {
+            if args.first().is_some_and(|a| a == "source") {
+                use bridgeforge_core::native_release::{SourceIdentity, SourcePlan, SourceEdit};
+                let before = fs::read_to_string(q.cwd.join("VERSION"))?;
+                let mut identity = SourceIdentity { product: self.plan.product.clone(), repository: self.plan.repository.clone(),
+                    version: before.trim().into(), tag_prefix: "bp-v".into(), paths: vec!["VERSION".into()] };
+                if !args.iter().any(|a| a == "--input") { return Ok(ok(&serde_json::to_value(identity).unwrap())); }
+                let selected = self.source_version.as_ref().unwrap();
+                identity.version = selected.clone();
+                let edits = if before.trim() == selected { vec![] } else {
+                    vec![SourceEdit { path: "VERSION".into(), before, after: format!("{selected}\n") }]
+                };
+                return Ok(ok(&serde_json::to_value(SourcePlan { schema: 1, identity, edits }).unwrap()));
+            }
             let output = PathBuf::from(args.last().unwrap());
             fs::create_dir_all(&output)?;
             let mut plan = self.plan.clone();
+            if self.source_version.is_some() {
+                plan.version = fs::read_to_string(q.cwd.join("VERSION"))?.trim().into();
+                plan.tag = format!("bp-v{}", plan.version);
+            }
             for asset in &mut plan.assets {
                 let path = output.join(&asset.name);
                 fs::copy(q.cwd.join(&asset.path), &path)?;
@@ -294,6 +317,10 @@ impl ProcessRunner for Runner {
         let method = &args[4];
         let endpoint = &args[5];
         if endpoint.contains("/git/ref/tags/") {
+            if let Some((_, commit, _)) = self.history.borrow().iter().find(|(tag, _, _)| endpoint.ends_with(&format!("/{tag}"))) {
+                return Ok(ok(&json!({"object":{"type":"commit","sha":commit}})));
+            }
+            if self.source_version.is_some() && self.tag.borrow().is_none() { return Ok(missing()); }
             return Ok(self
                 .tag
                 .borrow()
@@ -303,6 +330,9 @@ impl ProcessRunner for Runner {
         }
         if method == "GET" {
             if endpoint.contains("/releases/tags/") {
+                if let Some((_, _, value)) = self.history.borrow().iter().find(|(tag, _, _)| endpoint.ends_with(&format!("/{tag}"))) {
+                    return Ok(ok(value));
+                }
                 return Ok(self
                     .remote
                     .borrow()
@@ -312,9 +342,9 @@ impl ProcessRunner for Runner {
                     .unwrap_or_else(missing));
             }
             if endpoint.contains("/releases?per_page=") {
-                return Ok(ok(&json!(
-                    self.remote.borrow().iter().cloned().collect::<Vec<_>>()
-                )));
+                let mut values = self.history.borrow().iter().map(|(_,_,v)| v.clone()).collect::<Vec<_>>();
+                values.extend(self.remote.borrow().iter().cloned());
+                return Ok(ok(&json!(values)));
             }
             assert!(
                 endpoint.ends_with("/releases/11"),
@@ -345,7 +375,7 @@ impl ProcessRunner for Runner {
             let mut v: Value = serde_json::from_slice(&q.stdin).unwrap();
             v["id"] = json!(11);
             v["assets"] = json!([]);
-            v["html_url"] = json!("https://github.com/fixture/repository/releases/tag/bp-v1.0.0");
+            v["html_url"] = json!(format!("https://github.com/fixture/repository/releases/tag/{}", v["tag_name"].as_str().unwrap()));
             *self.remote.borrow_mut() = Some(v.clone());
             if self.lose_create_reply.replace(false) {
                 return Ok(ProcessOutput {
@@ -393,6 +423,127 @@ fn complete_release_and_repeat_do_not_rebuild_repush_or_reupload() {
         fs::read_to_string(f.root.join("VERSION")).unwrap(),
         "1.0.0\n"
     );
+}
+
+fn next_source_release(f: &Fixture, runner: &mut Runner) {
+    let first = run(&f.root, runner, git_sync::GitSyncOptions::default());
+    assert_eq!(first.code, 0, "{}", first.stderr);
+    let old = runner.remote.borrow_mut().take().unwrap();
+    let commit = runner.tag.borrow_mut().take().unwrap();
+    runner.history.borrow_mut().push((f.plan.tag.clone(), commit, old));
+    let cargo = fs::read_to_string(f.root.join("Cargo.toml")).unwrap();
+    fs::write(f.root.join("Cargo.toml"), format!("{cargo}source-args=[\"source\"]\n")).unwrap();
+    fs::write(f.root.join("feature.txt"), "feature").unwrap();
+    runner.source_version = Some("1.1.0".into());
+}
+
+#[test]
+fn next_release_versions_before_push_and_repeats_without_another_increment() {
+    let f = Fixture::current_project();
+    let mut runner = Runner::new(f.plan.clone());
+    next_source_release(&f, &mut runner);
+    let out = run(&f.root, &runner, git_sync::GitSyncOptions::default());
+    assert_eq!(out.code, 0, "{}", out.stderr);
+    assert_eq!(out.receipt.unwrap()["version"], "1.1.0");
+    assert_eq!(fs::read_to_string(f.root.join("VERSION")).unwrap(), "1.1.0\n");
+    let builds = runner.count("mock-build");
+    let pushes = runner.count("push");
+    let out = run(&f.root, &runner, git_sync::GitSyncOptions::default());
+    assert_eq!(out.code, 0, "{}", out.stderr);
+    assert_eq!(runner.count("mock-build"), builds);
+    assert_eq!(runner.count("push"), pushes);
+    assert_eq!(runner.history.borrow()[0].0, "bp-v1.0.0");
+}
+
+#[test]
+fn applied_version_survives_final_build_failure_and_corrected_source() {
+    let f = Fixture::current_project();
+    let mut runner = Runner::new(f.plan.clone());
+    next_source_release(&f, &mut runner);
+    runner.fail_build_at.set(runner.count("mock-build") + 2);
+    let out = run(&f.root, &runner, git_sync::GitSyncOptions::default());
+    assert_ne!(out.code, 0);
+    assert_eq!(fs::read_to_string(f.root.join("VERSION")).unwrap(), "1.1.0\n");
+    fs::write(f.root.join("feature.txt"), "corrected feature").unwrap();
+    runner.fail_build_at.set(0);
+    let out = run(&f.root, &runner, git_sync::GitSyncOptions::default());
+    assert_eq!(out.code, 0, "{}", out.stderr);
+    assert_eq!(out.receipt.unwrap()["version"], "1.1.0");
+}
+
+#[test]
+fn resumed_prepared_state_finishes_pending_source_transaction_before_commit() {
+    let f = Fixture::current_project();
+    let mut runner = Runner::new(f.plan.clone());
+    next_source_release(&f, &mut runner);
+    runner.fail_commit.set(true);
+    let out = run(&f.root, &runner, git_sync::GitSyncOptions::default());
+    assert_ne!(out.code, 0);
+    let source = f.root.join(".runtime/bridgeforge-codex/native-release/source.json");
+    let mut tx: Value = serde_json::from_slice(&fs::read(&source).unwrap()).unwrap();
+    tx["finished"] = json!(false);
+    fs::write(&source, serde_json::to_vec(&tx).unwrap()).unwrap();
+    runner.fail_commit.set(false);
+    let out = run(&f.root, &runner, git_sync::GitSyncOptions::default());
+    assert_eq!(out.code, 0, "{}", out.stderr);
+    let tx: Value = serde_json::from_slice(&fs::read(source).unwrap()).unwrap();
+    assert_eq!(tx["finished"], true);
+    assert_eq!(run(&f.root, &runner, git_sync::GitSyncOptions::default()).code, 0);
+}
+
+#[test]
+fn obsolete_pushed_version_is_replaced_without_rewriting_its_commit_or_tag() {
+    let f = Fixture::current_project();
+    let mut runner = Runner::new(f.plan.clone());
+    next_source_release(&f, &mut runner);
+    process(&f.root, &["add", "."]);
+    process(&f.root, &["commit", "-m", "feat: pushed but not published"]);
+    process(&f.root, &["push"]);
+    let current = anchor(&f.root, &runner).unwrap();
+    let mut old = f.state();
+    old.status = "pushed".into(); old.result = None;
+    old.commit = Some(current.head.clone()); old.anchor = Some(current.clone());
+    old.fingerprint = fingerprint(&f.root, &runner).unwrap();
+    fs::write(f.state_path(), serde_json::to_vec(&old).unwrap()).unwrap();
+    assert!(source::can_replace_obsolete_attempt(&f.root, &runner, &old, &current).unwrap());
+    let mut drift = current.clone(); drift.url.push_str("-other");
+    assert!(!source::can_replace_obsolete_attempt(&f.root, &runner, &old, &drift).unwrap());
+    runner.history.borrow_mut()[0].2["draft"] = json!(true);
+    assert!(!source::can_replace_obsolete_attempt(&f.root, &runner, &old, &current).unwrap());
+    runner.history.borrow_mut()[0].2["draft"] = json!(false);
+    let tag = runner.history.borrow()[0].1.clone();
+    runner.history.borrow_mut()[0].1 = current.head.clone();
+    assert!(!source::can_replace_obsolete_attempt(&f.root, &runner, &old, &current).unwrap());
+    runner.history.borrow_mut()[0].1 = tag.clone();
+    let out = run(&f.root, &runner, git_sync::GitSyncOptions::default());
+    assert_eq!(out.code, 0, "{}", out.stderr);
+    assert_eq!(out.receipt.as_ref().unwrap()["version"], "1.1.0");
+    assert!(out.receipt.as_ref().unwrap()["previous_attempt"].is_string());
+    assert_eq!(runner.history.borrow()[0].1, tag);
+    assert_eq!(git(&f.root, &runner, &["merge-base", &current.head, "HEAD"]).unwrap(), current.head);
+}
+
+#[test]
+fn partial_source_transaction_recovers_but_external_version_edit_is_preserved() {
+    let f = Fixture::new();
+    let runner = Runner::new(f.plan.clone());
+    fs::write(f.root.join("CHANGELOG.md"), "before notes\n").unwrap();
+    let edits = json!([
+        {"path":"VERSION","before":"1.0.0\n","after":"1.1.0\n"},
+        {"path":"CHANGELOG.md","before":"before notes\n","after":"after notes\n"}
+    ]);
+    let outside = fingerprint_without(&f.root, &runner, &BTreeSet::from(["VERSION".into(), "CHANGELOG.md".into()])).unwrap();
+    let tx = json!({"schema":1,"anchor":anchor(&f.root,&runner).unwrap(),"outside":outside,"finished":false,
+        "plan":{"schema":1,"identity":{"product":"Fixture","repository":"fixture/repository","version":"1.1.0","tag_prefix":"bp-v","paths":["VERSION","CHANGELOG.md"]},"edits":edits}});
+    let path = f.root.join(".runtime/bridgeforge-codex/native-release/source.json");
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(&path, serde_json::to_vec(&tx).unwrap()).unwrap();
+    fs::write(f.root.join("VERSION"), "1.1.0\n").unwrap();
+    source::recover(&f.root, &runner).unwrap();
+    assert_eq!(fs::read_to_string(f.root.join("CHANGELOG.md")).unwrap(), "after notes\n");
+    fs::write(f.root.join("VERSION"), "9.0.0\n").unwrap();
+    assert!(source::recover(&f.root, &runner).is_err());
+    assert_eq!(fs::read_to_string(f.root.join("VERSION")).unwrap(), "9.0.0\n");
 }
 
 #[test]
@@ -467,6 +618,7 @@ fn existing_tag_mismatch_and_build_failure_cannot_be_reported_as_published() {
     assert_ne!(out.code, 0);
     assert_eq!(out.receipt.unwrap()["pause_category"], "conflict");
     assert_eq!(runner.count("POST"), 0);
+    assert_eq!(runner.count("push"), 0);
 }
 
 #[test]

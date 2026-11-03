@@ -2,6 +2,49 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
+/// Read-only native source adapter identity. File ownership is explicit.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct SourceIdentity {
+    pub product: String,
+    pub repository: String,
+    pub version: String,
+    pub tag_prefix: String,
+    pub paths: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PublishedVersion {
+    pub version: String,
+    pub commit: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SourceContext {
+    pub schema: u32,
+    pub identity: SourceIdentity,
+    pub baseline: Option<PublishedVersion>,
+    pub message: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SourceEdit {
+    pub path: String,
+    pub before: String,
+    pub after: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SourcePlan {
+    pub schema: u32,
+    pub identity: SourceIdentity,
+    pub edits: Vec<SourceEdit>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Asset {

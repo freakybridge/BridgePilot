@@ -17,6 +17,7 @@ public-members = ["source/forge/core", "source/forge/skeleton", "source/forge/ch
 build = ["cargo", "build", "--locked", "--offline", "--release", "--manifest-path", "Cargo.toml", "--target-dir", ".build/bridgepilot/cargo", "-p", "bridgepilot-orchestrator", "--bin", "bp", "--bin", "bp-launcher"]
 program = ".build/bridgepilot/cargo/release/bp.exe"
 args = ["release-prepare"]
+source-args = ["release-source"]
 
 [workspace.dependencies]
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
