@@ -139,6 +139,8 @@ BP 组织单项目或多项目骨架升级时，读取私有 [bridgeforge-update
 
 本工厂普通 Git 同步入口为 `.build/bridgeforge/bin/bridgeforge-factory.exe git-sync`，使用现有工具与一次聚合预检。工具缺失或不匹配时报告维护缺口，不自动安装升级。原生开发验证使用下列 Cargo 入口；旧 develop、配置迁移与配置化 release 参数明确报退役，不能转回冻结工具继续在线运行。
 
+用户完整发布仍只调用 `git-sync release`；实际受管命令为 `.build/bridgeforge/bin/bridgeforge-factory.exe git-sync release`。CLI 通过原生 Cargo metadata 登记的 BP 适配器完成必要构建、打包、源码提交推送、正式 GitHub Release 和远端核验。只有 `status=released` 且 `publication_verified=true` 才是发布成功；普通 synced 不代替发布。最短路径、四类暂停与接续规则只维护在共享 git-sync Skill；原生入口和包边界见 INSTALL。Forge 不依赖 BP 包，不重建旧版本账本。
+
 旧 cleanup 依赖的项目产物覆盖与 Hook 登记旁文件已退役。未建立可靠的原生成品保护前，该入口明确阻断；不恢复旧 JSON，不默认清空 `.build`，不删除当前成品或本次恢复证据。
 
 工厂显式工具刷新及开发必要构建的受管准备入口为下列第一条命令，不再作为日常 Git 同步前置。它通过锁定 Cargo 启动当前源码工厂工具，按需准备 CLI、Hook 和工厂工具；准备失败停止，不对工厂执行下游 adopt/apply。只读检查直接使用已具备 `factory-runtime-prepare-v1` 的工厂工具的 `build-assets --factory --project-root . --check`；没有该能力时报告工具不可用，不用 Cargo 引导冒充零写入检查。完整说明见 INSTALL.md。

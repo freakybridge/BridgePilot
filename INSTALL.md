@@ -218,6 +218,20 @@ $bpWorkspace = Join-Path $env:USERPROFILE 'Documents/Codex/BridgePilotWorkspace'
 4. 接管不自动 resume 或执行。按明确项目恢复，再以 `handoff-continue --expected <revision> --input <JSON>` 指定 tasks/source。旧 Run、confirm 和结果保留；新 Run 使用新机身份、新聊天并带上旧阶段／结果上下文，证据需重新核实。不把模型完成当作发布，不绕过新聊天工具的人类授权。已交付任务不重复执行。
 5. 原机取消已确认但尚未被接受的交接使用 handoff-cancel；新机已接受后拒绝覆盖。网络未知用 sync-reconcile，不盲重做。原机心跳配置不复制到新机，保持用户暂停偏好，新控制对话的唤醒须重新核验。
 
+### 完整发布
+
+用户只调用 `git-sync release`。本仓库已有工具的实际单次命令如下，不需要 Agent 再手工运行普通同步、打包或 GitHub 发布：
+
+```powershell
+.build/bridgeforge/bin/bridgeforge-factory.exe git-sync release
+```
+
+CLI 读取根 Cargo.toml 的 `workspace.metadata.bridgeforge.native-release` 执行入口，先接入远端，再通过原生锁定 Cargo 构建 BP core／launcher，调用内部 `release-prepare` 复用本节 bundle 逻辑。适配器声明完整 package.json 与十三项 payload；它不包含私人档案、用户配置、凭据或 Memory。版本必须已经在原生文件和 CHANGELOG 中确定；缺少关键决定或版本冲突时暂停，不能猜测不兼容级别或重复升版。
+
+CLI 随后受管提交推送固定源码，并发布 `bp-v<BP版本>` 标签的正式 GitHub Release。标签采用 BP 独立命名空间，既有 v13.x 等历史不改写。上传中的 draft 仅是内部事务状态，不增加人工审批；只有完整资产及 digest/size 核验通过才转正式并返回 released。安装消费者继续按上文读取正式 Release。
+
+有效 Cargo 输出会复用。中断后的固定源码、产物和已完成阶段只记录在 `.runtime/bridgeforge-codex/native-release/`，不是版本登记或开发认证；再次调用同一入口仅补缺失步骤。远端结果不确定先查询，不覆盖已有冲突标签、资产或版本。源码变化与未完成发布冲突时保留现场并报告，不能删除接续记录绕过保护。真实用户环境安装和下游部署不自动随发布执行。
+
 ### 独立安装、升级与回退
 
 ```powershell

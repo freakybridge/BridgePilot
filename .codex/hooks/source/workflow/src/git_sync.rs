@@ -1062,7 +1062,8 @@ fn sync_impl(
         behind,
         autostashed
     ));
-    final_receipt["release_policy"] = json!("explicit_release");
+    final_receipt["operation"] = json!("git-sync");
+    final_receipt["publication_status"] = json!("not_requested");
     final_receipt["release_requested"] = json!(options.release);
     final_receipt["version_bumped"] = json!(version_before != version_after);
     final_receipt["version_before"] = json!(version_before);

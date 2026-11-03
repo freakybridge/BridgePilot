@@ -177,7 +177,7 @@ pub(super) fn inspect(root: &Path, runner: &dyn ProcessRunner) -> CommandOutcome
             (String::new(), String::new())
         };
         Ok(json!({
-            "schema":1,"status":"ready","release_model":"native-project-tools",
+            "schema":1,"status":"ready","release_model":"native-project-tools","readiness_scope":"git-only",
             "branch":branch,"head":head,"upstream":upstream,"push_target":push_target,
             "working_tree":if dirty {"dirty"} else {"clean"},
             "status_porcelain":status,"diff_stat":{"unstaged":unstaged,"staged":staged},

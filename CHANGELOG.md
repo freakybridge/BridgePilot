@@ -15,6 +15,50 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [BP 1.1.0] - 2026-11-03
+
+- [product][repo] `git-sync release` 成为单次 CLI 完整发布入口：接入远端、必要原生构建与打包、提交推送固定源码、正式 GitHub Release 和远端资产核验由同一次调用完成。普通同步保持原行为。
+- [repo] BP 原生适配器复用十三项 payload 的 bundle，并发布 package.json；采用 `bp-v1.1.0` 独立 BP 标签，不改写历史 v13.x 等标签。组件为 BF17.1.0（source-reference）与 orchestrator0.15.0（embedded），不代表用户环境已安装 BF。
+- [product] 严格解析裸 release 和未知参数；发布未完成不会降级为 synced。相同输入重复调用复用准备结果，上传或发布响应未知先查询；短暂上传故障仅补缺失资产一次，仍失败则保留接续记录。
+- [meta] 固定四类暂停条件及最短路径，修正用户级／项目级 Skill 分裂和此前将完整发布授权缩窄为源码同步的记录。
+- [repo] 用户级旧官方仓库 URL 仅在 GitHub 证明与当前仓库同一 ID 时接受重命名；即使提交相同也经既有 home 备份／替换事务转为 canonical 来源，正常更新不增加网络查询。
+
+## [17.1.0] - 2026-11-03
+
+| Package | Before | After | Reason |
+|---|---|---|---|
+| bridgeforge-core | 11.0.1 | 11.1.0 | 新增原生发布资产协议，公共投影剔除项目专属发布入口 |
+| bridgeforge-workflow | 0.11.1 | 0.12.0 | 新增单次完整发布编排、GitHub 核验、失败接续与严格解析 |
+| bridgeforge-factory | 0.11.1 | 0.12.0 | 工厂 CLI 接通完整发布并声明能力 |
+| bridgeforge-cli | 17.0.1 | 17.1.0 | 公共 CLI 完整发布能力与统一入口 |
+| bridgeforge-hook | 17.0.1 | 17.1.0 | 随 BF 产品保持公共运行产物版本一致 |
+| bridgepilot-install | 0.5.1 | 0.6.0 | 新增 BP 原生发布资产适配器 |
+| bridgepilot-orchestrator | 0.14.1 | 0.15.0 | 接通内部 release-prepare 入口 |
+
+BP 主产品 1.0.1 → 1.1.0：新增完整发布能力；其余内部包版本不变。既有 1.0.1 源码提交保持历史事实，本发布包含该清单迁移成果，不复用 1.0.1 表示不同的程序字节。
+
+### 自上次 GitHub 正式 Release v13.1.0 的累计版本
+
+旧 Release 名称沿用当时 BF 13.1.0 的编号，其 BP core 实为原单包 orchestrator 0.5.0。现在 BP 主产品采用独立 1.x 版本线，不把 13.1.0 当作 BP 主程序降版。
+
+| Package | v13.1.0 中版本 | 本次版本 | 累计原因 |
+|---|---|---|---|
+| bridgeforge-cli / bridgeforge-hook | 13.1.0 | 17.1.0 | Template-only、原生版本解耦、清单迁移与完整发布 |
+| bridgeforge-core | 10.2.0 | 11.1.0 | 原生模板规则、编译来源、资产布局及发布协议 |
+| bridgeforge-factory | 0.10.1 | 0.12.0 | 原生产物准备、版本核验与完整发布入口 |
+| bridgeforge-workflow | 0.9.2 | 0.12.0 | 退役旧配置账本、轻量同步、原生发布与接续 |
+| bridgeforge-skeleton | 0.5.2 | 0.7.1 | Template-only、源码及清单布局迁移 |
+| bridgeforge-checks | 0.2.2 | 0.3.0 | 检查退出旧 JSON、原生 TODO 合同 |
+| bridgeforge-lifecycle | 0.8.3 | 0.8.7 | 原生版本／安装边界与旧发布入口退役 |
+| bridgepilot-orchestrator | 0.5.0 | 0.15.0 | 六包拆分、SQLite、独立安装及版本、完整发布适配 |
+| bridgepilot-tasks | 新增 | 0.1.0 | 独立任务模型 |
+| bridgepilot-storage | 新增 | 0.1.1 | 独立 SQLite 存储及档案隔离 |
+| bridgepilot-execution | 新增 | 0.2.0 | 独立执行与核验 |
+| bridgepilot-transfer | 新增 | 0.1.0 | 独立同步及换机 |
+| bridgepilot-install | 新增 | 0.6.0 | 独立安装、三产品身份及发布资产适配 |
+
+bridgeforge-memory 保持 0.1.1。本表依据 v13.1.0 标签中的原生 Cargo manifests 与本次候选逐包核对，不将中间源码推送冒充 GitHub 安装包发布。
+
 ## [BP 1.0.1] - 2026-11-03
 
 - [repo] Forge 分发清单迁至 `source/forge/bridgeforge-manifest.json`；清单源码路径仍相对 BridgePilot 仓库根解析，分发目标、资产身份与历史哈希语义保持不变。

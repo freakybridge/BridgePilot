@@ -1420,7 +1420,8 @@ function Select-CanonicalSource {
     if (Test-Path -LiteralPath $installedSourceRoot) {
         # Dirty/unowned homes are errors, even if the remote has advanced.
         $identity = Get-RepositoryIdentity -Root $installedSourceRoot
-        if ([string]$identity.commit -eq $expected) {
+        if ([string]$identity.commit -eq $expected -and
+            (Get-NormalizedRemote ([string]$identity.remote)) -eq (Get-NormalizedRemote $CanonicalRemote)) {
             $commit = Assert-Repository -Root $installedSourceRoot -SkipFetch -ExpectedCommit $expected -InstalledHome $installedSourceRoot
             $script:BuildCounts.source_reused += 1
             return [ordered]@{ root=$installedSourceRoot; clone=$null; commit=$commit }
@@ -1439,6 +1440,35 @@ function Select-CanonicalSource {
     }
 }
 
+function Get-GitHubRepositoryIdentity {
+    param([Parameter(Mandatory = $true)][string]$Remote)
+    $normalized = Get-NormalizedRemote $Remote
+    if ($normalized -notmatch '^https://github\.com/([a-z0-9_.-]+)/([a-z0-9_.-]+)$') {
+        throw 'Repository rename verification requires an explicit GitHub HTTPS identity.'
+    }
+    $endpoint = "https://api.github.com/repos/$($Matches[1])/$($Matches[2])"
+    return Invoke-RestMethod -Uri $endpoint -Method Get -Headers @{
+        'Accept' = 'application/vnd.github+json'
+        'User-Agent' = 'BridgeForge-managed-update'
+        'X-GitHub-Api-Version' = '2022-11-28'
+    } -TimeoutSec 30
+}
+
+function Test-CanonicalHomeRemote {
+    param([Parameter(Mandatory = $true)][string]$Remote)
+    $normalized = Get-NormalizedRemote $Remote
+    $canonical = Get-NormalizedRemote $CanonicalRemote
+    if ($normalized -eq $canonical) { return $true }
+    # The former official name is accepted only while GitHub proves the same
+    # current repository identity. No origin rewrite and no arbitrary aliases.
+    if ($normalized -ne 'https://github.com/freakybridge/bridgeforgecodex') { return $false }
+    $previous = Get-GitHubRepositoryIdentity -Remote $Remote
+    $current = Get-GitHubRepositoryIdentity -Remote $CanonicalRemote
+    return ([long]$previous.id -gt 0 -and [long]$previous.id -eq [long]$current.id -and
+        [string]$previous.full_name -eq [string]$current.full_name -and
+        (Get-NormalizedRemote ([string]$current.html_url)) -eq $canonical)
+}
+
 function Get-RepositoryIdentity {
     param([Parameter(Mandatory = $true)][string]$Root)
     if (-not (Test-Path -LiteralPath $Root -PathType Container) -or
@@ -1448,7 +1478,7 @@ function Get-RepositoryIdentity {
     $remote = ((Invoke-Git -WorkingDirectory $Root -Arguments @(
         "config", "--get", "remote.origin.url"
     )) -join "").Trim()
-    if ((Get-NormalizedRemote $remote) -ne (Get-NormalizedRemote $CanonicalRemote)) {
+    if (-not (Test-CanonicalHomeRemote -Remote $remote)) {
         throw "bridgeforge-codex command home origin is not canonical: $Root"
     }
     $commit = ((Invoke-Git -WorkingDirectory $Root -Arguments @(
@@ -1492,7 +1522,8 @@ function New-CommandHomePlan {
     }
     if ($hadOriginal) {
         $identity = Get-RepositoryIdentity -Root $target
-        if ([string]$identity.commit -eq $Commit) {
+        if ([string]$identity.commit -eq $Commit -and
+            (Get-NormalizedRemote ([string]$identity.remote)) -eq (Get-NormalizedRemote $CanonicalRemote)) {
             return [ordered]@{
                 target = $target
                 stage = $stage

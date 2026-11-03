@@ -4,7 +4,9 @@ delivery_layout: flat
 
 # BridgePilot Documents
 
-- 已验收：[Forge 分发清单归属迁移](1_delivery/manifest-location/acceptance_2026-11-03_forge-manifest-migration.md)（2026-11-03；清单迁至 source/forge，50 项 Rust 定向测试、安装事务、受管构建、869 文件零写检查和独立复核通过；用户授权 BP1.0.1／BF17.0.1／orchestrator0.14.1 源码发布，实际 Git 结果以受管收据为准；未更新安装包、用户级安装或真实下游）。
+- 实施中：[单入口完整发布修复](1_delivery/native-release/requirements_2026-11-03_single-entry-release.md)（TODO-054；用户确认 git-sync release 单入口、CLI 完整执行、最短路径及四类暂停边界；已授权实施和一次真实发布验收，尚未完成）。
+
+- 已验收：[Forge 分发清单归属迁移](1_delivery/manifest-location/acceptance_2026-11-03_forge-manifest-migration.md)（2026-11-03；50 项 Rust 定向测试、安装事务、受管构建、869 文件零写检查及独立复核通过；源码已提交推送 4674c68。当时将完整 release 缩减为源码发布是 Agent 错误，用户未排除安装包；原记录已更正，发布链路由 TODO-054 接续）。
 
 - 已验收：[BP、BF 与 orchestrator 三产品版本治理](1_delivery/plan_2026-11-03_three-product-versions.md#用户验收与发布授权2026-11-03)（2026-11-03用户验收BP1.0.0／BF17.0.0／orchestrator0.14.0并授权源码发布；构建、定向验证、旧真实产物隔离迁移、dogfood及独立复核通过。发布结果以受管Git收据为准；未更新用户级安装或真实下游）。
 

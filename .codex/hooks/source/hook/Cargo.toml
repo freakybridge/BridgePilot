@@ -1,6 +1,6 @@
 [package]
 name = "bridgeforge-hook"
-version = "17.0.1"
+version = "17.1.0"
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true

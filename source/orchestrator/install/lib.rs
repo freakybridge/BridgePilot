@@ -6,3 +6,4 @@ pub mod environment;
 pub mod install;
 pub mod user_skill;
 pub mod versions;
+pub mod release;

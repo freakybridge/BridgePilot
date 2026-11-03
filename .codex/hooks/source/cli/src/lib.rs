@@ -176,7 +176,7 @@ fn self_test() -> CommandOutcome {
         "name": "bridgeforge",
         "status": "ok",
         "version": env!("CARGO_PKG_VERSION"),
-        "capabilities": ["template-only-v1", "compiled-build-provenance-v1", "user-cli-reuse-v1", "git-sync-preflight-v1", "public-artifacts-v1"],
+        "capabilities": ["template-only-v1", "compiled-build-provenance-v1", "user-cli-reuse-v1", "git-sync-preflight-v1", "public-artifacts-v1", "native-release-v1"],
         "build_identity": bridgeforge_core::build_identity::identity()
     }))
 }

@@ -64,7 +64,7 @@ pub fn self_test() -> CommandOutcome {
         Ok(product) => CommandOutcome::with_receipt(json!({
             "schema":1,"name":"bridgeforge-factory","status":"ok",
             "version":env!("CARGO_PKG_VERSION"),"product_version":product,
-            "capabilities":["template-only-v1","compiled-build-provenance-v1","factory-runtime-prepare-v1","factory-source-projection-v1","git-sync-preflight-v1"],
+            "capabilities":["template-only-v1","compiled-build-provenance-v1","factory-runtime-prepare-v1","factory-source-projection-v1","git-sync-preflight-v1","native-release-v1"],
             "build_identity":bridgeforge_core::build_identity::identity()
         })),
         Err(error) => blocked("factory-self-test", error),

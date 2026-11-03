@@ -35,6 +35,7 @@ fn args(values: Vec<String>) -> Result<(String, BTreeMap<String, String>)> {
         "development-probe" => &["project-root", "tool", "packages"],
         "project-list" => &["workspace", "input"],
         "bundle" => &["output", "core", "launcher"],
+        "release-prepare" => &["project-root", "output"],
         "install" | "install-preview" => &["bundle", "home", "workspace"],
         "install-status" | "install-recover" | "install-rollback" => &["home"],
         "skill-install" | "skill-install-preview" | "skill-status" | "skill-recover" => {
@@ -168,6 +169,11 @@ pub fn run(values: Vec<String>) -> Result<Value> {
             Path::new(get(&options, "project-root")?),
         );
     }
+    if command == "release-prepare" {
+        return bridgepilot_install::release::prepare(
+            Path::new(get(&options, "project-root")?), Path::new(get(&options, "output")?),
+        );
+    }
     if command == "bundle" {
         return crate::install::bundle(
             Path::new(get(&options, "output")?),
@@ -176,6 +182,7 @@ pub fn run(values: Vec<String>) -> Result<Value> {
         );
     }
     if matches!(command.as_str(), "install" | "install-preview") {
+        // Public installation remains separate from native release preparation.
         return crate::install::install(
             Path::new(get(&options, "bundle")?),
             Path::new(get(&options, "home")?),

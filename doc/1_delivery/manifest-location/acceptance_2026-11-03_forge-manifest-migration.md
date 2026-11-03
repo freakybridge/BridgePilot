@@ -5,6 +5,8 @@ validation_status: passed
 
 # Forge 分发清单归属迁移验收
 
+> 2026-11-03 更正：下文将用户的 `git-sync release` 缩减为“源码发布”，并将安装包排除写成用户范围，是 Agent 的错误解释，未经用户确认。用户真实要求是单入口完成完整发布。源码提交推送 `4674c68` 已完成，清单迁移验收仍有效；当时 GitHub 安装包发布尚未完成，不能用该错误范围证明发布成功。完整链路修复与真实发布接续见 [TODO-054](../native-release/requirements_2026-11-03_single-entry-release.md)。保留下文原记录用于追溯，不将错误解释作为后续授权依据。
+
 ## 用户决定与范围
 
 2026-11-03，用户要求将根目录 `bridgeforge-manifest.json` 迁入 `source/forge/`，使 BridgePilot 根目录承载整体产品信息。经 confirm 与迁移计划后，用户明确授权实施，并在交付后调用 `summary accept` 验收、调用 `git-sync release` 授权本仓库本次改动的源码发布。

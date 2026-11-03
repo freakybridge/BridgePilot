@@ -13,6 +13,11 @@ publish = false
 factory-members = ["source/forge/core", "source/forge/skeleton", "source/forge/checks", "source/forge/workflow", "source/forge/lifecycle", "source/forge/memory", "source/forge/factory", "source/forge/cli", "source/forge/hook"]
 public-members = ["source/forge/core", "source/forge/skeleton", "source/forge/checks", "source/forge/workflow", "source/forge/lifecycle", "source/forge/memory", "source/forge/cli", "source/forge/hook"]
 
+[workspace.metadata.bridgeforge.native-release]
+build = ["cargo", "build", "--locked", "--offline", "--release", "--manifest-path", "Cargo.toml", "--target-dir", ".build/bridgepilot/cargo", "-p", "bridgepilot-orchestrator", "--bin", "bp", "--bin", "bp-launcher"]
+program = ".build/bridgepilot/cargo/release/bp.exe"
+args = ["release-prepare"]
+
 [workspace.dependencies]
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 regex = "1"

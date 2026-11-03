@@ -64,7 +64,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-cli"
-version = "17.0.1"
+version = "17.1.0"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
@@ -78,7 +78,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-core"
-version = "11.0.1"
+version = "11.1.0"
 dependencies = [
  "chrono",
  "libc",
@@ -93,7 +93,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-factory"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
@@ -110,7 +110,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-hook"
-version = "17.0.1"
+version = "17.1.0"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
@@ -173,7 +173,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-workflow"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
@@ -182,6 +182,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "toml_edit",
  "walkdir",
 ]
 
@@ -200,7 +201,7 @@ dependencies = [
 
 [[package]]
 name = "bridgepilot-install"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "bridgeforge-core",
  "bridgepilot-storage",
@@ -212,7 +213,7 @@ dependencies = [
 
 [[package]]
 name = "bridgepilot-orchestrator"
-version = "0.14.1"
+version = "0.15.0"
 dependencies = [
  "bridgeforge-core",
  "bridgepilot-execution",

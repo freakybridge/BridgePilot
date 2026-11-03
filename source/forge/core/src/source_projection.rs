@@ -442,6 +442,8 @@ pub fn render_with_overlay(
             .and_then(|w| w.get_mut("metadata"))
             .and_then(|m| m.get_mut("bridgeforge"))
         {
+            // A repository's native publisher is not part of the Forge source distribution.
+            if let Some(table) = metadata.as_table_mut() { table.remove("native-release"); }
             for key in ["public-members", "factory-members"] {
                 if let Some(list) = metadata.get(key) {
                     let selected_members = strings(list, key)?.into_iter()
