@@ -108,7 +108,8 @@ pub(super) fn finish(root: &Path, runner: &dyn ProcessRunner) -> Result<(), Stop
 }
 
 pub(super) fn can_replace_obsolete_attempt(root: &Path, runner: &dyn ProcessRunner, old: &State, current: &Anchor) -> Result<bool, Stop> {
-    if old.status != "pushed" || old.result.is_some() || driver(root)?.source_args.is_empty() { return Ok(false); }
+    if old.status != "pushed" || old.result.is_some() || old.reuse_release.is_some()
+        || driver(root)?.source_args.is_empty() { return Ok(false); }
     let (Some(commit), Some(before)) = (&old.commit, &old.anchor) else { return Ok(false); };
     if !before.same_target(current) { return Ok(false); }
     github::match_remote(&current.url, &old.plan.repository)?;
@@ -116,11 +117,11 @@ pub(super) fn can_replace_obsolete_attempt(root: &Path, runner: &dyn ProcessRunn
     github::obsolete_publication(root, runner, &old.plan, commit)
 }
 
-pub(super) fn prepare(root: &Path, runner: &dyn ProcessRunner, driver: &Driver, options: &git_sync::GitSyncOptions) -> Result<(bool, SourceIdentity), Stop> {
+pub(super) fn prepare(root: &Path, runner: &dyn ProcessRunner, driver: &Driver, options: &git_sync::GitSyncOptions) -> Result<(bool, SourcePlan), Stop> {
     let previous = state_bytes(&path(root))?;
     if let Some(bytes) = &previous {
         let tx: Transaction = serde_json::from_slice(bytes).map_err(|e| conflict(e.to_string()))?;
-        if !tx.finished { apply(root, runner, &tx)?; return Ok((true, tx.plan.identity)); }
+        if !tx.finished { apply(root, runner, &tx)?; return Ok((true, tx.plan)); }
     }
     let before = fingerprint(root, runner)?;
     let checkpoint = anchor(root, runner)?;
@@ -153,10 +154,18 @@ pub(super) fn prepare(root: &Path, runner: &dyn ProcessRunner, driver: &Driver, 
     if fingerprint(root, runner)? != before || anchor(root, runner)? != checkpoint {
         return Err(conflict("read-only source adapter changed source or Git checkpoint"));
     }
+    if let Some(published) = &plan.reuse_release {
+        if !plan.edits.is_empty() || plan.identity.version != published.version
+            || context.baseline.as_ref().is_none_or(|baseline| baseline.version != published.version || baseline.commit != published.commit)
+            || plan.release_assets.is_empty() {
+            return Err(conflict("invalid existing publication selection"));
+        }
+        return Ok((false, plan));
+    }
     let unchanged = plan.edits.is_empty() && git(root, runner, &["status", "--porcelain"])?.is_empty();
     github::source_available(root, runner, &plan.identity, unchanged)?;
-    if plan.edits.is_empty() { return Ok((false, plan.identity)); }
-    let selected = plan.identity.clone();
+    if plan.edits.is_empty() { return Ok((false, plan)); }
+    let selected = plan.clone();
     let tx = Transaction { schema: 1, anchor: checkpoint,
         outside: fingerprint_without(root, runner, &excluded)?, plan, finished: false };
     save_transaction(root, &tx, &previous)?;

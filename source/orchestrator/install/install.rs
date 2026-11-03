@@ -230,7 +230,7 @@ fn probe(exe: &Path, args: &[String]) -> Result<Value> {
     }
     serde_json::from_slice(&output.stdout).map_err(|e| e.to_string())
 }
-fn assets() -> Vec<(
+pub(crate) fn assets() -> Vec<(
     &'static str,
     &'static str,
     &'static str,

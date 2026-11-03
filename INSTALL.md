@@ -226,7 +226,9 @@ $bpWorkspace = Join-Path $env:USERPROFILE 'Documents/Codex/BridgePilotWorkspace'
 .build/bridgeforge/bin/bridgeforge-factory.exe git-sync release
 ```
 
-CLI 读取根 Cargo.toml 的 `workspace.metadata.bridgeforge.native-release` 执行入口，接入远端后，由原生源码适配器按最近正式 BP Release、累计约定式提交和本次待提交消息确定版本。适配器提出 VERSION／CHANGELOG 修改，协调器在可恢复事务中应用；已有合理新版本直接复用，无新变化不升版，无法分类的改动明确暂停，不猜测不兼容级别。引导构建与版本确定后的最终构建分开，后者使用锁定 Cargo 构建 BP core／launcher，再调用内部 `release-prepare` 复用本节 bundle 逻辑。适配器声明完整 package.json 与十三项 payload；它不包含私人档案、用户配置、凭据或 Memory。
+CLI 读取根 Cargo.toml 的 `workspace.metadata.bridgeforge.native-release` 执行入口，接入远端后，由原生源码适配器比较最近正式 BP Release 与当前源码的实际代码净差异，再按相关代码提交和本次待提交代码消息判定版本。纯验收文档、TODO、索引及普通 Markdown 说明不触发升版；source／.codex 中运行 Skill、模板及其他行为输入不按文件扩展名排除。有代码变化时，适配器提出 VERSION／CHANGELOG 修改，协调器在可恢复事务中应用；已有合理新版本直接复用，无法分类的改动明确暂停。引导构建与版本确定后的最终构建分开，后者使用锁定 Cargo 构建 BP core／launcher，再调用内部 `release-prepare` 复用本节 bundle 逻辑。适配器声明完整 package.json 与十三项 payload；它不包含私人档案、用户配置、凭据或 Memory。
+
+没有代码变化时保持原生版本：尚未发布的既定版本继续完成正式发布；已经发布的版本只同步当前文档等源码增量，再核验原 Release、原标签提交、发布标记和完整资产摘要，复用原发布，不重新打包或替换远端资产。此时收据的 commit 是原发布提交，synchronization_commit 是本次同步提交，publication_reused 为 true；只有源码同步与远端核验都完成才返回 released。缺少本机旧状态或本地产物不影响从原生资产清单和正式发布标记进行核验；远端缺失或不一致明确失败，不以普通 synced 代替发布成功。
 
 CLI 在提交推送前核对目标版本占用，再受管提交推送固定源码，并发布 `bp-v<BP版本>` 标签的正式 GitHub Release。标签采用 BP 独立命名空间，既有 v13.x 等历史不改写。上传中的 draft 仅是内部事务状态，不增加人工审批；只有完整资产及 digest/size 核验通过才转正式并返回 released。安装消费者继续按上文读取正式 Release。
 

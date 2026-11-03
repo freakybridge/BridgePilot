@@ -175,6 +175,7 @@ struct Runner {
     replace_state_on_prepare: Cell<bool>,
     source_version: Option<String>,
     history: RefCell<Vec<(String, String, Value)>>,
+    reuse_publication: bool,
 }
 impl Runner {
     fn new(plan: Plan) -> Self {
@@ -194,6 +195,7 @@ impl Runner {
             replace_state_on_prepare: Cell::new(false),
             source_version: None,
             history: RefCell::new(vec![]),
+            reuse_publication: false,
         }
     }
     fn count(&self, word: &str) -> usize {
@@ -260,7 +262,10 @@ impl ProcessRunner for Runner {
                 let edits = if before.trim() == selected { vec![] } else {
                     vec![SourceEdit { path: "VERSION".into(), before, after: format!("{selected}\n") }]
                 };
-                return Ok(ok(&serde_json::to_value(SourcePlan { schema: 1, identity, edits }).unwrap()));
+                let context: bridgeforge_core::native_release::SourceContext = serde_json::from_slice(&fs::read(args.last().unwrap())?).unwrap();
+                let reuse_release = if self.reuse_publication { context.baseline } else { None };
+                let release_assets = if self.reuse_publication { self.plan.assets.iter().map(|asset| asset.name.clone()).collect() } else { vec![] };
+                return Ok(ok(&serde_json::to_value(SourcePlan { schema: 1, identity, edits, reuse_release, release_assets }).unwrap()));
             }
             let output = PathBuf::from(args.last().unwrap());
             fs::create_dir_all(&output)?;
@@ -544,6 +549,150 @@ fn partial_source_transaction_recovers_but_external_version_edit_is_preserved() 
     fs::write(f.root.join("VERSION"), "9.0.0\n").unwrap();
     assert!(source::recover(&f.root, &runner).is_err());
     assert_eq!(fs::read_to_string(f.root.join("VERSION")).unwrap(), "9.0.0\n");
+}
+
+fn source_adapter_publication() -> (Fixture, Runner) {
+    let f = Fixture::current_project();
+    let cargo = fs::read_to_string(f.root.join("Cargo.toml")).unwrap();
+    fs::write(f.root.join("Cargo.toml"), format!("{cargo}source-args=[\"source\"]\n")).unwrap();
+    process(&f.root, &["add", "."]);
+    process(&f.root, &["commit", "-m", "chore: configure source adapter"]);
+    process(&f.root, &["push"]);
+    let mut runner = Runner::new(f.plan.clone());
+    runner.source_version = Some(f.plan.version.clone());
+    let out = run(&f.root, &runner, git_sync::GitSyncOptions::default());
+    assert_eq!(out.code, 0, "{}", out.stderr);
+    runner.reuse_publication = true;
+    (f, runner)
+}
+
+#[test]
+fn documentation_sync_reuses_release_without_local_state_or_artifacts() {
+    let (f, runner) = source_adapter_publication();
+    let original_commit = f.state().commit.unwrap();
+    let tag = runner.tag.borrow().clone();
+    let writes = runner.count("POST") + runner.count("PATCH") + runner.count("upload");
+    let prepared = f.state().plan.assets;
+    for asset in prepared.iter().chain(&f.plan.assets) { fs::remove_file(f.root.join(&asset.path)).unwrap(); }
+    fs::remove_file(f.state_path()).unwrap();
+    fs::create_dir_all(f.root.join("doc")).unwrap();
+    fs::write(f.root.join("doc/acceptance.md"), "accepted").unwrap();
+    let out = run(&f.root, &runner, git_sync::GitSyncOptions::default());
+    assert_eq!(out.code, 0, "{}", out.stderr);
+    let receipt = out.receipt.unwrap();
+    assert_eq!(receipt["version"], "1.0.0");
+    assert_eq!(receipt["commit"], original_commit);
+    assert_ne!(receipt["synchronization_commit"], original_commit);
+    assert_eq!(receipt["publication_reused"], true);
+    assert_eq!(receipt["publication_verified"], true);
+    assert_eq!(receipt["assets_verified"], 2);
+    assert_eq!(*runner.tag.borrow(), tag);
+    assert_eq!(runner.count("POST") + runner.count("PATCH") + runner.count("upload"), writes);
+    assert_eq!(fs::read_to_string(f.root.join("VERSION")).unwrap(), "1.0.0\n");
+    let repeat = run(&f.root, &runner, git_sync::GitSyncOptions::default());
+    assert_eq!(repeat.code, 0, "{}", repeat.stderr);
+    assert_eq!(repeat.receipt.unwrap()["build_invocations"], 0);
+}
+
+#[test]
+fn released_verification_needs_no_local_artifacts_but_rejects_remote_tampering() {
+    let f = Fixture::new();
+    let runner = Runner::new(f.plan.clone());
+    let first = run(&f.root, &runner, git_sync::GitSyncOptions::default());
+    assert_eq!(first.code, 0, "{}", first.stderr);
+    for asset in f.state().plan.assets { fs::remove_file(f.root.join(asset.path)).unwrap(); }
+    let repeated = run(&f.root, &runner, git_sync::GitSyncOptions::default());
+    assert_eq!(repeated.code, 0, "{}", repeated.stderr);
+    let original = runner.remote.borrow().clone();
+    let original_tag = runner.tag.borrow().clone();
+    let writes = runner.count("POST") + runner.count("PATCH") + runner.count("upload");
+    for fault in ["marker", "missing", "digest", "tag", "draft"] {
+        *runner.remote.borrow_mut() = original.clone();
+        *runner.tag.borrow_mut() = original_tag.clone();
+        match fault {
+            "marker" => runner.remote.borrow_mut().as_mut().unwrap()["body"] = json!("foreign release"),
+            "missing" => { runner.remote.borrow_mut().as_mut().unwrap()["assets"].as_array_mut().unwrap().pop(); },
+            "digest" => runner.remote.borrow_mut().as_mut().unwrap()["assets"][0]["digest"] = json!("sha256:bad"),
+            "tag" => *runner.tag.borrow_mut() = Some("a".repeat(40)),
+            "draft" => runner.remote.borrow_mut().as_mut().unwrap()["draft"] = json!(true),
+            _ => unreachable!(),
+        }
+        let out = run(&f.root, &runner, git_sync::GitSyncOptions::default());
+        assert_ne!(out.code, 0, "{fault}");
+    }
+    assert_eq!(runner.count("POST") + runner.count("PATCH") + runner.count("upload"), writes);
+}
+
+#[test]
+fn reused_publication_push_failure_resumes_without_republishing() {
+    let (f, runner) = source_adapter_publication();
+    fs::create_dir_all(f.root.join("doc")).unwrap();
+    fs::write(f.root.join("doc/acceptance.md"), "accepted").unwrap();
+    let original_commit = f.state().commit.unwrap();
+    let writes = runner.count("POST") + runner.count("PATCH") + runner.count("upload");
+    runner.fail_push.set(true);
+    let failed = run(&f.root, &runner, git_sync::GitSyncOptions::default());
+    assert_ne!(failed.code, 0);
+    assert_eq!(f.state().status, "source-committed", "{} {:?}", failed.stderr, failed.receipt);
+    let synchronized = f.state().commit.unwrap();
+    runner.fail_push.set(false);
+    let resumed = run(&f.root, &runner, git_sync::GitSyncOptions::default());
+    assert_eq!(resumed.code, 0, "{}", resumed.stderr);
+    let receipt = resumed.receipt.unwrap();
+    assert_eq!(receipt["commit"], original_commit);
+    assert_eq!(receipt["synchronization_commit"], synchronized);
+    assert_eq!(runner.count("POST") + runner.count("PATCH") + runner.count("upload"), writes);
+}
+
+#[test]
+fn pushed_documentation_reuse_is_never_an_obsolete_version_attempt() {
+    let f = Fixture::new();
+    let cargo = fs::read_to_string(f.root.join("Cargo.toml")).unwrap();
+    fs::write(f.root.join("Cargo.toml"), format!("{cargo}source-args=[\"source\"]\n")).unwrap();
+    process(&f.root, &["add", "."]);
+    process(&f.root, &["commit", "-m", "chore: source adapter"]);
+    process(&f.root, &["push"]);
+    let mut runner = Runner::new(f.plan.clone());
+    runner.source_version = Some(f.plan.version.clone());
+    let original = run(&f.root, &runner, git_sync::GitSyncOptions::default());
+    assert_eq!(original.code, 0, "{}", original.stderr);
+    let published_commit = f.state().commit.unwrap();
+    fs::create_dir_all(f.root.join("doc")).unwrap();
+    fs::write(f.root.join("doc/acceptance.md"), "accepted").unwrap();
+    process(&f.root, &["add", "."]);
+    process(&f.root, &["commit", "-m", "docs: accepted"]);
+    process(&f.root, &["push"]);
+    // Construct the already-pushed checkpoint, before the final read completes.
+    let mut pending = f.state();
+    pending.reuse_release = Some(bridgeforge_core::native_release::PublishedVersion {
+        version: pending.plan.version.clone(), commit: published_commit });
+    let current = anchor(&f.root, &runner).unwrap();
+    pending.commit = Some(current.head.clone()); pending.anchor = Some(current.clone());
+    pending.fingerprint = fingerprint(&f.root, &runner).unwrap();
+    pending.status = "pushed".into(); pending.result = None;
+    let bytes = serde_json::to_vec(&pending).unwrap();
+    fs::write(f.state_path(), &bytes).unwrap();
+    let builds = runner.count("mock-build");
+    let commits = runner.count("commit");
+    let pushes = runner.count("push");
+    let tag = runner.tag.borrow().clone();
+    assert!(!source::can_replace_obsolete_attempt(&f.root, &runner, &pending, &anchor(&f.root, &runner).unwrap()).unwrap());
+    let mut genuinely_obsolete = pending.clone(); genuinely_obsolete.reuse_release = None;
+    assert!(source::can_replace_obsolete_attempt(&f.root, &runner, &genuinely_obsolete, &current).unwrap());
+    let resumed = run(&f.root, &runner, git_sync::GitSyncOptions::default());
+    assert_eq!(resumed.code, 0, "{}", resumed.stderr);
+    assert_eq!(runner.count("mock-build"), builds);
+    assert_eq!(runner.count("commit"), commits);
+    assert_eq!(runner.count("push"), pushes);
+    fs::write(f.state_path(), &bytes).unwrap();
+    fs::write(f.root.join("code.rs"), "// new code after fixed commit\n").unwrap();
+    let rejected = run(&f.root, &runner, git_sync::GitSyncOptions::default());
+    assert_ne!(rejected.code, 0);
+    assert_eq!(fs::read(f.state_path()).unwrap(), bytes);
+    assert_eq!(runner.count("mock-build"), builds);
+    assert_eq!(runner.count("commit"), commits);
+    assert_eq!(runner.count("push"), pushes);
+    assert_eq!(*runner.tag.borrow(), tag);
 }
 
 #[test]

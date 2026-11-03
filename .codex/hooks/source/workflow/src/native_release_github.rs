@@ -254,6 +254,52 @@ fn identity_plan(identity: &bridgeforge_core::native_release::SourceIdentity, ve
         title: identity.product.clone(), notes: String::new(), assets: vec![] }
 }
 
+/// Reconstruct the original ordered asset identity, then bind it to the release's
+/// publication marker. No local artifact or new build is treated as old evidence.
+pub(super) fn existing_plan(root: &Path, runner: &dyn ProcessRunner,
+    selected: &bridgeforge_core::native_release::SourcePlan) -> Result<Plan, Stop> {
+    let published = selected.reuse_release.as_ref().ok_or_else(|| conflict("missing publication selection"))?;
+    let mut plan = identity_plan(&selected.identity, &published.version);
+    let remote = release(root, runner, &plan)?.ok_or_else(|| condition("selected formal release disappeared"))?;
+    let remote_assets = assets(&remote)?;
+    let mut seen = BTreeSet::new();
+    for name in &selected.release_assets {
+        if !bridgeforge_core::native_release::identifier(name) || !seen.insert(name) {
+            return Err(conflict("invalid native publication asset inventory"));
+        }
+        let matches: Vec<_> = remote_assets.iter().filter(|asset| asset["name"] == *name).collect();
+        if matches.len() != 1 { return Err(conflict("published asset inventory is incomplete or ambiguous")); }
+        let asset = matches[0];
+        let sha256 = asset["digest"].as_str().filter(|s| s.len() == 71 && s.starts_with("sha256:") && s[7..].bytes().all(|b| b.is_ascii_hexdigit()))
+            .ok_or_else(|| conflict("published asset has no verifiable digest"))?;
+        plan.assets.push(bridgeforge_core::native_release::Asset { name: name.clone(),
+            path: format!(".build/native-release/existing/{name}"), sha256: sha256.into(),
+            size: asset["size"].as_u64().ok_or_else(|| conflict("published asset size missing"))? });
+    }
+    verify_existing_value(root, runner, &plan, &published.commit, &remote)?;
+    Ok(plan)
+}
+
+fn verify_existing_value(root: &Path, runner: &dyn ProcessRunner, plan: &Plan, commit: &str, remote: &Value) -> Result<Value, Stop> {
+    let identity = raw_sha(&serde_json::to_vec(&json!({"product":plan.product,"version":plan.version,
+        "repository":plan.repository,"tag":plan.tag,"assets":plan.assets.iter().map(|a|json!({"name":a.name,"sha256":a.sha256,"size":a.size})).collect::<Vec<_>>()
+    })).map_err(|e| condition(e.to_string()))?);
+    owned(remote, plan, commit, &format!("<!-- native-release-v1 {commit} {identity} -->"))?;
+    if remote["draft"] != false || !remote["published_at"].is_string()
+        || tag_commit(root, runner, plan)?.as_deref() != Some(commit) {
+        return Err(conflict("existing publication is not a verified formal release"));
+    }
+    verify_assets(plan, remote, false)?;
+    let mut result = published_receipt(plan, commit, remote, plan.assets.len())?;
+    result["publication_reused"] = json!(true);
+    Ok(result)
+}
+
+pub(super) fn verify_existing(root: &Path, runner: &dyn ProcessRunner, plan: &Plan, commit: &str) -> Result<Value, Stop> {
+    let remote = release(root, runner, plan)?.ok_or_else(|| condition("formal release missing; existing version preserved"))?;
+    verify_existing_value(root, runner, plan, commit, &remote)
+}
+
 pub(super) fn baseline(root: &Path, runner: &dyn ProcessRunner, identity: &bridgeforge_core::native_release::SourceIdentity)
     -> Result<Option<bridgeforge_core::native_release::PublishedVersion>, Stop> {
     let mut latest: Option<bridgeforge_core::SemVer> = None;

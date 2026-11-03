@@ -1,6 +1,6 @@
 [package]
 name = "bridgeforge-core"
-version = "11.2.0"
+version = "11.2.1"
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true

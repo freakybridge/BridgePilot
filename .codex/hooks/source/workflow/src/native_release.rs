@@ -92,6 +92,8 @@ struct State {
     anchor: Option<Anchor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     previous_attempt: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    reuse_release: Option<bridgeforge_core::native_release::PublishedVersion>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -674,6 +676,10 @@ fn run_inner(
                 prepared_from = anchor(root, runner)?;
                 if changed { build_invocations += 1; request(root, runner, &native.build, 1800)?; }
             }
+            let reuse_release = selected_source.as_ref().and_then(|selected| selected.reuse_release.clone());
+            let plan: Plan = if let Some(selected) = selected_source.as_ref().filter(|selected| selected.reuse_release.is_some()) {
+                github::existing_plan(root, runner, selected)?
+            } else {
             let output = format!(
                 ".build/native-release/{}-{}",
                 &input[..16],
@@ -697,9 +703,11 @@ fn run_inner(
             let plan: Plan = serde_json::from_str(&prepared)
                 .map_err(|e| condition(format!("native release plan invalid: {e}")))?;
             plan.validate(root).map_err(condition)?;
-            if selected_source.as_ref().is_some_and(|selected| selected.product != plan.product
-                || selected.repository != plan.repository || selected.version != plan.version
-                || format!("{}{}", selected.tag_prefix, selected.version) != plan.tag) {
+            plan
+            };
+            if selected_source.as_ref().is_some_and(|selected| selected.identity.product != plan.product
+                || selected.identity.repository != plan.repository || selected.identity.version != plan.version
+                || format!("{}{}", selected.identity.tag_prefix, selected.identity.version) != plan.tag) {
                 return Err(conflict("artifact plan differs from the selected source version"));
             }
             if fingerprint(root, runner)? != input {
@@ -722,6 +730,7 @@ fn run_inner(
                 result: None,
                 anchor: Some(prepared_from),
                 previous_attempt: archived_attempt.clone(),
+                reuse_release,
             };
             save(&state_path, &state, &mut expected)?;
             state
@@ -732,7 +741,9 @@ fn run_inner(
         {
             return Err(conflict("native release entry differs from continuation"));
         }
-        state.plan.validate(root).map_err(conflict)?;
+        if state.reuse_release.is_none() && state.status != "released" {
+            state.plan.validate(root).map_err(conflict)?;
+        }
         source::finish(root, runner)?;
         let current = anchor(root, runner)?;
         if state
@@ -783,8 +794,12 @@ fn run_inner(
         }
         if !["pushed", "released"].contains(&state.status.as_str()) {
             stage = "publication-preflight";
-            github::precheck(root, runner, &state.plan, &current.head,
-                !git(root, runner, &["status", "--porcelain"])?.is_empty())?;
+            if let Some(published) = &state.reuse_release {
+                github::verify_existing(root, runner, &state.plan, &published.commit)?;
+            } else {
+                github::precheck(root, runner, &state.plan, &current.head,
+                    !git(root, runner, &["status", "--porcelain"])?.is_empty())?;
+            }
             stage = "source-push";
             require_idle_git(root, runner)?;
             if options.message.is_none() && options.message_file.is_none() {
@@ -852,7 +867,14 @@ fn run_inner(
             return Err(conflict("Git publication remote changed during release"));
         }
         unchanged_state(&state_path, &expected)?;
-        let result = github::publish(root, runner, &state.plan, state.commit.as_deref().unwrap())?;
+        let mut result = if let Some(published) = &state.reuse_release {
+            github::verify_existing(root, runner, &state.plan, &published.commit)?
+        } else if state.status == "released" {
+            github::verify_existing(root, runner, &state.plan, state.commit.as_deref().unwrap())?
+        } else {
+            github::publish(root, runner, &state.plan, state.commit.as_deref().unwrap())?
+        };
+        result["synchronization_commit"] = json!(state.commit);
         if fingerprint(root, runner)? != input {
             return Err(conflict(
                 "source changed during publication; remote result must be inspected before continuing",

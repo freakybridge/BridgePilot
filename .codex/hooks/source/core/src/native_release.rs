@@ -43,6 +43,11 @@ pub struct SourcePlan {
     pub schema: u32,
     pub identity: SourceIdentity,
     pub edits: Vec<SourceEdit>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reuse_release: Option<PublishedVersion>,
+    /// Original artifact order, owned by the native adapter, including its package manifest.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub release_assets: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

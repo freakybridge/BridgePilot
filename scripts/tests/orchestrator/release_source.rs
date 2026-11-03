@@ -56,6 +56,7 @@ fn cumulative_feature_beats_last_fix_and_prepared_version_is_not_incremented_aga
 fn patch_promotes_unreleased_and_unknown_or_insufficient_version_is_rejected() {
     let repo = Repo::new();
     let mut context = repo.context();
+    fs::write(repo.0.join("fix.rs"), "// corrected code\n").unwrap();
     fs::write(repo.0.join("CHANGELOG.md"), "# Changes\n\n## [Unreleased]\n\n- Fixed recovery.\n\n## [BP 1.1.1]\n\nOld.\n").unwrap();
     let result = plan(&repo.0, &context).unwrap();
     assert_eq!(result.identity.version, "1.1.2");
@@ -66,6 +67,63 @@ fn patch_promotes_unreleased_and_unknown_or_insufficient_version_is_rejected() {
     context.identity = identity(&repo.0).unwrap();
     context.message = Some("feat: addition".into());
     assert!(plan(&repo.0, &context).unwrap_err().contains("below"));
+}
+
+#[test]
+fn documentation_only_changes_reuse_publication_without_classifying_message() {
+    let repo = Repo::new();
+    let mut context = repo.context();
+    context.message = None;
+    fs::create_dir_all(repo.0.join("doc/1_delivery")).unwrap();
+    fs::write(repo.0.join("doc/1_delivery/acceptance.md"), "accepted").unwrap();
+    fs::write(repo.0.join("CHANGELOG.md"), "# Changes\n\n## [Unreleased]\n\nAcceptance notes.\n").unwrap();
+    let result = plan(&repo.0, &context).unwrap();
+    assert_eq!(result.identity.version, "1.1.1");
+    assert!(result.edits.is_empty());
+    assert_eq!(result.reuse_release.unwrap().commit, context.baseline.as_ref().unwrap().commit);
+    assert_eq!(result.release_assets.len(), 14);
+}
+
+#[test]
+fn docs_feat_commit_does_not_raise_code_fix_to_minor() {
+    let repo = Repo::new();
+    let context = repo.context();
+    fs::write(repo.0.join("README.md"), "docs").unwrap();
+    git(&repo.0, &["add", "."]).unwrap();
+    git(&repo.0, &["commit", "-m", "feat: documentation only"]).unwrap();
+    assert!(plan(&repo.0, &context).unwrap().reuse_release.is_some());
+    fs::write(repo.0.join("fix.rs"), "// code\n").unwrap();
+    let result = plan(&repo.0, &context).unwrap();
+    assert_eq!(result.identity.version, "1.1.2");
+    assert!(result.reuse_release.is_none());
+}
+
+#[test]
+fn fully_reverted_code_has_no_net_change_and_runtime_skills_still_count() {
+    let repo = Repo::new();
+    let context = repo.context();
+    fs::write(repo.0.join("feature.rs"), "// addition\n").unwrap();
+    git(&repo.0, &["add", "."]).unwrap();
+    git(&repo.0, &["commit", "-m", "feat: addition"]).unwrap();
+    git(&repo.0, &["rm", "feature.rs"]).unwrap();
+    git(&repo.0, &["commit", "-m", "revert: remove addition"]).unwrap();
+    assert!(plan(&repo.0, &context).unwrap().reuse_release.is_some());
+    fs::create_dir_all(repo.0.join("source/orchestrator/skills/sample")).unwrap();
+    fs::write(repo.0.join("source/orchestrator/skills/sample/SKILL.md"), "changed behavior").unwrap();
+    assert_eq!(plan(&repo.0, &context).unwrap().identity.version, "1.1.2");
+}
+
+#[test]
+fn unpublished_version_is_kept_even_without_code_changes() {
+    let repo = Repo::new();
+    let mut context = repo.context();
+    fs::write(repo.0.join("VERSION"), "1.1.2\n").unwrap();
+    fs::write(repo.0.join("CHANGELOG.md"), "# Changes\n\n## [BP 1.1.2]\n\nPrepared candidate.\n").unwrap();
+    context.identity = identity(&repo.0).unwrap();
+    let result = plan(&repo.0, &context).unwrap();
+    assert_eq!(result.identity.version, "1.1.2");
+    assert!(result.reuse_release.is_none());
+    assert!(result.edits.is_empty());
 }
 
 #[test]

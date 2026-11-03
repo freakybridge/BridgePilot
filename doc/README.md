@@ -8,7 +8,7 @@ delivery_layout: flat
 
 - 已验收：[旧测试链路激进退役](1_delivery/test-retirement/acceptance_2026-11-03_aggressive-test-retirement.md#用户验收2026-11-03)（2026-11-03；删除29文件，测试源码净减14,590行、总文本净减16,760行；121项定向用例分批通过，两套编译、三项一致性检查及独立复核通过。保留当前功能与安全回归，未授权整体删除测试目录；完整发布结果以本轮受管CLI收据为准）。
 
-- 已验收并发布：[单入口完整发布自动升版修复](1_delivery/native-release/requirements_2026-11-03_single-entry-release.md#用户验收与正式发布2026-11-03)（TODO-054 已完成；29项定向验证、独立复核及受管产物检查通过，CLI 自动发布 BP1.2.0，固定提交 7d9825c，14项资产远端核验成功；BF17.2.0／orchestrator0.16.0。2026-11-03用户验收；真实下游及用户环境安装未验证）。
+- 已验收：[单入口发布与无代码不升版增量](1_delivery/native-release/requirements_2026-11-03_single-entry-release.md#无代码变动不升版修复验收2026-11-03)（TODO-054 已完成；本轮37项定向验证、独立复核及三项受管产物核验通过，正式发布复用保留原标签和资产、区分同步与发布提交；BF17.2.1 候选。本轮发布以CLI收据为准，既有 BP1.2.0／1.2.1 历史保留；真实下游及用户环境安装未验证）。
 
 - 已验收：[Forge 分发清单归属迁移](1_delivery/manifest-location/acceptance_2026-11-03_forge-manifest-migration.md)（2026-11-03；50 项 Rust 定向测试、安装事务、受管构建、869 文件零写检查及独立复核通过；源码已提交推送 4674c68。当时将完整 release 缩减为源码发布是 Agent 错误，用户未排除安装包；原记录已更正，发布链路由 TODO-054 接续）。
 
