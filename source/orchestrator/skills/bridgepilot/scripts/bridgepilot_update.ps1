@@ -126,6 +126,11 @@ function Test-CurrentInstallation($Receipt, [string]$Commit, [string]$InstalledH
     return $true
 }
 
+function Test-RuntimeReused($Runtime) {
+    return $Runtime.PSObject.Properties['mode'] -and $Runtime.mode -eq 'reused' -and
+        $Runtime.PSObject.Properties['writes'] -and !$Runtime.writes
+}
+
 function Invoke-SourceUpdate {
     if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw 'BP source installation supports Windows only.' }
     $codexRoot = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' }
@@ -214,7 +219,8 @@ function Invoke-SourceUpdate {
         $script:UpdateStage = 'runtime-install'
         $null = Invoke-Bp $core @('install-preview', '--bundle', $bundle, '--home', $InstallationHome)
         $runtime = Invoke-Bp $core @('install', '--bundle', $bundle, '--home', $InstallationHome)
-        $script:RuntimeInstalled = $true
+        $runtimeReused = Test-RuntimeReused $runtime
+        $script:RuntimeInstalled = !$runtimeReused
         $script:UpdateStage = 'skill-install'
         $null = Invoke-Bp $launcher @('skill-install-preview', '--home', $InstallationHome, '--skills-root', $SkillsRoot)
         $skill = Invoke-Bp $launcher @('skill-install', '--home', $InstallationHome, '--skills-root', $SkillsRoot)
@@ -225,7 +231,7 @@ function Invoke-SourceUpdate {
         if (!$final.current) { throw 'BP Skill verification did not report current.' }
         $receipt = [ordered]@{ schema = 1; status = 'source_update_completed'; repository = $script:Repository; branch = 'main'; source_commit = $commit; source_root = $SourceRoot; home = $InstallationHome; skills_root = $SkillsRoot; version = $identity.version; runtime = $runtime; skill = $skill; tasks_resumed = $false }
         $receipt['installation'] = $verifiedRuntime.installation
-        $receipt['mode'] = 'updated'
+        $receipt['mode'] = if ($runtimeReused) { 'reused_after_build' } else { 'updated' }
         $receipt['build_invocations'] = 1
         if ($identity.PSObject.Properties['components']) { $receipt['components'] = $identity.components }
         $receiptPath = Join-Path $SourceRoot '.runtime/bridgepilot-source-update/receipt.json'

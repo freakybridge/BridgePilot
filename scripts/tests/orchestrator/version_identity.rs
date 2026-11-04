@@ -96,3 +96,48 @@ fn launcher_and_claim_recovery_preserves_external_edits_then_restores_owned_byte
     for target in targets { assert_eq!(fs::read(home.join(target)).unwrap(), b"old owned bytes"); }
     fs::remove_dir_all(&home).unwrap();
 }
+
+#[test]
+fn rebuild_reuse_rechecks_program_assets_identity_and_pending_under_the_lock() {
+    let id = crate::new_id("rebuild-snapshot");
+    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let root = repo.join(".build/bridgepilot/equivalence-fixtures").join(&id);
+    let home = repo.join(".runtime/tests/bp-rebuild-snapshot").join(&id);
+    let mut p = Package { schema:2, product:"BridgePilot".into(), version:"2.2.0".into(),
+        components:Some(components("18.0.0", "0.18.0")), launcher_protocol:2, assets:Vec::new() };
+    let mut old = installed(version(&p.version, p.components.clone(), &digest(b"core")), None);
+    old.launcher_sha256 = digest(b"launcher");
+    for (index, (id, source, target, _)) in assets().into_iter().enumerate() {
+        let body: &[u8] = match index { 0 => b"core", 1 => b"launcher", _ => id.as_bytes() };
+        persistence::atomic_write(&root.join(source), body).unwrap();
+        p.assets.push(Asset { id:id.into(), source:source.into(), target:target.into(), sha256:digest(body) });
+        let target = match index { 0 => old.current.executable.as_str(), 1 => ".build/bridgepilot/bin/bp.exe", _ => target };
+        persistence::atomic_write(&home.join(target), body).unwrap();
+        if index >= 2 { old.files.push(OwnedFile { id:id.into(), target:target.into(), sha256:digest(body) }); }
+    }
+    persistence::atomic_write_json(&config(&home), &old).unwrap();
+    assert!(recheck_reuse(&root, &home, &p, &old, None, &None).is_ok());
+    // These are the observations made again after acquiring the real writer
+    // lock. Every drift must fail without repairing or overwriting the files.
+    for target in [old.current.executable.as_str(), ".build/bridgepilot/bin/bp.exe", old.files[0].target.as_str()] {
+        let path = home.join(target);
+        let original = fs::read(&path).unwrap();
+        fs::write(&path, b"external edit").unwrap();
+        assert!(recheck_reuse(&root, &home, &p, &old, None, &None).is_err());
+        assert_eq!(fs::read(&path).unwrap(), b"external edit");
+        fs::write(path, original).unwrap();
+    }
+    for relative in [".runtime/bridgepilot-install/journal.json", ".runtime/bridgepilot-skill/journal.json", ".runtime/config/bridgepilot-user-skill.json"] {
+        let path = home.join(relative);
+        persistence::atomic_write(&path, b"concurrent transaction").unwrap();
+        assert!(recheck_reuse(&root, &home, &p, &old, None, &None).is_err());
+        assert_eq!(fs::read(&path).unwrap(), b"concurrent transaction");
+        fs::remove_file(path).unwrap();
+    }
+    let path = root.join(&p.assets[0].source);
+    fs::write(&path, b"candidate changed").unwrap();
+    assert!(recheck_reuse(&root, &home, &p, &old, None, &None).is_err());
+    assert_eq!(fs::read(path).unwrap(), b"candidate changed");
+    fs::remove_dir_all(root).unwrap();
+    fs::remove_dir_all(home).unwrap();
+}

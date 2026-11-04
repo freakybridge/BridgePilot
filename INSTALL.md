@@ -157,6 +157,8 @@ BP 2.0.0 将 `bridgeforge-update` 改为 `bridgepilot-update`，安装包对应�
 
 程序和 Skill 是两个受管事务，只有两阶段均核验成功才进入下游写入。已有同来源收据且当前程序、全部受管文件与 Skill 均一致时，返回 `mode=reused`、`build_invocations=0`，不重建或改写成功收据。来源变化或文件失配时重新准备，不能仅按版本号宣称已安装最新。
 
+缺少或过期的源码更新收据会先触发构建补验。同版本、组件和全部配套资产一致时，安装器允许 core／launcher 仅有合法 PE 时间戳和 CodeView PDB GUID 差异，保留原程序、完整 SHA256、旧包和回退记录，不用新构建覆盖。该次源码更新返回 `mode=reused_after_build`、`build_invocations=1` 并保存本次成功收据；后续同提交调用可零构建复用。非元数据字节、组件或包资产不同，受管文件被修改、结构无法安全解析或存在 pending 时仍阻断。
+
 迁移使用程序安装 journal schema 2 和 Skill journal schema 2，新程序仍能恢复旧 schema 1 的原文件布局。稳定 launcher 在内容变化时随安装事务刷新；若迁移日志写入后、启动器尚未切换就中断，旧启动器可能无法读取新日志，须使用失败收据 `recovery_core` 指向的本次固定候选程序执行 `install-recover` 或 `skill-recover`，不能删除日志或另下一个版本覆盖。已安装新入口后，不兼容的旧程序回退会被拒绝。
 
 首次从 0.10.0 等没有源码更新脚本的安装升级时，沿官方源码引导调用下述脚本，并显式复用原 home 和 Skills 绑定；不手工复制 Skill，不重新初始化私有档案。无参数 `$bridgepilot` 保留只更新 BP 自身的行为，不递归调用完整下游升级。
@@ -269,7 +271,7 @@ CLI 在提交推送前核对目标版本占用，再受管提交推送固定源�
 
 在 Codex 打开安装 home，根 AGENTS 导航到随包的 BP 私有 Skill；它从本机配置定位档案。稳定入口是 `.build/bridgepilot/bin/bp.exe`，实际 core 在 `.build/bridgepilot/versions/<version>-<hash>/`。home 的 `.runtime/` 保存配置及事务日志，`.build/` 保存产品，`.deps/` 预留本机依赖；不改 PATH，不搬迁 Forge 或用户登录信息。
 
-升级重复 preview/install，保留旧完整包及配置，最后原子切换 current。用户改过的受管文件拒绝覆盖；同版本不同程序字节拒绝复用。失败用包内 core 的 `install-recover --home <home>`；稳定 launcher 也会先恢复中断事务。回退用 `install-rollback --home <home>`，必须保留旧包、没有活跃执行，且旧 reader 能读取当前实际档案；否则拒绝。安装不升级／回滚档案，启用 custody 后不能回退到不支持它的 reader。真实双物理机、掉电和网络盘环境仍须区分于隔离工作区测试。
+升级重复 preview/install，保留旧完整包及配置，最后原子切换 current。用户改过的受管文件拒绝覆盖；同版本仅构建元数据不同的复用规则见上文“BP 自身的源码安装与更新”，其他程序／组件／包资产差异仍拒绝。失败用包内 core 的 `install-recover --home <home>`；稳定 launcher 也会先恢复中断事务。回退用 `install-rollback --home <home>`，必须保留旧包、没有活跃执行，且旧 reader 能读取当前实际档案；否则拒绝。安装不升级／回滚档案，启用 custody 后不能回退到不支持它的 reader。真实双物理机、掉电和网络盘环境仍须区分于隔离工作区测试。
 
 `status` 以只读连接读取一个 SQLite 事务快照，不创建锁文件或重建运行目录。缺库、未迁移旧库、摘要冲突或历史断裂时保留现场并报告，不能初始化空库掩盖问题。迁移后的档案拒绝回退到旧 JSON reader；程序安装和档案迁移仍是独立操作。当前入口的字段与能力以 `bp help`、`bp self-test` 为准。
 

@@ -422,6 +422,44 @@ fn validate_transition(old: &Installation, candidate: &Version, rollback: bool) 
     Ok(())
 }
 
+// Prove a no-op using actual files, never version strings or a stale source
+// receipt alone. Full hashes remain authoritative for installed-file integrity.
+fn equivalent_installation(root: &Path, home: &Path, p: &Package, old: &Installation) -> Result<bool> {
+    if old.schema != p.schema || old.current.version != p.version || old.current.components != p.components
+        || old.files.len() != p.assets.len() - 2 {
+        return Ok(false);
+    }
+    let core = bytes(&owned_target(home, &old.current.executable)?)?;
+    let launcher = bytes(&home.join(".build/bridgepilot/bin/bp.exe"))?;
+    if digest(&core) != old.current.sha256 || digest(&launcher) != old.launcher_sha256 {
+        return Err("installed program changed during equivalence validation".into());
+    }
+    if !crate::pe_equivalence::equivalent(&core, &asset_bytes(root, &p.assets[0])?)
+        || !crate::pe_equivalence::equivalent(&launcher, &asset_bytes(root, &p.assets[1])?) {
+        return Ok(false);
+    }
+    for asset in p.assets.iter().skip(2) {
+        let Some(file) = old.files.iter().find(|file| file.id == asset.id && file.target == asset.target) else { return Ok(false); };
+        if digest_file(&owned_target(home, &file.target)?)? != file.sha256 {
+            return Err(format!("owned installation asset has user edits: {}", file.target));
+        }
+        if file.sha256 != asset.sha256 { return Ok(false); }
+        asset_bytes(root, asset)?;
+    }
+    Ok(true)
+}
+
+fn recheck_reuse(root: &Path, home: &Path, p: &Package, old: &Installation,
+    skill_binding: Option<&[u8]>, launcher_claim: &Option<String>) -> Result<()> {
+    if read_old(home)?.as_ref() != Some(old) || journal(home).exists()
+        || home.join(".runtime/bridgepilot-skill/journal.json").exists()
+        || !matches_bytes(&home.join(".runtime/config/bridgepilot-user-skill.json"), skill_binding)?
+        || &claim(home)? != launcher_claim || !equivalent_installation(root, home, p, old)? {
+        return Err("installation changed during reuse validation".into());
+    }
+    Ok(())
+}
+
 fn package(root: &Path) -> Result<Package> {
     ordinary(root)?;
     let p: Package = read_json(&root.join("package.json"))?;
@@ -695,6 +733,25 @@ fn install_before_lock(
         executable: rel,
         sha256: core.sha256.clone(),
     };
+    if let Some(previous) = &old {
+        let equivalent = equivalent_installation(package_root, home, &p, previous)?;
+        if previous.current.version == p.version && !equivalent {
+            return Err("installation cannot reuse a version for different program bytes or components, launcher or package assets".into());
+        }
+        // A caller explicitly adding workspace configuration still uses the
+        // existing installation transaction, rather than silently skipping it.
+        if (requested_workspace.is_none() || workspace_config(home).exists())
+            && equivalent {
+            if !preview {
+                fs::create_dir_all(home.join(".runtime/bridgepilot-install/locks")).map_err(|e| e.to_string())?;
+                before_lock();
+                let _lock = FileLock::acquire(&home.join(".runtime/bridgepilot-install/locks/writer.lock"))?;
+                recheck_reuse(package_root, home, &p, previous, skill_binding.as_deref(), &claimed_launcher)?;
+                return Ok(json!({"status":"installation_current","mode":"reused","home":home,"version":previous.current.version,"components":previous.current.components,"installation":previous,"writes":false}));
+            }
+            return Ok(json!({"status":"installation_planned","mode":"reused","home":home,"version":previous.current.version,"components":previous.current.components,"writes":false}));
+        }
+    }
     if let Some(old) = &old { validate_transition(old, &current, rollback)?; }
     let mut changes = Vec::new();
     let mut owned = Vec::new();

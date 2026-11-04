@@ -1,5 +1,10 @@
 # Changelog
 
+## [BP 2.2.1]
+
+- [product] 修复 BP 同版本源码重建因 PE 时间戳、CodeView PDB GUID 不同而被误拦截的问题：核验全部安装字节与包资产后保留等价的现有程序，不覆盖当前文件或回退记录；实际程序、launcher、组件及资产变化仍阻断同版本复用。
+- [product] 源码更新收据缺失或过期时，构建补验成功返回 `reused_after_build` 并修复收据，后续同提交零构建复用；正常安装与无写入复用分别记录，完整 SHA256、用户修改保护和中断恢复保持有效。
+
 ## [BP 2.2.0]
 
 - [product] Forge 维护转为 BP 按路径读取的内部 MAINTENANCE.md，保留初始化、规划、apply 和恢复流程；不再分发 bridgeforge-codex 的 SKILL.md 或菜单元数据。

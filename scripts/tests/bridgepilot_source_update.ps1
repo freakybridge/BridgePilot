@@ -29,6 +29,10 @@ $skillFixture.current=$true
 [IO.File]::WriteAllText($testAsset,'edited')
 if (Test-CurrentInstallation $receiptFixture 'fixed' $testInstalledHome 'skills' $runtimeFixture $skillFixture) { throw 'Edited installation reused.' }
 $checks += 4
+if (Test-RuntimeReused ([pscustomobject]@{status='installation_current'})) { throw 'A normal successful install was marked reused.' }
+if (!(Test-RuntimeReused ([pscustomobject]@{status='installation_current';mode='reused';writes=$false}))) { throw 'A verified no-op install was not marked reused.' }
+if (Test-RuntimeReused ([pscustomobject]@{status='installation_current';mode='reused';writes=$true})) { throw 'A writing install was marked reused.' }
+$checks += 3
 function Get-TestDigest([string]$Path) {
     $algorithm = [Security.Cryptography.SHA256]::Create()
     $stream = [IO.File]::OpenRead($Path)
@@ -118,7 +122,7 @@ try {
         $testHome = Join-Path $root 'installed'
         $testSkills = Join-Path $root 'codex/skills'
         $null = New-Item -ItemType Directory -Path (Split-Path -Parent $testSkills) -Force
-        foreach ($attempt in 1..2) {
+        foreach ($attempt in 1..3) {
             $call = if ($attempt -eq 1) {
                 @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $entry, '-InstallationHome', $testHome, '-SkillsRoot', $testSkills, '-SourceRoot', $managedSource)
             } else {
@@ -126,7 +130,9 @@ try {
             }
             $receipt = Invoke-Checked powershell $call
             if ($receipt -notlike '*source_update_completed*') { throw 'Full source installation lacks success receipt.' }
-            if ($attempt -eq 2 -and ($receipt -notlike '*"mode":"reused"*' -or $receipt -notlike '*"build_invocations":0*')) { throw 'Repeated update must reuse installation without building.' }
+            if ($attempt -eq 1 -and $receipt -notlike '*"mode":"updated"*') { throw 'First installation must report an actual update.' }
+            if ($attempt -eq 2 -and ($receipt -notlike '*"mode":"reused_after_build"*' -or $receipt -notlike '*"build_invocations":1*')) { throw 'Stale source receipt must be repaired after verifying the rebuilt package.' }
+            if ($attempt -eq 3 -and ($receipt -notlike '*"mode":"reused"*' -or $receipt -notlike '*"build_invocations":0*')) { throw 'Repeated update must reuse installation without building.' }
             $configPath = Join-Path $testHome '.runtime/config/bridgepilot.json'
             if ($attempt -eq 1) {
                 if (Test-Path -LiteralPath $configPath) { throw 'Source installation created a private archive.' }
@@ -137,6 +143,12 @@ try {
                 $configBefore = [IO.File]::ReadAllText($configPath)
                 $archivePath = Join-Path $testWorkspace 'doc/5_project_knowledgebase/bridgepilot/bridgepilot.sqlite3'
                 $archiveBefore = Get-TestDigest $archivePath
+                # Model the real incident: an existing valid installation with
+                # an older source updater receipt from another install route.
+                $savedPath = Join-Path $managedSource '.runtime/bridgepilot-source-update/receipt.json'
+                $stale = Get-Content -LiteralPath $savedPath -Raw | ConvertFrom-Json
+                $stale.source_commit = 'stale-install-route'
+                [IO.File]::WriteAllText($savedPath, ($stale | ConvertTo-Json -Depth 20))
             } else {
                 if ([IO.File]::ReadAllText($configPath) -cne $configBefore -or (Get-TestDigest $archivePath) -cne $archiveBefore) { throw 'Repeated source update modified private configuration or archive.' }
             }

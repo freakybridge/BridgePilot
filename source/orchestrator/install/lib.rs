@@ -4,6 +4,7 @@ pub use bridgepilot_tasks::{Result, digest, new_id};
 pub mod configuration;
 pub mod environment;
 pub mod install;
+mod pe_equivalence;
 pub mod user_skill;
 pub mod versions;
 pub mod release;
