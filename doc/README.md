@@ -10,7 +10,7 @@ delivery_layout: flat
 
 - 开发阶段已验收、真实交付进行中：[发布入口部署、GitLab 支持与高效工作流修复](1_delivery/native-release/requirements_2026-11-04_install-release-entry.md#用户验收与发布授权2026-11-04)（TODO-055；2026-11-04 用户验收修复及本地工程验证并授权 BP／Forge release。Forge 17.3.0 候选、独立复核、实际隔离安装及驱动产物验证通过；真实四仓新版安装／发布和 GitLab 上传尚未完成，TODO 保持进行中，正式发布以 CLI 收据为准）。
 
-- 已验收：[bridgepilot-git-sync release 模式](1_delivery/bridgepilot-git-sync/acceptance_2026-11-03_release-mode.md)（2026-11-03；全部登记下游或指定子集发布、失败继续及严格收据汇总规则已实现，现有用户级副本一致性和引用检查通过；PyYAML 缺失导致技能自动校验未运行，真实下游发布未验证。本轮另行授权当前 BP 项目 release）。
+- 已验收：[bridgepilot-git-sync 版本报告格式增量](1_delivery/bridgepilot-git-sync/acceptance_2026-11-03_release-mode.md#版本报告格式增量2026-11-04)（2026-11-04；固定主程序及变化子包的旧／新版本两表，明确复用、缺基线和失败规则；源码与当前用户级副本一致，格式校验和离线样例核对通过。用户已授权当前 BP 正式发布，结果以 CLI 收据为准；本轮未重跑下游发布，历史验收及限制保留）。
 
 - 已验收：[旧测试链路激进退役](1_delivery/test-retirement/acceptance_2026-11-03_aggressive-test-retirement.md#用户验收2026-11-03)（2026-11-03；删除29文件，测试源码净减14,590行、总文本净减16,760行；121项定向用例分批通过，两套编译、三项一致性检查及独立复核通过。保留当前功能与安全回归，未授权整体删除测试目录；完整发布结果以本轮受管CLI收据为准）。
 
