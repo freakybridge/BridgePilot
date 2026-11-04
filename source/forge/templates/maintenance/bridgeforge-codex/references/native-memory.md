@@ -15,7 +15,7 @@
 实际同步只由已授权的生命周期 Hook 触发：Hook 只登记 pending 并启动或复用单一隐藏 worker，worker 合并并发事件；每次同步前必须验证长期授权、远端身份和 private 状态。`gh` 登录失效时必须无感复用系统 Git 凭证完成 private API 校验，不得要求用户重复登录，也不得回显或持久化凭证。用户级 Hook 只能调用 updater 安装的用户级 `bridgeforge` Rust 二进制；禁止持久化任一项目的运行时路径。
 
 - `pending` 或 `busy`：表示等待，禁止算作成功；状态不变时不得提示用户。
-- `degraded` / `failed`：同一 `alertId` 只在下一次 SessionStart 或 `$bridgeforge-codex` 输出一次；随后保持静默，直到状态产生新的告警 ID。
+- `degraded` / `failed`：同一 `alertId` 只在下一次 SessionStart 或 已授权维护流程 输出一次；随后保持静默，直到状态产生新的告警 ID。
 - `conflicted`：展示 `activeConflict` 的路径与两份保全位置，一次只问当前冲突选择；用户决定后使用 `resolve --conflict-id <id> --choose <path>=local|remote`，每个可同步冲突路径必须恰好选择一次。旧冲突中的三个本机索引自动忽略，不要求选择，也不得从远端恢复。禁止按时间戳、本机或远端默认覆盖。若决议前远端变化，仅当新远端逐字节等于 captured local 时允许安全重放；否则重新取证。
 - 死亡锁和受管临时目录由 worker 自动验证并自愈；超过五分钟仍未完成必须进入 degraded / failed，禁止无限 busy。
 - 内容无变化必须 no-op 且不创建 commit；有变化必须以远端 HEAD 为父创建普通 commit，禁止 parentless force-push。

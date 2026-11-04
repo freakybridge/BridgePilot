@@ -66,14 +66,10 @@ Cargo 引导可能产生增量构建及缓存写入，只用于已授权维护�
    & powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-shared-skills.ps1
    ```
 
-3. 新开 Codex 会话，在目标项目根目录运行：
+3. 新开 Codex 会话，通过 `$bridgepilot-update` 指定目标项目和维护范围；不使用 BP 时，明确要求 Agent 读取已安装的 `~/.codex/skills/bridgeforge-codex/MAINTENANCE.md`，再按当前目标和授权执行。
 
-   ```text
-   $bridgeforge-codex
-   ```
-
-安装器会把完整产品仓库原子安装到 `~/.bridgeforge-codex`，只在
-`~/.codex/skills/bridgeforge-codex` 保留供 Codex 发现的薄入口，并把其他受管 Skills
+安装器会把完整产品仓库原子安装到 `~/.bridgeforge-codex`，在
+`~/.codex/skills/bridgeforge-codex` 保留不含 SKILL.md／菜单元数据的内部维护目录，并把其他受管 Skills
 写入 `~/.codex/skills/`。`~/.codex/bridgeforge-codex-managed.json` 记录哪些用户级
 Skills 由产品管理，避免覆盖来源不明或被人工修改的 Skill 文件。
 
@@ -82,7 +78,7 @@ Skills 由产品管理，避免覆盖来源不明或被人工修改的 Skill 文
 `~/.codex/.AGENTS.bridgeforge-backup-<operation_id>.md`，再覆盖为统一标准版。
 备份成功后保留，收据给出具体路径；需要恢复时可用对应备份替换 AGENTS.md，但下次维护仍会恢复标准版。
 这不改变项目专区保留规则，也不删除 `AGENTS.override.md`；现有会话不保证重载，请新开会话。
-自定义 `CODEX_HOME` 不在本功能管理范围。旧薄入口首次刷新缺少用户指令收据时，按新版 Skill 补跑一次入口完成过渡。
+自定义 `CODEX_HOME` 不在本功能管理范围。旧薄入口首次刷新缺少用户指令收据时，按内部维护手册补跑一次 updater 完成过渡。
 
 项目侧运行面包括 `AGENTS.md`、`.codex/` 和 `.githooks/pre-commit`。项目同步器会先给出
 计划，需要决定的项目会停下来确认；无法安全判断的冲突直接停止，应用失败时回滚。项目
@@ -103,7 +99,7 @@ Forge 分发清单位于 `source/forge/bridgeforge-manifest.json`，包含 `user
 powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-shared-skills.ps1
 ```
 
-安装入口重新获取并验证官方 main，再运行新 checkout 内的 updater；它不依赖旧薄入口解析新清单。共享 Skills 的归属冲突校验、用户 AGENTS 原始字节备份及事务回滚保持有效，不手工复制或伪造旧清单来绕过校验。刷新后新开会话，再从目标项目执行 `$bridgeforge-codex`。若旧入口留下未完成事务，先按现有事务诊断恢复，不删除日志。
+安装入口重新获取并验证官方 main，再运行新 checkout 内的 updater；它不依赖旧薄入口解析新清单。共享 Skills 的归属冲突校验、用户 AGENTS 原始字节备份及事务回滚保持有效，不手工复制或伪造旧清单来绕过校验。刷新后新开会话，通过 BP 升级入口或明确读取内部 MAINTENANCE.md 发起目标项目维护。若旧入口留下未完成事务，先按现有事务诊断恢复，不删除日志。
 
 ## 旧 BridgeForge 用户重新安装
 

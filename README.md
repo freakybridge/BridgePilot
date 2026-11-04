@@ -7,7 +7,7 @@ BridgePilot（BP）接收项目目标，保存确认、任务与执行历史，�
 `source/forge/` 提供工程骨架与受管工具，`source/orchestrator/` 提供总管能力。
 开发仓库、独立源码更新目录、安装 home 与私人档案工作区的区分见 [安装与源码维护说明](INSTALL.md#开发仓库安装目录与档案的边界)。
 调用 `$bridgepilot-update`，先将本机 BP 程序和专用 Skills 更新并核验，再逐个升级全部已登记下游的 Forge 骨架；也可明确指定子集。由 BP 私有 [bridgepilot-update](source/orchestrator/skills/bridgepilot-update/SKILL.md) 编排，支持零写只读预览，默认不提交、推送或发布。无参数 `$bridgepilot` 仍只更新 BP 自身。安装及旧入口迁移见 [INSTALL.md](INSTALL.md#统一升级入口与旧名称迁移)。
-Forge 维护入口仍为 `$bridgeforge-codex`，现有下游入口的迁移另行处理。
+Forge 维护作为 BP 读取的内部流程，菜单不再暴露 bridgeforge-codex；已有入口通过受管分发事务迁移。
 
 Forge 工程子系统负责：
 
@@ -53,11 +53,7 @@ cargo build --locked --release --manifest-path .\Cargo.toml --target-dir .build/
 & powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-shared-skills.ps1
 ```
 
-然后新开 Codex 会话，在需要安装或更新骨架的项目根目录运行：
-
-```text
-$bridgeforge-codex
-```
+然后新开 Codex 会话，通过 `$bridgepilot-update` 指定项目与维护范围。单独维护 Forge 时，明确要求 Agent 读取已安装的 `~/.codex/skills/bridgeforge-codex/MAINTENANCE.md` 并按已授权目标执行。
 
 首次安装、旧版迁移和异常诊断分别见[安装与迁移说明](INSTALL.md)。
 
@@ -99,7 +95,7 @@ $refactor-scan 扫描当前项目，允许现有定向测试和离线性能基�
 用户级位置：
 
 - `~/.bridgeforge-codex`：完整、可信的产品仓库。
-- `~/.codex/skills/bridgeforge-codex`：Codex 用来发现产品的薄入口。
+- `~/.codex/skills/bridgeforge-codex`：内部维护手册、引用资料和 bootstrap updater；不含可发现 Skill。
 - `~/.codex/skills/`：由产品维护的通用 Skills。
 - `~/.codex/AGENTS.md`：仓库统一用户指令；相同不写，不同先备份再覆盖，详见 [安装说明](INSTALL.md)。
 - `~/.codex/memories/`：Codex 原生 Memory；用户授权后可作为不透明目录跨电脑同步，

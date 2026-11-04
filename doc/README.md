@@ -4,6 +4,8 @@ delivery_layout: flat
 
 # BridgePilot Documents
 
+- 已验收：[Forge 维护转为内部流程](1_delivery/forge-maintenance/acceptance_2026-11-04_internal-workflow.md)（2026-11-04；移除 bridgeforge-codex 菜单入口，保留 BP 内部维护；11 项迁移验证、现有事务回归、独立复核、本机 BP 2.2.0 安装和原生发现通过，仓库三项产物 current。BF 18.0.0／install 0.10.0 候选；本轮已授权正式发布，结果以 CLI 收据为准，未执行真实下游升级）。
+
 - 已验收：[bridgepilot-git-sync 受管安装与菜单发现](1_delivery/bridgepilot-git-sync/acceptance_2026-11-03_release-mode.md#受管安装与菜单发现验收2026-11-04)（2026-11-04；十五项包资产、四入口受管安装及恢复校验，46 项定向测试、真实 2.0.2 旧包升级、本机 2.1.1 安装与 Codex 原生发现通过；配置与档案保持。旧工厂工具阻点已按明确授权刷新解除，三项产物及零写入检查通过，本轮当前 BP 正式发布以 CLI 收据为准；未执行下游同步或发布）。
 
 - 已验收：[git-sync 统一使用 BF 用户级入口](1_delivery/git-sync-scope/acceptance_2026-11-04_bf-shared-entry.md)（2026-11-04；移除 BP 四个项目镜像及生成登记，BF 源与用户安装字节保持，定向测试、受管工具检查及原生技能发现通过；factory 0.12.5，本轮已授权正式发布，结果以 CLI 收据为准）。

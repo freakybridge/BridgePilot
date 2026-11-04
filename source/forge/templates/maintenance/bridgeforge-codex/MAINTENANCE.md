@@ -1,19 +1,12 @@
----
-name: bridgeforge-codex
-description: 初始化、升级或诊断 Windows Codex 骨架及受管 Skills；咨询和只读诊断不触发维护，仅提及产品名不触发本流程。
-user_invocable: true
-argument: 仅支持无参数
----
+# Forge 内部维护流程
 
-# bridgeforge-codex
-
-仅由主对话编排无参数 `$bridgeforge-codex`；不支持旧 `$bridgeforge`、`switch`、Claude 维护或内部参数。
+本文件是 BP 按路径读取的内部维护手册，不是可发现或可显式调用的 Skill。由主对话在已有明确维护授权内编排，公共用户入口为 `$bridgepilot-update`；咨询和只读要求仍优先，不从读取手册推导执行授权。
 
 ## 0. 先分流意图
 
 咨询直接回答；诊断、审计或只读预览仅检查已有相关文件，涉及运行时先读 [runtime preflight](references/runtime-preflight.md)，不进入下文维护流程，不刷新、安装或修复。未查上游时禁止称本机版本为最新。
 
-明确安装、升级或无附加限制的显式调用才进入 §1；附带的只读要求优先。意图不明且会写入时，只补问该决定，禁止从产品名称推断维护授权。
+明确安装、升级或 BP 维护入口的对应授权才进入 §1；附带的只读要求优先。意图不明且会写入时，只补问该决定，禁止从产品名称推断维护授权。
 
 涉及项目安装、换机恢复、重装或环境迁移时，在执行相关安装或恢复操作前，按以下规则处理：
 
@@ -32,13 +25,15 @@ $BRIDGEFORGE_CODEX_HOME = Join-Path $env:USERPROFILE ".bridgeforge-codex"
   (Join-Path $BRIDGEFORGE_CODEX_ENTRY "scripts\bridgeforge_codex_shared_update.ps1")
 ```
 
-成功收据必须包含 `BRIDGEFORGE_CODEX_SHARED_UPDATE_RECEIPT`。随后重新读取 `$BRIDGEFORGE_CODEX_HOME\source\forge\templates\skills\bridgeforge-codex\SKILL.md` 并以新版本继续。旧入口成功收据完全缺少 `user_agents` 或 `public_artifacts` 字段时，在本次 Skill 调用内从刚更新的薄入口自动补跑一次 updater，传入 `-ResumeSourceCommit <首份收据的 source_commit>`，只完成同一已验证版本的过渡，不再次查询或追随上游。两个字段同时缺失也只补跑一次；禁止要求用户再次调用 Skill。字段存在但为空、状态失败或来源无法验证不属于旧协议过渡，必须停止。补跑仍缺字段或状态无效时停止，不循环重试。
+首次只有 BP、内部目录尚未安装时，从本轮 `source_update_completed` 收据的 `source_root` 读取同源手册，并执行该根目录下的 `scripts/bridgeforge_codex_shared_update.ps1` 引导；已有内部目录则使用上面的受管脚本。必须核验收据与实际源码来源，不从当前工作目录或其他 clone 猜替代脚本。引导成功后改读收据对应产品 home 的新手册，不递归重跑本阶段。
+
+成功收据必须包含 `BRIDGEFORGE_CODEX_SHARED_UPDATE_RECEIPT`。随后重新读取 `$BRIDGEFORGE_CODEX_HOME\source\forge\templates\maintenance\bridgeforge-codex\MAINTENANCE.md` 并以新版本继续。旧入口成功收据完全缺少 `user_agents` 或 `public_artifacts` 字段时，在本次 Skill 调用内从刚更新的薄入口自动补跑一次 updater，传入 `-ResumeSourceCommit <首份收据的 source_commit>`，只完成同一已验证版本的过渡，不再次查询或追随上游。两个字段同时缺失也只补跑一次；禁止要求用户再次调用 Skill。字段存在但为空、状态失败或来源无法验证不属于旧协议过渡，必须停止。补跑仍缺字段或状态无效时停止，不循环重试。
 
 复用已有维护授权；无范围限制的显式调用覆盖上述用户级维护。已有授权明确排除用户级覆盖时，在任何新增范围写入前，将范围选择与项目风险、迁移决策合并为一次确认；不能安全完成只读规划时说明阻塞，禁止分拆为多轮授权。整次调用最多一次用户确认，内部版本过渡和权限重试不要求重新调用 Skill。
 
 结果简要展示 `user_agents.status`；覆盖时给出收据中的备份路径。`override_present=true` 时说明原有 `AGENTS.override.md` 可能优先生效，禁止删除它。用户指令由新会话加载，不声称当前会话已经重载。
 
-薄入口只是 Codex 可发现入口，完整产品只能来自包含根 `Cargo.toml`、`Cargo.lock`、`source/forge/cli/Cargo.toml` 与受管 `bridgeforge` 二进制的官方产品 home。updater 失败、产品 home 缺文件、非普通目录、工作树不干净或 origin 不匹配时，读取 [用户级受管 Skill 维护](references/user-skill-maintenance.md) 后停止；禁止从旧用户目录、本地 clone 或当前项目补文件，也禁止读取、迁移或删除旧 BridgeForge/Claude 遗留。
+内部目录不安装 SKILL.md 或菜单元数据，仅保留维护手册、引用资料和 updater，完整产品只能来自包含根 `Cargo.toml`、`Cargo.lock`、`source/forge/cli/Cargo.toml` 与受管 `bridgeforge` 二进制的官方产品 home。updater 失败、产品 home 缺文件、非普通目录、工作树不干净或 origin 不匹配时，读取 [用户级受管 Skill 维护](references/user-skill-maintenance.md) 后停止；禁止从旧用户目录、本地 clone 或当前项目补文件，也禁止读取、迁移或删除旧 BridgeForge/Claude 遗留。
 
 ## 2. 判断模式并锁定已验证工具
 

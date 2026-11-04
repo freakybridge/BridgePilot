@@ -140,7 +140,7 @@ function Invoke-Main {
         if ($LASTEXITCODE -ne 0) {
             throw "Shared-skill updater failed with exit code $LASTEXITCODE."
         }
-        Write-Host 'bridgeforge-codex shared-skill installation completed. Run $bridgeforge-codex in Codex.'
+        Write-Host 'bridgeforge-codex shared-skill installation completed. Use bridgepilot-update or read the internal MAINTENANCE.md in Codex.'
     }
     finally {
         if (Test-Path -LiteralPath $cloneRoot) {

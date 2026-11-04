@@ -8,6 +8,9 @@ param(
     [string]$SourceRepositoryRoot,
 
     [Parameter(DontShow = $true)]
+    [switch]$InternalMaintenanceOnly,
+
+    [Parameter(DontShow = $true)]
     [switch]$TestNonWindows,
 
     [Parameter(DontShow = $true)]
@@ -600,9 +603,13 @@ function Assert-Manifest {
                     }
                 }
             }
+            if ($name -eq 'bridgeforge-codex' -and
+                (-not $targets.ContainsKey('maintenance.md') -or $targets.ContainsKey('skill.md') -or $targets.ContainsKey('agents/openai.yaml'))) {
+                throw 'Forge maintenance bundle must be internal and must not expose a Codex skill.'
+            }
         }
         if ($platform -eq "codex" -and -not $names.ContainsKey("bridgeforge-codex")) {
-            throw "Codex must distribute the bridgeforge-codex command bundle."
+            throw "Codex must distribute the internal Forge maintenance bundle."
         }
     }
     Assert-ProductManifestHash -RepositoryRoot $RepositoryRoot -Expected $capturedHash
@@ -776,14 +783,30 @@ function New-UpdatePlan {
         [Parameter(Mandatory = $true)]$Manifest,
         [Parameter(Mandatory = $true)][string]$UserProfile,
         [Parameter(Mandatory = $true)][string]$OperationId,
-        [Parameter(Mandatory = $true)][string]$Commit
+        [Parameter(Mandatory = $true)][string]$Commit,
+        [string]$OnlyBundle
     )
     $platformPlans = @()
     foreach ($platform in @("codex")) {
         $config = Get-PlatformConfig -Platform $platform -UserProfile $UserProfile
         $platformManifest = Get-PlatformManifest -Manifest $Manifest -Platform $platform
+        if ($OnlyBundle -and @($platformManifest.skills | Where-Object { $_.name -cne $OnlyBundle }).Count -gt 0) {
+            throw 'Scoped maintenance cannot include other bundles.'
+        }
+        $ledgerOriginalHash = if (Test-Path -LiteralPath $config.ledger) { Get-Sha256 -Path $config.ledger } else { $null }
         $ledger = Read-Ledger -Path $config.ledger -Platform $platform
+        $ledgerReadHash = if (Test-Path -LiteralPath $config.ledger) { Get-Sha256 -Path $config.ledger } else { $null }
+        if ($ledgerOriginalHash -cne $ledgerReadHash) { throw 'Shared ledger changed while reading; preserve external edits.' }
         $managedNames = @(Get-LedgerNames -Ledger $ledger)
+        $retainedRecords = $null
+        if ($OnlyBundle) {
+            if ($OnlyBundle -cne 'bridgeforge-codex') { throw 'Only the internal maintenance bundle supports scoped updates.' }
+            $retainedRecords = [ordered]@{}
+            foreach ($name in $managedNames) {
+                if ($name -cne $OnlyBundle) { $retainedRecords[$name] = Get-LedgerRecord -Ledger $ledger -Name $name }
+            }
+            $managedNames = @($managedNames | Where-Object { $_ -ceq $OnlyBundle })
+        }
         $managed = @{}
         foreach ($name in $managedNames) {
             $managed[$name.ToLowerInvariant()] = $true
@@ -882,6 +905,7 @@ function New-UpdatePlan {
                 backup = Join-Path $config.skills_root ".$name.bridgeforge-codex-backup-$OperationId"
                 had_original = $hadOriginal
                 original_content_hash = $originalHash
+                desired_content_hash = $desiredHash
                 status = "pending"
             }
         }
@@ -896,9 +920,12 @@ function New-UpdatePlan {
             ledger_stage = "$($config.ledger).stage-$OperationId"
             ledger_backup = "$($config.ledger).backup-$OperationId"
             ledger_had_original = [bool](Test-Path -LiteralPath $config.ledger)
+            ledger_original_hash = $ledgerOriginalHash
+            ledger_desired_hash = $null
             ledger_needs_update = $ledgerNeedsUpdate
             ledger_status = "pending"
             preserved_consents = $preservedConsents
+            retained_records = $retainedRecords
             actions = $actions
         }
     }
@@ -1121,6 +1148,7 @@ function Restore-InterruptedOperation {
                         -Path ([string]$action.backup) `
                         -Expected ([string]$action.original_content_hash) `
                         -Context "Recovery backup for $platform/$([string]$action.name)"
+                    Assert-RecoveryTarget -Action $action
                     Remove-SafeTree -Path ([string]$action.target)
                     Move-Item -LiteralPath ([string]$action.backup) -Destination ([string]$action.target)
                 }
@@ -1130,6 +1158,7 @@ function Restore-InterruptedOperation {
                 }
             }
             else {
+                Assert-RecoveryTarget -Action $action
                 Remove-SafeTree -Path ([string]$action.target)
                 Remove-SafeTree -Path ([string]$action.backup)
             }
@@ -1138,12 +1167,14 @@ function Restore-InterruptedOperation {
         if ([bool]$platformPlan.ledger_had_original) {
             if (Test-Path -LiteralPath ([string]$platformPlan.ledger_backup)) {
                 if (Test-Path -LiteralPath $config.ledger) {
+                    Assert-RecoveryLedger -Plan $platformPlan
                     Remove-Item -LiteralPath $config.ledger -Force
                 }
                 Move-Item -LiteralPath ([string]$platformPlan.ledger_backup) -Destination $config.ledger
             }
         }
         elseif (Test-Path -LiteralPath $config.ledger) {
+            Assert-RecoveryLedger -Plan $platformPlan
             Remove-Item -LiteralPath $config.ledger -Force
         }
         if (Test-Path -LiteralPath ([string]$platformPlan.ledger_stage)) {
@@ -1163,6 +1194,32 @@ function Restore-InterruptedOperation {
         }
     }
     Remove-Item -LiteralPath $LogPath -Force
+}
+
+function Assert-RecoveryTarget {
+    param($Action)
+    if (-not (Test-Path -LiteralPath ([string]$Action.target))) { return }
+    if ([string]$Action.kind -ne 'upsert' -or
+        $null -eq $Action.PSObject.Properties['desired_content_hash'] -or
+        [string]$Action.desired_content_hash -notmatch '^sha256:[0-9a-f]{64}$') {
+        throw 'Recovery cannot prove installed target ownership; preserve target and journal.'
+    }
+    Assert-DirectoryContentHash -Path ([string]$Action.target) -Expected ([string]$Action.desired_content_hash) -Context 'Recovery target; preserve external edits'
+}
+
+function Assert-RecoveryLedger {
+    param($Plan)
+    if ($null -eq $Plan.PSObject.Properties['ledger_desired_hash'] -or
+        [string]$Plan.ledger_desired_hash -notmatch '^[0-9a-f]{64}$' -or
+        (Get-Sha256 -Path ([string]$Plan.ledger)) -cne [string]$Plan.ledger_desired_hash) {
+        throw 'Recovery ledger changed or lacks a write witness; preserve ledger and journal.'
+    }
+}
+
+function Assert-LedgerSnapshot {
+    param($Plan)
+    $actual = if (Test-Path -LiteralPath ([string]$Plan.ledger)) { Get-Sha256 -Path ([string]$Plan.ledger) } else { $null }
+    if ($actual -cne $Plan.ledger_original_hash) { throw 'Shared ledger changed after planning; preserve external edits.' }
 }
 
 function Copy-SkillToStage {
@@ -1208,9 +1265,13 @@ function New-LedgerValue {
         [Parameter(Mandatory = $true)][string]$Platform,
         [Parameter(Mandatory = $true)]$PlatformManifest,
         [Parameter(Mandatory = $true)][string]$Commit,
-        $PreservedConsents
+        $PreservedConsents,
+        $RetainedRecords
     )
     $records = [ordered]@{}
+    if ($null -ne $RetainedRecords) {
+        foreach ($name in $RetainedRecords.Keys) { $records[$name] = $RetainedRecords[$name] }
+    }
     $installedAt = [DateTime]::UtcNow.ToString("o")
     foreach ($skill in @($PlatformManifest.skills) | Sort-Object -Property name) {
         $records[[string]$skill.name] = [ordered]@{
@@ -1247,6 +1308,7 @@ function Invoke-UpdateTransaction {
         $UserAgentsPlan
     )
     Assert-ProductManifestHash -RepositoryRoot $RepositoryRoot -Expected $ManifestHash
+    foreach ($platformPlan in $PlatformPlans) { Assert-LedgerSnapshot -Plan $platformPlan }
     Initialize-BundlePlan -Plan $CommandHomePlan -Kind "home"
     Initialize-BundlePlan -Plan $RustCliPlan -Kind "cli"
     # User instruction witnesses come from Rust staging, before the transaction.
@@ -1335,10 +1397,13 @@ function Invoke-UpdateTransaction {
                 -Platform ([string]$platformPlan.platform) `
                 -PlatformManifest $platformManifest `
                 -Commit $Commit `
-                -PreservedConsents $platformPlan.preserved_consents
+                -PreservedConsents $platformPlan.preserved_consents -RetainedRecords $platformPlan.retained_records
             Write-JsonAtomic -Path ([string]$platformPlan.ledger_stage) -Value $ledgerValue
+            $platformPlan.ledger_desired_hash = Get-Sha256 -Path ([string]$platformPlan.ledger_stage)
         }
+        Write-JsonAtomic -Path $LogPath -Value $log
         foreach ($platformPlan in $PlatformPlans) {
+            Assert-LedgerSnapshot -Plan $platformPlan
             if (Test-Path -LiteralPath ([string]$platformPlan.ledger)) {
                 Move-Item -LiteralPath ([string]$platformPlan.ledger) -Destination ([string]$platformPlan.ledger_backup)
             }
@@ -1994,6 +2059,34 @@ function Install-UserAgents {
     $Plan.status = "installed"
 }
 
+function Invoke-InternalMaintenanceUpdate {
+    Assert-Windows
+    if (-not $SourceRepositoryRoot -or $ResumeSourceCommit) { throw 'Internal candidate installation requires an explicit source root and no resume commit.' }
+    $repository = [IO.Path]::GetFullPath($SourceRepositoryRoot).TrimEnd('\')
+    $actual = ([string](Invoke-Git -Arguments @('rev-parse', '--show-toplevel') -WorkingDirectory $repository)).Trim()
+    if ([IO.Path]::GetFullPath($actual).TrimEnd('\') -cne $repository) { throw 'Internal maintenance source must be the repository root.' }
+    $origin = ([string](Invoke-Git -Arguments @('config', '--get', 'remote.origin.url') -WorkingDirectory $repository)).Trim()
+    if ((Get-NormalizedRemote $origin) -ne (Get-NormalizedRemote $CanonicalRemote)) { throw 'Internal maintenance source origin differs from the product repository.' }
+    $commit = ([string](Invoke-Git -Arguments @('rev-parse', 'HEAD') -WorkingDirectory $repository)).Trim()
+    $userProfile = [string]$env:USERPROFILE
+    $mutex = Enter-UpdateMutex -UserProfile $userProfile
+    try {
+        $log = Join-Path $userProfile $OperationLogName
+        if (Test-Path -LiteralPath $log) { throw 'An existing shared update is pending; recover it before internal maintenance installation.' }
+        $validated = Assert-Manifest -RepositoryRoot $repository -UserProfile $userProfile
+        $manifest = $validated.value
+        $manifest.platforms.codex.skills = @($manifest.platforms.codex.skills | Where-Object { $_.name -ceq 'bridgeforge-codex' })
+        $operation = [Guid]::NewGuid().ToString('N')
+        $plans = @(New-UpdatePlan -Manifest $manifest -UserProfile $userProfile -OperationId $operation -Commit $commit -OnlyBundle 'bridgeforge-codex')
+        $changed = @($plans | Where-Object { $_.ledger_needs_update -or @($_.actions).Count -gt 0 }).Count -gt 0
+        if ($changed) {
+            Invoke-UpdateTransaction -RepositoryRoot $repository -Manifest $manifest -Commit $commit -ManifestHash $validated.hash -UserProfile $userProfile -LogPath $log -OperationId $operation -PlatformPlans $plans
+        }
+        Assert-PlatformTargets -PlatformManifest $manifest.platforms.codex -SkillsRoot (Join-Path $userProfile '.codex/skills') -Platform 'codex'
+        @{ status='internal_maintenance_current'; mode=$(if ($changed) {'updated'} else {'reused'}); source_state='local-candidate'; source_commit=$commit; menu_entry=$false; user_agents_changed=$false; other_skills_changed=$false } | ConvertTo-Json -Compress
+    } finally { $mutex.ReleaseMutex(); $mutex.Dispose() }
+}
+
 function Invoke-Main {
     Assert-Windows
     $userProfile = [string]$env:USERPROFILE
@@ -2159,7 +2252,7 @@ function Invoke-Main {
 }
 
 try {
-    Invoke-Main
+    if ($InternalMaintenanceOnly) { Invoke-InternalMaintenanceUpdate } else { Invoke-Main }
     exit 0
 }
 catch {
