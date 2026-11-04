@@ -4,6 +4,8 @@ delivery_layout: flat
 
 # BridgePilot Documents
 
+- 已验收：[git-sync 统一使用 BF 用户级入口](1_delivery/git-sync-scope/acceptance_2026-11-04_bf-shared-entry.md)（2026-11-04；移除 BP 四个项目镜像及生成登记，BF 源与用户安装字节保持，定向测试、受管工具检查及原生技能发现通过；factory 0.12.5，本轮已授权正式发布，结果以 CLI 收据为准）。
+
 - 开发阶段已验收、正式传播进行中：[BP 统一升级入口改名与自身优先更新](1_delivery/bridgepilot-update/plan_2026-11-04_self-first-update.md#用户验收与发布授权2026-11-04)（2026-11-04；用户验收开发及隔离验证并授权 BP 2.0.0 release。29 项安装测试、6 项集成回归、17 项源码更新检查及真实 0.10.0／1.3.0 包隔离迁移通过；新入口先更新本机 BP，再默认逐个升级登记下游，默认不发布。用户安装和菜单发现尚未完成，正式发布以 CLI 收据为准）。
 
 - 开发阶段已验收、真实交付进行中：[发布入口部署、GitLab 支持与高效工作流修复](1_delivery/native-release/requirements_2026-11-04_install-release-entry.md#用户验收与发布授权2026-11-04)（TODO-055；2026-11-04 用户验收修复及本地工程验证并授权 BP／Forge release。Forge 17.3.0 候选、独立复核、实际隔离安装及驱动产物验证通过；真实四仓新版安装／发布和 GitLab 上传尚未完成，TODO 保持进行中，正式发布以 CLI 收据为准）。

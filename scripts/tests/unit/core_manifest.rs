@@ -162,6 +162,10 @@ fn factory_skill_mirrors_are_explicit_private_and_readonly() {
     let outputs = crate::dogfood::render(root).unwrap();
     assert_eq!(outputs.len(), contract["assets"].as_array().unwrap().len());
     let public: Value = serde_json::from_slice(&render_managed_contract(root).unwrap()).unwrap();
+    assert!(!outputs.keys().any(|p| p.starts_with(".codex/skills/git-sync/")), "git-sync belongs to the BF user-level distribution, not a BP project mirror");
+    let distribution: Value = serde_json::from_slice(&render_distribution_manifest(root).unwrap()).unwrap();
+    assert!(distribution["platforms"]["codex"]["skills"].as_array().unwrap()
+        .iter().any(|skill| skill["name"] == "git-sync"), "the BF shared git-sync entry must remain available");
     for asset in contract["assets"].as_array().unwrap() {
         let source = asset["source"].as_str().unwrap();
         let target = asset["target"].as_str().unwrap();

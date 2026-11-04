@@ -137,7 +137,7 @@ BP 组织单项目或多项目骨架升级时，读取私有 [bridgepilot-update
 
 实际工厂命令使用受管准备后的 `.build/bridgeforge/bin/bridgeforge-factory.exe`；模板内置规则由 `template-standard` 从通用 Template 生成，再经 manifest 与受管构建校验。不把旧账本缺失当作原生验证失败，不以本地 dogfood 证明正式发布，也不自动更新用户级共享安装。
 
-本工厂普通 Git 同步入口为 `.build/bridgeforge/bin/bridgeforge-factory.exe git-sync`，使用现有工具与一次聚合预检。工具缺失或不匹配时报告维护缺口，不自动安装升级。原生开发验证使用下列 Cargo 入口；旧 develop、配置迁移与配置化 release 参数明确报退役，不能转回冻结工具继续在线运行。
+本工厂使用 BF 用户级分发的 `git-sync` Skill，不生成 BP 项目级同名副本。普通 Git 同步的受管程序入口仍为 `.build/bridgeforge/bin/bridgeforge-factory.exe git-sync`，使用现有工具与一次聚合预检。工具缺失或不匹配时报告维护缺口，不自动安装升级。原生开发验证使用下列 Cargo 入口；旧 develop、配置迁移与配置化 release 参数明确报退役，不能转回冻结工具继续在线运行。
 
 用户完整发布仍只调用 `git-sync release`；实际受管命令为 `.build/bridgeforge/bin/bridgeforge-factory.exe git-sync release`。CLI 通过原生 Cargo metadata 登记的 BP 适配器完成必要构建、打包、源码提交推送、正式 GitHub Release 和远端核验。只有 `status=released` 且 `publication_verified=true` 才是发布成功；普通 synced 不代替发布。最短路径、四类暂停与接续规则只维护在共享 git-sync Skill；原生入口和包边界见 INSTALL。Forge 不依赖 BP 包，不重建旧版本账本。
 
