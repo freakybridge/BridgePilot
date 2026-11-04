@@ -22,11 +22,13 @@ const FILES: [&str; 6] = [
     "references/execution.md",
     "scripts/bridgepilot_update.ps1",
 ];
-const UPDATE: &str = "bridgeforge-update";
+const UPDATE: &str = "bridgepilot-update";
+const LEGACY_UPDATE: &str = "bridgeforge-update";
+fn legacy_update_name() -> String { LEGACY_UPDATE.into() }
 const CLEANUP: &str = "bridgepilot-cleanup";
 const UPDATE_FILES: [&str; 1] = ["SKILL.md"];
 fn assets(skill: &str) -> &[&str] {
-    if skill == UPDATE || skill == CLEANUP {
+    if skill == UPDATE || skill == LEGACY_UPDATE || skill == CLEANUP {
         &UPDATE_FILES
     } else {
         &FILES
@@ -59,7 +61,14 @@ struct Journal {
     update: Option<Projection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     cleanup: Option<Projection>,
+    #[serde(default = "legacy_update_name")]
+    update_name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    retired_update: Option<RetiredUpdate>,
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RetiredUpdate { binding: Binding, files: BTreeMap<String, Vec<u8>> }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Projection {
@@ -69,7 +78,7 @@ struct Projection {
 fn projections(j: &Journal) -> Vec<(&str, &Binding, &[Change])> {
     let mut result = vec![("bridgepilot", &j.binding, j.changes.as_slice())];
     if let Some(update) = &j.update {
-        result.push((UPDATE, &update.binding, update.changes.as_slice()));
+        result.push((j.update_name.as_str(), &update.binding, update.changes.as_slice()));
     }
     if let Some(cleanup) = &j.cleanup {
         result.push((CLEANUP, &cleanup.binding, cleanup.changes.as_slice()));
@@ -109,7 +118,7 @@ fn roots(home: &Path, skills: &Path) -> Result<(PathBuf, PathBuf)> {
             .map_err(|e| e.to_string())?
             .join(skills.file_name().ok_or("skills name missing")?)
     };
-    for skill in ["bridgepilot", UPDATE, CLEANUP] {
+    for skill in ["bridgepilot", UPDATE, LEGACY_UPDATE, CLEANUP] {
         let target = skills.join(skill);
         if target.starts_with(&home) || home.starts_with(&target) {
             return Err("user skill and product home must be separate".into());
@@ -221,8 +230,9 @@ fn source(home: &Path, skills: &Path, skill: &str) -> Result<(Binding, BTreeMap<
         let owned = installation
             .files
             .iter()
-            .find(|f| f.target == relative)
-            .ok_or("installed package lacks the unified skill; upgrade BP first")?;
+            .find(|f| f.target == relative);
+        if owned.is_none() && skill=="bridgepilot" && name=="scripts/bridgepilot_update.ps1" {continue;}
+        let owned=owned.ok_or("installed package lacks the unified skill; upgrade BP first")?;
         let bytes = read(&home.join(&relative))?.ok_or("installed skill source missing")?;
         if digest(&bytes) != owned.sha256 {
             return Err("installed skill source has user edits".into());
@@ -249,10 +259,11 @@ pub fn status(home: &Path, skills: &Path) -> Result<Value> {
     }
     let old = previous(&home, &skills, "bridgepilot")?;
     let (current, _) = source(&home, &skills, "bridgepilot")?;
-    let update = available(&home, UPDATE)?;
-    let update_old = previous(&home, &skills, UPDATE)?;
+    let update_name = if available(&home, UPDATE)? { UPDATE } else { LEGACY_UPDATE };
+    let update = available(&home, update_name)?;
+    let update_old = previous(&home, &skills, update_name)?;
     let update_current = if update {
-        Some(source(&home, &skills, UPDATE)?.0)
+        Some(source(&home, &skills, update_name)?.0)
     } else {
         None
     };
@@ -275,9 +286,10 @@ pub fn status(home: &Path, skills: &Path) -> Result<Value> {
     }
     let is_current = old.as_ref() == Some(&current)
         && update_old == update_current
-        && cleanup_old == cleanup_current;
+        && cleanup_old == cleanup_current
+        && (update_name != UPDATE || previous(&home, &skills, LEGACY_UPDATE)?.is_none());
     Ok(
-        json!({"schema":1,"status":if is_current{"user_skill_current"}else{"user_skill_install_required"},"home":home,"skills_root":skills,"installed":old.is_some(),"current":is_current,"binding":old,"skills":{"bridgepilot":{"installed":old.is_some(),"current":old.as_ref()==Some(&current)},"bridgeforge-update":{"available":update,"installed":update_old.is_some(),"current":update && update_old==update_current},"bridgepilot-cleanup":{"available":cleanup,"installed":cleanup_old.is_some(),"current":cleanup && cleanup_old==cleanup_current}},"writes":false}),
+        json!({"schema":1,"status":if is_current{"user_skill_current"}else{"user_skill_install_required"},"home":home,"skills_root":skills,"installed":old.is_some(),"current":is_current,"binding":old,"skills":{"bridgepilot":{"installed":old.is_some(),"current":old.as_ref()==Some(&current)},(update_name):{"available":update,"installed":update_old.is_some(),"current":update && update_old==update_current},"bridgepilot-cleanup":{"available":cleanup,"installed":cleanup_old.is_some(),"current":cleanup && cleanup_old==cleanup_current}},"writes":false}),
     )
 }
 fn available(home: &Path, skill: &str) -> Result<bool> {
@@ -290,7 +302,7 @@ fn projection(home: &Path, skills: &Path, skill: &str) -> Result<Projection> {
     previous(home, skills, skill)?;
     let (binding, files) = source(home, skills, skill)?;
     let target = skills.join(skill);
-    let mut names = assets(skill)[1..].to_vec();
+    let mut names = assets(skill)[1..binding.files.len()].to_vec();
     names.push("SKILL.md");
     let mut changes = Vec::new();
     for name in names {
@@ -318,10 +330,11 @@ fn plan(home: &Path, skills: &Path) -> Result<Journal> {
         return Err("skill installation pending; use skill-recover".into());
     }
     let primary = projection(home, skills, "bridgepilot")?;
-    let update = if available(home, UPDATE)? {
-        Some(projection(home, skills, UPDATE)?)
+    let update_name = if available(home, UPDATE)? { UPDATE } else { LEGACY_UPDATE };
+    let update = if available(home, update_name)? {
+        Some(projection(home, skills, update_name)?)
     } else {
-        if previous(home, skills, UPDATE)?.is_some() {
+        if previous(home, skills, update_name)?.is_some() {
             return Err(
                 "installed BP lacks the managed bridgeforge-update source; upgrade BP first".into(),
             );
@@ -339,24 +352,43 @@ fn plan(home: &Path, skills: &Path) -> Result<Journal> {
         }
         None
     };
+    let retired_update = if update_name == UPDATE {
+        previous(home, skills, LEGACY_UPDATE)?.map(|binding| {
+            let files = ["SKILL.md", BINDING].into_iter().map(|name| {
+                Ok((name.into(), read(&skills.join(LEGACY_UPDATE).join(name))?.ok_or("legacy skill disappeared")?))
+            }).collect::<Result<BTreeMap<_, _>>>()?;
+            Ok::<_, String>(RetiredUpdate { binding, files })
+        }).transpose()?
+    } else { None };
     Ok(Journal {
-        schema: 1,
+        schema: 2,
         binding: primary.binding,
         changes: primary.changes,
         update,
         cleanup,
+        update_name: update_name.into(),
+        retired_update,
     })
 }
 fn check_journal(j: &Journal, home: &Path, skills: &Path) -> Result<()> {
-    if j.schema != 1 {
+    if !matches!(j.schema, 1 | 2) || ![UPDATE, LEGACY_UPDATE].contains(&j.update_name.as_str())
+        || (j.schema == 1 && (j.update_name != LEGACY_UPDATE || j.retired_update.is_some())) {
         return Err("invalid skill recovery journal".into());
+    }
+    if let Some(retired) = &j.retired_update {
+        if j.update_name != UPDATE || j.update.is_none() { return Err("invalid rename journal".into()); }
+        valid(&retired.binding, home, skills, LEGACY_UPDATE)?;
+        if retired.files.len() != 2 || retired.files.get("SKILL.md").map(|v|digest(v)).as_ref() != retired.binding.files.get("SKILL.md")
+            || retired.files.get(BINDING).and_then(|v|serde_json::from_slice::<Binding>(v).ok()).as_ref() != Some(&retired.binding) {
+            return Err("invalid legacy skill recovery bytes".into());
+        }
     }
     for (skill, binding, changes) in projections(j) {
         valid(binding, home, skills, skill)?;
-        if changes.len() != assets(skill).len() + 1 {
+        if changes.len() != binding.files.len() + 1 {
             return Err("invalid skill recovery journal".into());
         }
-        let mut names = assets(skill)[1..].to_vec();
+        let mut names = assets(skill)[1..binding.files.len()].to_vec();
         names.push("SKILL.md");
         names.push(BINDING);
         for (change, name) in changes.iter().zip(names) {
@@ -412,7 +444,7 @@ fn install_before_lock(
     {
         return Err("skill inputs changed before apply".into());
     }
-    let mut already_current = true;
+    let mut already_current = current.retired_update.is_none();
     for (skill, binding, _) in projections(&current) {
         already_current &= previous(&home, &skills, skill)?.as_ref() == Some(binding);
     }
@@ -440,6 +472,15 @@ fn apply(home: &Path, skills: &Path, j: &Journal, marker_before: Option<&[u8]>) 
         }
     }
     verify_sources(home, skills, j)?;
+    if let Some(retired) = &j.retired_update {
+        previous(home, skills, LEGACY_UPDATE)?;
+        for (name, before) in &retired.files {
+            let path = skills.join(LEGACY_UPDATE).join(name);
+            if read(&path)?.as_ref() != Some(before) { return Err("legacy skill changed during rename; preserve journal".into()); }
+            fs::remove_file(path).map_err(|e|e.to_string())?;
+        }
+        members(&skills.join(LEGACY_UPDATE), LEGACY_UPDATE)?;
+    }
     if read(&marker(home))?.as_deref() != marker_before {
         return Err("skill ownership marker edited during projection; preserve journal".into());
     }
@@ -460,7 +501,7 @@ fn verify_sources(home: &Path, skills: &Path, j: &Journal) -> Result<()> {
 fn write_marker(home: &Path, skills: &Path, j: &Journal) -> Result<()> {
     persistence::atomic_write_json(
         &marker(home),
-        &json!({"schema":1,"skills_root":skills,"independent_update":j.update.is_some(),"source_update":j.binding.files.contains_key("scripts/bridgepilot_update.ps1"),"parallel_cleanup":j.cleanup.is_some()}),
+        &json!({"schema":1,"skills_root":skills,"independent_update":j.update.is_some(),"bp_update_first":j.update_name==UPDATE && j.update.is_some(),"source_update":j.binding.files.contains_key("scripts/bridgepilot_update.ps1"),"parallel_cleanup":j.cleanup.is_some()}),
     )
     .map_err(|e| e.to_string())
 }
@@ -495,6 +536,17 @@ fn recover_with(home: &Path, skills: &Path, before_restore: impl FnOnce()) -> Re
         );
     }
     let mut committed = true;
+    let mut retired_observed = Vec::new();
+    if let Some(retired) = &j.retired_update {
+        members(&skills.join(LEGACY_UPDATE), LEGACY_UPDATE)?;
+        for (name, old) in &retired.files {
+            let path = skills.join(LEGACY_UPDATE).join(name);
+            let actual = read(&path)?;
+            if actual.is_some() && actual.as_ref() != Some(old) { return Err("legacy skill recovery found external edits".into()); }
+            committed &= actual.is_none();
+            retired_observed.push((path, old, actual));
+        }
+    }
     let mut observed = Vec::new();
     for (path, change) in &changes {
         let actual = read(path)?;
@@ -514,6 +566,10 @@ fn recover_with(home: &Path, skills: &Path, before_restore: impl FnOnce()) -> Re
         write_marker(&home, &skills, &j)?;
     } else {
         before_restore();
+        for (path, old, observed) in retired_observed {
+            if read(&path)? != observed || read(&marker(&home))? != marker_before { return Err("legacy skill edited during recovery".into()); }
+            persistence::atomic_write(&path, old).map_err(|e|e.to_string())?;
+        }
         for ((path, change), observed) in changes.iter().zip(observed).rev() {
             if read(&marker(&home))? != marker_before {
                 return Err("skill marker edited during rollback; preserve journal".into());
@@ -542,6 +598,78 @@ fn recover_with(home: &Path, skills: &Path, before_restore: impl FnOnce()) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn renamed_update_recovers_every_write_and_retirement_boundary() {
+        for prefix in 0..=11 {
+            let (_root, home, skills, mut seed) = fixture(false, true);
+            with_entry(&home, &mut seed, false, UPDATE);
+            fs::remove_file(journal(&home)).unwrap();
+            let mut legacy = seed.update.as_ref().unwrap().binding.clone();
+            legacy.files.insert("SKILL.md".into(), digest(b"old update"));
+            persistence::atomic_write(&skills.join(LEGACY_UPDATE).join("SKILL.md"), b"old update").unwrap();
+            persistence::atomic_write_json(&skills.join(LEGACY_UPDATE).join(BINDING), &legacy).unwrap();
+            let j = plan(&home,&skills).unwrap();
+            assert_eq!(j.update_name,UPDATE);
+            assert!(j.retired_update.is_some());
+            let mut index=0;
+            for (skill,_,changes) in projections(&j) {
+                for change in changes {
+                    if index<prefix {persistence::atomic_write(&skills.join(skill).join(&change.name),&change.new).unwrap();}
+                    index+=1;
+                }
+            }
+            for name in j.retired_update.as_ref().unwrap().files.keys() {
+                if index<prefix {fs::remove_file(skills.join(LEGACY_UPDATE).join(name)).unwrap();}
+                index+=1;
+            }
+            assert_eq!(index,11);
+            persistence::atomic_write_json(&journal(&home),&j).unwrap();
+            let result=recover(&home,&skills).unwrap();
+            assert_eq!(result["status"],if prefix==11 {"user_skill_commit_recovered"}else{"user_skill_rollback_recovered"});
+            assert_eq!(skills.join(LEGACY_UPDATE).join("SKILL.md").exists(),prefix!=11);
+            assert_eq!(skills.join(UPDATE).join("SKILL.md").exists(),prefix==11);
+        }
+    }
+
+    #[test]
+    fn renamed_update_preserves_edited_legacy_entry_and_old_journal_names() {
+        let (_root,home,skills,mut j)=fixture(false,true);
+        with_entry(&home,&mut j,false,LEGACY_UPDATE);
+        j.schema=1;j.update_name=LEGACY_UPDATE.into();
+        let mut value=serde_json::to_value(&j).unwrap();
+        value.as_object_mut().unwrap().remove("update_name");
+        let old:Journal=serde_json::from_value(value).unwrap();
+        assert_eq!(old.update_name,LEGACY_UPDATE);
+        check_journal(&old,&home,&skills).unwrap();
+        for change in &old.update.as_ref().unwrap().changes {persistence::atomic_write(&skills.join(LEGACY_UPDATE).join(&change.name),&change.new).unwrap();}
+        persistence::atomic_write(&skills.join(LEGACY_UPDATE).join("SKILL.md"),b"user edit").unwrap();
+        assert!(previous(&home,&skills,LEGACY_UPDATE).unwrap_err().contains("user-edited"));
+        assert_eq!(fs::read(skills.join(LEGACY_UPDATE).join("SKILL.md")).unwrap(),b"user edit");
+    }
+    #[test]
+    fn real_five_file_legacy_journal_recovers_completed_and_partial_projection() {
+        for complete in [false,true] {
+            let (_root,home,skills,mut j)=fixture(false,complete);
+            let script="scripts/bridgepilot_update.ps1";
+            j.schema=1;j.update_name=LEGACY_UPDATE.into();
+            j.binding.files.remove(script);
+            j.changes.retain(|c|c.name!=script);
+            j.changes.last_mut().unwrap().new=serde_json::to_vec_pretty(&j.binding).unwrap();
+            let source_path=home.join("source/orchestrator/skills/bridgepilot").join(script);
+            fs::remove_file(source_path).unwrap();
+            let target=skills.join("bridgepilot").join(script);
+            if target.exists(){fs::remove_file(target).unwrap();}
+            if complete {persistence::atomic_write(&skills.join("bridgepilot").join(BINDING),&j.changes.last().unwrap().new).unwrap();}
+            let path=home.join(".runtime/config/bridgepilot-installation.json");
+            let mut installation:install::Installation=read_json(&path).unwrap();
+            installation.files.retain(|f|!f.target.ends_with(script));
+            persistence::atomic_write_json(&path,&installation).unwrap();
+            let mut value=serde_json::to_value(&j).unwrap();value.as_object_mut().unwrap().remove("update_name");
+            persistence::atomic_write_json(&journal(&home),&value).unwrap();
+            let result=recover(&home,&skills).unwrap();
+            assert_eq!(result["status"],if complete{"user_skill_commit_recovered"}else{"user_skill_rollback_recovered"});
+        }
+    }
     #[test]
     fn legacy_binding_can_add_updater_but_never_adopts_an_unowned_script() {
         let (_root, home, skills, j) = fixture(true, true);
@@ -726,7 +854,7 @@ mod tests {
         let (_root, home, skills, mut j) = fixture(false, true);
         with_update(&home, &mut j, false);
         persistence::atomic_write_json(&journal(&home), &j).unwrap();
-        let edited = skills.join("bridgeforge-update/SKILL.md");
+        let edited = skills.join("bridgepilot-update/SKILL.md");
         persistence::atomic_write(&edited, b"external editor").unwrap();
         let primary = fs::read(skills.join("bridgepilot/SKILL.md")).unwrap();
         assert!(recover(&home, &skills).is_err());
@@ -821,11 +949,13 @@ mod tests {
         )
         .unwrap();
         let j = Journal {
-            schema: 1,
+            schema: 2,
             binding,
             changes,
             update: None,
             cleanup: None,
+            update_name: UPDATE.into(),
+            retired_update: None,
         };
         persistence::atomic_write_json(&journal(&home), &j).unwrap();
         (root, home, skills, j)

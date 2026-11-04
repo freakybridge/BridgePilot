@@ -181,7 +181,7 @@ fn user_skill_projection_is_previewable_idempotent_and_preserves_user_edits() {
         fs::read(home.join("source/orchestrator/skills").join(updater)).unwrap(),
         fs::read(skills.join(updater)).unwrap()
     );
-    for name in ["bridgepilot", "bridgeforge-update", "bridgepilot-cleanup"] {
+    for name in ["bridgepilot", "bridgepilot-update", "bridgepilot-cleanup"] {
         let source = home.join(format!("source/orchestrator/skills/{name}/SKILL.md"));
         assert_eq!(
             fs::read(source).unwrap(),
@@ -297,7 +297,7 @@ fn user_skill_adds_independent_entry_to_legacy_install_and_preserves_conflicts()
     let home = installed(&f, "independent");
     let skills = f.root.join("independent-skills");
     user_skill::install(&home, &skills, false).unwrap();
-    let update = skills.join("bridgeforge-update");
+    let update = skills.join("bridgepilot-update");
     // The original single-entry installation has the same primary ownership binding.
     fs::remove_file(update.join("SKILL.md")).unwrap();
     fs::remove_file(update.join("bridgepilot-local.json")).unwrap();
@@ -324,9 +324,9 @@ fn user_skill_adds_independent_entry_to_legacy_install_and_preserves_conflicts()
     );
 
     let conflict = f.root.join("conflicting-skills");
-    fs::create_dir_all(conflict.join("bridgeforge-update")).unwrap();
+    fs::create_dir_all(conflict.join("bridgepilot-update")).unwrap();
     fs::write(
-        conflict.join("bridgeforge-update/SKILL.md"),
+        conflict.join("bridgepilot-update/SKILL.md"),
         b"unowned workflow",
     )
     .unwrap();
@@ -334,7 +334,7 @@ fn user_skill_adds_independent_entry_to_legacy_install_and_preserves_conflicts()
     assert!(user_skill::install(&other, &conflict, false).is_err());
     assert!(!conflict.join("bridgepilot").exists());
     assert_eq!(
-        fs::read(conflict.join("bridgeforge-update/SKILL.md")).unwrap(),
+        fs::read(conflict.join("bridgepilot-update/SKILL.md")).unwrap(),
         b"unowned workflow"
     );
 }

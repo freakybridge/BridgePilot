@@ -34,9 +34,9 @@ BP 主产品从 1.0.0 起独立编号，bp versions 展示 BP、BF 来源引用�
 
 0.6.0起包另含四个Skill模式引用，均由BP固定资产表核验。程序install无需Git／gh；先安装程序，再由 `environment-check --context <已有目录>` 核对必要依赖，缺失时经本次授权用 `environment-install --home <已安装home> --scope user --source <来源>` 静默准备Git／GitHub CLI。状态与锁固定在home，用户级不支持或结果未知时报告，不自动提权或换目录重发；机器级scope只在明确授权后使用。登录本人完成，PATH未刷新不重复安装。
 
-程序安装后，通过 `skill-install-preview --home <home> --skills-root <本机CODEX_HOME/skills>` 再 `skill-install` 安装用户级bridgepilot及bridgeforge-update两个入口，`skill-status`逐项核验。源码仍归BP，不进入Forge共享分发；拒绝覆盖同名未知或用户编辑的Skill。中断先 `skill-recover`，与程序install-recover分别核销，不能绕过pending升级程序。已安装用户级Skill时，回退目标须支持bp-user-skill-v1；安装独立升级入口后还须支持bp-independent-update-skill-v1，否则拒绝。仅恢复档案不等于接管，显式handoff restore才包含接管授权。
+程序安装后，通过 `skill-install-preview --home <home> --skills-root <本机CODEX_HOME/skills>` 再 `skill-install` 安装 BP 专用入口，以 `skill-status`逐项核验。`bridgepilot-update` 先确保本机 BP 程序及 Skills 更新成功，再逐个升级全部登记下游，默认不发布；`bridgepilot` 无参数仍只更新 BP 自身。旧 `bridgeforge-update` 由精确归属迁移；未知或用户编辑文件不覆盖。新迁移日志中断时使用本次固定包内 core 的 install-recover／skill-recover；启动器尚未切换时旧程序可能不支持新日志，禁止删除 pending。新入口安装后，回退程序必须支持 bp-update-first-v1。仅恢复档案不等于接管。
 
-0.8.0起包另含 bridgeforge-update-skill.md，由固定资产表安装到 home 的 source/orchestrator/skills/bridgeforge-update/SKILL.md。支持bp-independent-update-skill-v1的core通过skill-install同时安装两个用户级入口，可直接选择bridgeforge-update发起骨架升级；此 Skill 不进入 Forge 共享分发，安装本身不授权下游维护或发布。
+历史 0.8.0 起包含 bridgeforge-update-skill.md；BP 2.0.0 起同一稳定资产 ID 改用 bridgepilot-update-skill.md 和 source/orchestrator/skills/bridgepilot-update/SKILL.md。历史包按原合同识别，新入口由 BP 独立安装，不进入 Forge 共享分发。
 
 包包含 payload/bp-core.exe、payload/bp-launcher.exe 和 package.json。新机准备 Git、GitHub CLI 与 Codex 登录，无需编译 Rust。先初始化独立私有工作区：`bp-core.exe init --workspace <绝对路径>`。用 `install-preview --bundle <包目录> --home <独立绝对目录> --workspace <工作区>` 零写入检查，再将命令换成 install。在 Codex 打开 home；稳定入口是 `.build/bridgepilot/bin/bp.exe`，从 home/.runtime/config/bridgepilot.json 定位档案。
 
@@ -173,6 +173,8 @@ struct Journal {
     old: Option<Installation>,
     new: Installation,
     changes: Vec<Change>,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    retirements: std::collections::BTreeMap<String, Vec<u8>>,
 }
 
 fn bytes(path: &Path) -> Result<Vec<u8>> {
@@ -300,9 +302,9 @@ pub(crate) fn assets() -> Vec<(
         ),
         (
             "bp.controller.skill.forge-update",
-            "payload/bridgeforge-update-skill.md",
-            "source/orchestrator/skills/bridgeforge-update/SKILL.md",
-            Some(include_bytes!("../skills/bridgeforge-update/SKILL.md")),
+            "payload/bridgepilot-update-skill.md",
+            "source/orchestrator/skills/bridgepilot-update/SKILL.md",
+            Some(include_bytes!("../skills/bridgepilot-update/SKILL.md")),
         ),
         (
             "bp.controller.skill.source-update",
@@ -414,6 +416,11 @@ fn package(root: &Path) -> Result<Package> {
     }
     validate_product_identity(p.schema, &p.version, p.components.as_ref())?;
     let mut expected = assets();
+    // Decode retained historical packages using their original exact registry.
+    if p.assets.get(10).is_some_and(|a|a.source=="payload/bridgeforge-update-skill.md") {
+        expected[10].1="payload/bridgeforge-update-skill.md";
+        expected[10].2="source/orchestrator/skills/bridgeforge-update/SKILL.md";
+    }
     // Only legacy schema 1 inferred its historical asset table from 0.x.
     // Schema 2 has one explicit thirteen-asset format, independent of BP version.
     if p.schema == 1 {
@@ -622,6 +629,10 @@ fn install_before_lock(
             return Err("rollback target cannot maintain the installed BP user Skill".into());
         }
         let marker: Value = read_json(&skill_marker)?;
+        if marker["bp_update_first"] == true && !candidate["capabilities"].as_array()
+            .is_some_and(|v|v.iter().any(|x|x=="bp-update-first-v1")) {
+            return Err("rollback target cannot maintain the renamed bridgepilot-update Skill".into());
+        }
         if marker["parallel_cleanup"] == true
             && !candidate["capabilities"]
                 .as_array()
@@ -660,6 +671,22 @@ fn install_before_lock(
     if let Some(old) = &old { validate_transition(old, &current, rollback)?; }
     let mut changes = Vec::new();
     let mut owned = Vec::new();
+    let mut retirements = std::collections::BTreeMap::new();
+    if let Some(old) = &old {
+        for previous in &old.files {
+            if let Some(next) = p.assets.iter().find(|a|a.id==previous.id) {
+                if previous.target != next.target {
+                    if previous.id != "bp.controller.skill.forge-update" || previous.target != "source/orchestrator/skills/bridgeforge-update/SKILL.md"
+                        || next.target != "source/orchestrator/skills/bridgepilot-update/SKILL.md" {
+                        return Err("unsupported installation asset relocation".into());
+                    }
+                    let original=bytes(&owned_target(home,&previous.target)?)?;
+                    if digest(&original)!=previous.sha256 {return Err("legacy update source has user edits; preserve it".into());}
+                    retirements.insert(previous.target.clone(),original);
+                }
+            }
+        }
+    }
     for asset in p.assets.iter().skip(2) {
         let target = owned_target(home, &asset.target)?;
         let actual = if target.exists() {
@@ -702,7 +729,7 @@ fn install_before_lock(
             let identity = probe(&launcher_path, &["--launcher-self-test".into()])?;
             let protocol = identity["launcher_protocol"].as_u64().ok_or("stable launcher protocol missing")?;
             if !matches!(protocol, 1 | 2) { return Err("unsupported stable launcher protocol".into()); }
-            replace_launcher = p.schema == 2 && protocol == 1;
+            replace_launcher = p.assets[1].sha256 != hash;
         }
         if replace_launcher { p.assets[1].sha256.clone() } else { hash }
     } else {
@@ -765,6 +792,9 @@ fn install_before_lock(
         }
     }
     let executable = owned_target(home, &current.executable)?;
+    for (relative,original) in &retirements {
+        if !matches_bytes(&owned_target(home,relative)?,Some(original))? {return Err("legacy update source changed after preview".into());}
+    }
     if !home_claim(home).exists() {
         persistence::atomic_write_json(
             &home_claim(home),
@@ -786,10 +816,11 @@ fn install_before_lock(
         }
     }
     let transaction = Journal {
-        schema: 1,
+        schema: if retirements.is_empty() {1} else {2},
         old: old.clone(),
         new: new.clone(),
         changes,
+        retirements,
     };
     persistence::atomic_write_json(&journal(home), &transaction).map_err(|e| e.to_string())?;
     let result = (|| -> Result<()> {
@@ -862,6 +893,11 @@ fn install_before_lock(
             }
         }
         reader_check(&executable, workspace.as_deref())?;
+        for (relative,original) in &transaction.retirements {
+            let path=owned_target(home,relative)?;
+            if !matches_bytes(&path,Some(original))? {return Err("legacy update source changed during install; preserve journal".into());}
+            fs::remove_file(path).map_err(|e|e.to_string())?;
+        }
         persistence::atomic_write_json(&config(home), &new).map_err(|e| e.to_string())?;
         fs::remove_file(journal(home)).map_err(|e| e.to_string())?;
         Ok(())
@@ -882,8 +918,15 @@ pub fn recover(home: &Path) -> Result<Value> {
     }
     let _lock = FileLock::acquire(&home.join(".runtime/bridgepilot-install/locks/writer.lock"))?;
     let j: Journal = read_json(&journal(home))?;
-    if j.schema != 1 {
+    if !matches!(j.schema, 1 | 2) || (j.schema==1 && !j.retirements.is_empty()) {
         return Err("unsupported installation journal".into());
+    }
+    for (relative, original) in &j.retirements {
+        if relative != "source/orchestrator/skills/bridgeforge-update/SKILL.md"
+            || !j.old.as_ref().is_some_and(|old|old.files.iter().any(|f|f.id=="bp.controller.skill.forge-update" && &f.target==relative && f.sha256==digest(original)))
+            || !j.new.files.iter().any(|f|f.id=="bp.controller.skill.forge-update" && f.target=="source/orchestrator/skills/bridgepilot-update/SKILL.md") {
+            return Err("invalid retired update ownership in recovery journal".into());
+        }
     }
     let current: Option<Installation> = if config(home).exists() {
         Some(read_json(&config(home))?)
@@ -891,6 +934,9 @@ pub fn recover(home: &Path) -> Result<Value> {
         None
     };
     if current.as_ref() == Some(&j.new) {
+        for relative in j.retirements.keys() {
+            if owned_target(home,relative)?.exists() {return Err("retired update source reappeared; preserve journal".into());}
+        }
         for change in &j.changes {
             if digest_file(&owned_target(home, &change.target)?)? != change.new_hash {
                 return Err("committed installation asset changed; preserve for review".into());
@@ -906,6 +952,14 @@ pub fn recover(home: &Path) -> Result<Value> {
         return Err("installation pointer changed outside transaction; preserve journal".into());
     }
     let mut observed = Vec::new();
+    let mut retired_observed = Vec::new();
+    for (relative,original) in &j.retirements {
+        if relative != "source/orchestrator/skills/bridgeforge-update/SKILL.md" {return Err("invalid retired update source".into());}
+        let path=owned_target(home,relative)?;
+        let actual=if path.exists(){Some(bytes(&path)?)}else{None};
+        if actual.is_some() && actual.as_ref()!=Some(original) {return Err("retired update source has external edits".into());}
+        retired_observed.push((path,original,actual));
+    }
     for change in &j.changes {
         let path = owned_target(home, &change.target)?;
         if !path.exists() {
@@ -932,6 +986,10 @@ pub fn recover(home: &Path) -> Result<Value> {
             None if path.exists() => fs::remove_file(path).map_err(|e| e.to_string())?,
             None => {}
         }
+    }
+    for (path,original,actual) in retired_observed {
+        if !matches_bytes(&path,actual.as_deref())? {return Err("retired source changed during recovery".into());}
+        persistence::atomic_write(&path,original).map_err(|e|e.to_string())?;
     }
     fs::remove_file(journal(home)).map_err(|e| e.to_string())?;
     Ok(json!({"status":"installation_rolled_back","archive_rolled_back":false}))
@@ -1012,6 +1070,31 @@ mod manifest_location_tests;
 mod recovery_tests {
     use super::*;
     #[test]
+    fn renamed_source_recovery_restores_retired_bytes_and_preserves_external_edits() {
+        let legacy="source/orchestrator/skills/bridgeforge-update/SKILL.md";
+        let renamed="source/orchestrator/skills/bridgepilot-update/SKILL.md";
+        for retired in [false,true] {
+            let root=Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../.runtime/tests/bp-rename-recovery").join(crate::new_id("case"));
+            fs::create_dir_all(&root).unwrap();
+            let old=Installation{schema:1,product:"BridgePilot".into(),current:Version{version:"0.10.0".into(),components:None,executable:".build/core.exe".into(),sha256:"fixture".into()},previous:None,
+                files:vec![OwnedFile{id:"bp.controller.skill.forge-update".into(),target:legacy.into(),sha256:digest(b"legacy")}],launcher_sha256:"fixture".into()};
+            let mut new=old.clone();new.files[0].target=renamed.into();new.files[0].sha256=digest(b"candidate");
+            let j=Journal{schema:2,old:Some(old.clone()),new,changes:vec![Change{target:renamed.into(),old:None,new_hash:digest(b"candidate")}],retirements:std::collections::BTreeMap::from([(legacy.into(),b"legacy".to_vec())])};
+            persistence::atomic_write_json(&config(&root),&old).unwrap();
+            persistence::atomic_write_json(&journal(&root),&j).unwrap();
+            persistence::atomic_write(&root.join(renamed),b"candidate").unwrap();
+            if !retired {persistence::atomic_write(&root.join(legacy),b"legacy").unwrap();}
+            persistence::atomic_write(&root.join(legacy),b"external edit").unwrap();
+            assert!(recover(&root).is_err());
+            assert_eq!(fs::read(root.join(legacy)).unwrap(),b"external edit");
+            assert!(root.join(renamed).exists());
+            if retired {fs::remove_file(root.join(legacy)).unwrap();} else {persistence::atomic_write(&root.join(legacy),b"legacy").unwrap();}
+            assert_eq!(recover(&root).unwrap()["status"],"installation_rolled_back");
+            assert_eq!(fs::read(root.join(legacy)).unwrap(),b"legacy");
+            assert!(!root.join(renamed).exists());
+        }
+    }
+    #[test]
     fn interrupted_asset_recovery_preserves_external_edits_and_restores_owned_bytes() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../../.runtime/tests/bridgepilot-stage5/install-recovery")
@@ -1042,6 +1125,7 @@ mod recovery_tests {
                 old: Some(before.to_vec()),
                 new_hash: digest(after),
             }],
+            retirements: Default::default(),
         };
         persistence::atomic_write_json(&journal(&root), &j).unwrap();
         fs::write(&asset, b"user edit after transaction began").unwrap();

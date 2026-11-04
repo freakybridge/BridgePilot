@@ -83,7 +83,7 @@ fn launcher_and_claim_recovery_preserves_external_edits_then_restores_owned_byte
         changes.push(Change { target: target.into(), old: Some(b"old owned bytes".to_vec()), new_hash: digest(b"new owned bytes") });
     }
     let next = installed(version("1.0.0", Some(components("17.0.0", "0.14.0")), "core"), None);
-    let transaction = Journal { schema:1, old:None, new:next, changes };
+    let transaction = Journal { schema:1, old:None, new:next, changes, retirements: Default::default() };
     persistence::atomic_write_json(&journal(&home), &transaction).unwrap();
     apply_change(&home, &transaction.changes[0], b"new owned bytes").unwrap();
     fs::write(home.join(targets[1]), b"external edit").unwrap();

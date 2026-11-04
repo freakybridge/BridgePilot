@@ -14,6 +14,21 @@ $remote = Join-Path $root 'upstream'
 $source = Join-Path $root 'source'
 $null = New-Item -ItemType Directory -Path $root -Force
 $checks = 0
+$testInstalledHome = Join-Path $root 'reuse-home'
+$null = New-Item -ItemType Directory -Path $testInstalledHome -Force
+$testAsset = Join-Path $testInstalledHome 'owned.txt'
+[IO.File]::WriteAllText($testAsset, 'owned')
+$runtimeFixture = [pscustomobject]@{ installation = [pscustomobject]@{ current='fixture'; files=@([pscustomobject]@{target='owned.txt';sha256=(Get-UpdateDigest $testAsset)}) } }
+$skillFixture = [pscustomobject]@{current=$true}
+$receiptFixture = [pscustomobject]@{status='source_update_completed';source_commit='fixed';home=$testInstalledHome;skills_root='skills';installation=$runtimeFixture.installation}
+if (!(Test-CurrentInstallation $receiptFixture 'fixed' $testInstalledHome 'skills' $runtimeFixture $skillFixture)) { throw 'Matching installation was not reusable.' }
+if (Test-CurrentInstallation $receiptFixture 'changed' $testInstalledHome 'skills' $runtimeFixture $skillFixture) { throw 'Changed source reused.' }
+$skillFixture.current=$false
+if (Test-CurrentInstallation $receiptFixture 'fixed' $testInstalledHome 'skills' $runtimeFixture $skillFixture) { throw 'Stale skills reused.' }
+$skillFixture.current=$true
+[IO.File]::WriteAllText($testAsset,'edited')
+if (Test-CurrentInstallation $receiptFixture 'fixed' $testInstalledHome 'skills' $runtimeFixture $skillFixture) { throw 'Edited installation reused.' }
+$checks += 4
 function Get-TestDigest([string]$Path) {
     $algorithm = [Security.Cryptography.SHA256]::Create()
     $stream = [IO.File]::OpenRead($Path)
@@ -87,7 +102,12 @@ try {
         foreach ($relative in (($changed + "`n" + $added) -split '\r?\n' | Where-Object { $_ })) {
             $destination = Join-Path $product $relative
             $null = New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force
-            [IO.File]::Copy((Join-Path $repoRoot $relative), $destination, $true)
+            if (Test-Path -LiteralPath (Join-Path $repoRoot $relative)) {
+                [IO.File]::Copy((Join-Path $repoRoot $relative), $destination, $true)
+            } elseif (Test-Path -LiteralPath $destination) {
+                if (![IO.Path]::GetFullPath($destination).StartsWith([IO.Path]::GetFullPath($product) + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Fixture deletion escaped product.' }
+                Remove-Item -LiteralPath $destination -Force
+            }
         }
         $null = Invoke-Checked git @('-C', $product, 'config', 'user.email', 'fixture@example.invalid')
         $null = Invoke-Checked git @('-C', $product, 'config', 'user.name', 'BP fixture')
@@ -106,6 +126,7 @@ try {
             }
             $receipt = Invoke-Checked powershell $call
             if ($receipt -notlike '*source_update_completed*') { throw 'Full source installation lacks success receipt.' }
+            if ($attempt -eq 2 -and ($receipt -notlike '*"mode":"reused"*' -or $receipt -notlike '*"build_invocations":0*')) { throw 'Repeated update must reuse installation without building.' }
             $configPath = Join-Path $testHome '.runtime/config/bridgepilot.json'
             if ($attempt -eq 1) {
                 if (Test-Path -LiteralPath $configPath) { throw 'Source installation created a private archive.' }

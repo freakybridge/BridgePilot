@@ -908,11 +908,11 @@ fn portable_install_is_read_only_in_preview_preserves_configuration_and_rejects_
     install::install(&package, &home, Some(&f.root), true).unwrap();
     assert!(!home.exists());
     install::install(&package, &home, Some(&f.root), false).unwrap();
-    let upgrade_skill = "source/orchestrator/skills/bridgeforge-update/SKILL.md";
+    let upgrade_skill = "source/orchestrator/skills/bridgepilot-update/SKILL.md";
     let installed_skill = fs::read(home.join(upgrade_skill)).unwrap();
     assert_eq!(
         installed_skill,
-        include_bytes!("../../../source/orchestrator/skills/bridgeforge-update/SKILL.md")
+        include_bytes!("../../../source/orchestrator/skills/bridgepilot-update/SKILL.md")
     );
     let skills = f.root.join("user-skills");
     bridgepilot_install::user_skill::install(&home, &skills, true).unwrap();
@@ -951,7 +951,7 @@ fn portable_install_is_read_only_in_preview_preserves_configuration_and_rejects_
         "user customization"
     );
     fs::write(
-        package.join("payload/bridgeforge-update-skill.md"),
+        package.join("payload/bridgepilot-update-skill.md"),
         "tampered payload",
     )
     .unwrap();

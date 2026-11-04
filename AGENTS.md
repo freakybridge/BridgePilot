@@ -129,7 +129,7 @@
 
 ### 项目快速命令
 
-BP 组织单项目或多项目骨架升级时，读取私有 [bridgeforge-update](source/orchestrator/skills/bridgeforge-update/SKILL.md)；该 Skill 随 BP 包管理，不进入 Forge 公共模板或共享分发。
+BP 组织单项目或多项目骨架升级时，读取私有 [bridgepilot-update](source/orchestrator/skills/bridgepilot-update/SKILL.md)；该 Skill 随 BP 包管理，不进入 Forge 公共模板或共享分发。
 
 用户要求 BP 初始化、项目登记、换机、分派、状态核对或明确范围的暂停时，先读取 [BridgePilot 统一入口](source/orchestrator/skills/bridgepilot/SKILL.md)。该入口由 BP 独立包管理，可受管安装到用户级 Skills，不进入 Forge 共享分发。有限窗口调度由自有进程执行，窗口外接续依赖本控制对话已核验的原生 heartbeat；每次唤醒先核对机器、控制对话与实际原生配置，不接管 Unknown。任务回合结束先进入 Reviewing；只读报告核对命令、文件及原生成员，写任务按项目原生验证与人工审阅处理。旧账本自动认证已退役，不能把 completed 自动标为 Released。工作区和恢复入口见 [INSTALL.md](INSTALL.md#bridgepilot-本地试用与档案恢复)，实际验证缺口见唯一开发计划。
 

@@ -13,6 +13,7 @@ $script:Repository = 'https://github.com/freakybridge/BridgePilot.git'
 $script:UpdateStage = 'preflight'
 $script:RuntimeInstalled = $false
 $script:SkillsInstalled = $false
+$script:RecoveryCore = $null
 
 function Get-AbsolutePath([string]$Path) {
     if ($Path.StartsWith('\\?\UNC\', [StringComparison]::OrdinalIgnoreCase)) {
@@ -105,6 +106,26 @@ function Assert-NotPending([string]$InstalledHome) {
     }
 }
 
+function Get-UpdateDigest([string]$Path) {
+    Assert-OrdinaryPath $Path
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    $stream = [IO.File]::OpenRead($Path)
+    try { return ([BitConverter]::ToString($algorithm.ComputeHash($stream))).Replace('-', '').ToLowerInvariant() }
+    finally { $stream.Dispose(); $algorithm.Dispose() }
+}
+
+function Test-CurrentInstallation($Receipt, [string]$Commit, [string]$InstalledHome, [string]$Skills, $Runtime, $Skill) {
+    if (!$Receipt -or !$Receipt.PSObject.Properties['installation'] -or $Receipt.status -ne 'source_update_completed' -or
+        $Receipt.source_commit -cne $Commit -or $Receipt.home -cne $InstalledHome -or $Receipt.skills_root -cne $Skills -or !$Skill.current) { return $false }
+    if (($Receipt.installation | ConvertTo-Json -Depth 20 -Compress) -cne ($Runtime.installation | ConvertTo-Json -Depth 20 -Compress)) { return $false }
+    foreach ($file in $Runtime.installation.files) {
+        $path = Get-AbsolutePath (Join-Path $InstalledHome $file.target)
+        if (!$path.StartsWith($InstalledHome + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Installed asset escapes home.' }
+        if (!(Test-Path -LiteralPath $path -PathType Leaf) -or (Get-UpdateDigest $path) -cne $file.sha256) { return $false }
+    }
+    return $true
+}
+
 function Invoke-SourceUpdate {
     if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw 'BP source installation supports Windows only.' }
     $codexRoot = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' }
@@ -141,9 +162,9 @@ function Invoke-SourceUpdate {
     $launcher = Join-Path $InstallationHome '.build/bridgepilot/bin/bp.exe'
     $installation = Join-Path $InstallationHome '.runtime/config/bridgepilot-installation.json'
     if (Test-Path -LiteralPath $installation) {
-        $null = Invoke-Bp $launcher @('install-status', '--home', $InstallationHome)
+        $existingRuntime = Invoke-Bp $launcher @('install-status', '--home', $InstallationHome)
         # The old core validates its own complete ownership registry before any update.
-        $null = Invoke-Bp $launcher @('skill-status', '--home', $InstallationHome, '--skills-root', $SkillsRoot)
+        $existingSkill = Invoke-Bp $launcher @('skill-status', '--home', $InstallationHome, '--skills-root', $SkillsRoot)
     } elseif (Test-Path -LiteralPath $InstallationHome) {
         if (@(Get-ChildItem -LiteralPath $InstallationHome -Force).Count) { throw 'Unowned nonempty BP home is preserved.' }
     }
@@ -154,6 +175,20 @@ function Invoke-SourceUpdate {
     try {
         $script:UpdateStage = 'source'
         $commit = Update-Source $SourceRoot
+        $receiptPath = Join-Path $SourceRoot '.runtime/bridgepilot-source-update/receipt.json'
+        if ((Test-Path -LiteralPath $installation) -and (Test-Path -LiteralPath $receiptPath)) {
+            $savedReceipt = Read-Json $receiptPath
+            if (Test-CurrentInstallation $savedReceipt $commit $InstallationHome $SkillsRoot $existingRuntime $existingSkill) {
+                Assert-NotPending $InstallationHome
+                $verifiedRuntime = Invoke-Bp $launcher @('install-status', '--home', $InstallationHome)
+                $verifiedSkill = Invoke-Bp $launcher @('skill-status', '--home', $InstallationHome, '--skills-root', $SkillsRoot)
+                if (!(Test-CurrentInstallation $savedReceipt $commit $InstallationHome $SkillsRoot $verifiedRuntime $verifiedSkill)) { throw 'Installation changed during reuse validation.' }
+                $savedReceipt | Add-Member -NotePropertyName mode -NotePropertyValue 'reused' -Force
+                $savedReceipt | Add-Member -NotePropertyName build_invocations -NotePropertyValue 0 -Force
+                Write-Output ('BRIDGEPILOT_SOURCE_UPDATE_RECEIPT ' + ($savedReceipt | ConvertTo-Json -Depth 20 -Compress))
+                return
+            }
+        }
         $target = Join-Path $SourceRoot '.build/bridgepilot/cargo'
         $manifest = Join-Path $SourceRoot 'Cargo.toml'
         foreach ($relative in @('Cargo.toml', 'Cargo.lock', 'INSTALL.md', 'source/orchestrator/cli/Cargo.toml')) {
@@ -168,6 +203,7 @@ function Invoke-SourceUpdate {
         Assert-Source $SourceRoot
         if ((Invoke-Checked git @('-C', $SourceRoot, 'rev-parse', 'HEAD')).Trim() -cne $commit) { throw 'Source commit changed during build.' }
         $core = Join-Path $target 'release/bp.exe'
+        $script:RecoveryCore = $core
         $builtLauncher = Join-Path $target 'release/bp-launcher.exe'
         $identity = Invoke-Bp $core @('self-test')
         if ($identity.program -ne 'bridgepilot' -or 'bp-source-update-v1' -notin $identity.capabilities) { throw 'The selected main commit does not support BP source updates.' }
@@ -184,10 +220,13 @@ function Invoke-SourceUpdate {
         $skill = Invoke-Bp $launcher @('skill-install', '--home', $InstallationHome, '--skills-root', $SkillsRoot)
         $script:SkillsInstalled = $true
         $script:UpdateStage = 'verification'
-        $null = Invoke-Bp $launcher @('install-status', '--home', $InstallationHome)
+        $verifiedRuntime = Invoke-Bp $launcher @('install-status', '--home', $InstallationHome)
         $final = Invoke-Bp $launcher @('skill-status', '--home', $InstallationHome, '--skills-root', $SkillsRoot)
         if (!$final.current) { throw 'BP Skill verification did not report current.' }
         $receipt = [ordered]@{ schema = 1; status = 'source_update_completed'; repository = $script:Repository; branch = 'main'; source_commit = $commit; source_root = $SourceRoot; home = $InstallationHome; skills_root = $SkillsRoot; version = $identity.version; runtime = $runtime; skill = $skill; tasks_resumed = $false }
+        $receipt['installation'] = $verifiedRuntime.installation
+        $receipt['mode'] = 'updated'
+        $receipt['build_invocations'] = 1
         if ($identity.PSObject.Properties['components']) { $receipt['components'] = $identity.components }
         $receiptPath = Join-Path $SourceRoot '.runtime/bridgepilot-source-update/receipt.json'
         Assert-OrdinaryPath $receiptPath
@@ -199,7 +238,7 @@ function Invoke-SourceUpdate {
 
 if (!$FunctionsOnly) {
     try { Invoke-SourceUpdate } catch {
-        Write-Output ('BRIDGEPILOT_SOURCE_UPDATE_RECEIPT ' + (@{ schema = 1; status = 'failed'; stage = $script:UpdateStage; runtime_installed = $script:RuntimeInstalled; skills_installed = $script:SkillsInstalled; error = $_.Exception.Message; recovery = 'Preserve source and installation; inspect install-status and pending transaction before retrying.' } | ConvertTo-Json -Compress))
+        Write-Output ('BRIDGEPILOT_SOURCE_UPDATE_RECEIPT ' + (@{ schema = 1; status = 'failed'; stage = $script:UpdateStage; runtime_installed = $script:RuntimeInstalled; skills_installed = $script:SkillsInstalled; error = $_.Exception.Message; recovery_core = $script:RecoveryCore; recovery = 'Preserve source and installation. For a pending rename journal use this fixed candidate core install-recover or skill-recover; old launchers may not read the new journal. Do not delete pending records.' } | ConvertTo-Json -Compress))
         exit 1
     }
 }

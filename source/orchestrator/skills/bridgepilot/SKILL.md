@@ -13,7 +13,7 @@ argument: 无参数安装或更新；init、project add <项目目录>、handoff
 
 ## 先定位本机入口
 
-安装到用户级 Skills 后，读取本 Skill 目录的 bridgepilot-local.json，以其实际 home 定位稳定入口 .build/bridgepilot/bin/bp.exe，通过 skill-status --home <home> --skills-root <实际根> 验证 bridgepilot、bridgeforge-update、bridgepilot-cleanup 的所有权与完整文件。各入口均由 BP 的 skill-install 管理，不进入 Forge 共享分发。以 home 的 .runtime/config/bridgepilot.json 定位私有 workspace；不把发行包或他人存档库当个人配置。
+安装到用户级 Skills 后，读取本 Skill 目录的 bridgepilot-local.json，以其实际 home 定位稳定入口 .build/bridgepilot/bin/bp.exe，通过 skill-status --home <home> --skills-root <实际根> 验证 bridgepilot、bridgepilot-update、bridgepilot-cleanup 的所有权与完整文件。各入口均由 BP 的 skill-install 管理，不进入 Forge 共享分发。以 home 的 .runtime/config/bridgepilot.json 定位私有 workspace；不把发行包或他人存档库当个人配置。
 
 源码／安装 home 中的候选入口没有该本机绑定文件：先核对当前项目根及实际安装，不猜机器 ID 或编造路径。源码产物为 .build/bridgepilot/cargo/release/bp.exe。先使用 self-test／help 核验真实版本和能力；Skill 未安装／过旧／中断时沿 INSTALL 处理，不用旧程序冒充新命令。全新电脑的源码安装按根 INSTALL.md 的源码入口引导。
 
@@ -42,7 +42,7 @@ argument: 无参数安装或更新；init、project add <项目目录>、handoff
 | `$bridgepilot handoff restore` | 读取[新机接管](references/handoff.md#restore)：恢复并核验准确检查点，自动完成独占接管；任务和 heartbeat 仍暂停 |
 | `$bridgepilot status` | 调用 CLI 只读 SQLite 状态视图，按下节原样展示固定六列；不扫描聊天拼表，不安装、迁移、上传、接管或推进 |
 | `bridgepilot-cleanup` | 读取实际 home 下私有 [清理入口](../bridgepilot-cleanup/SKILL.md)，核对登记下游或指定子集；旧配置化清理已退役，缺少可靠原生成品保护时阻断删除 |
-| 单项目或多项目骨架升级、`bridgeforge-update` | 读取实际 BP home 下 `source/orchestrator/skills/bridgeforge-update/SKILL.md`，由本控制对话编排整轮升级及本轮已有授权的发布；不从项目登记推导维护权限 |
+| 单项目或多项目骨架升级、`bridgepilot-update` | 读取实际 BP home 下 `source/orchestrator/skills/bridgepilot-update/SKILL.md`，由本控制对话编排整轮升级及本轮已有授权的发布；不从项目登记推导维护权限 |
 | 自然语言任务、明确范围暂停／恢复、原生唤醒 | 读取[日常执行](references/execution.md)，保留现有 confirm、调度、客户端交接及开发／发布证据要求 |
 
 以上是 Skill 参数，由 Codex 协调底层命令，不把空格模式当作已存在的 bp CLI 子命令。只有匹配的请求才读取对应长引用；复杂任务复用有效 confirm，重要方向与审美判断交用户。

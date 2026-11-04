@@ -151,6 +151,22 @@ BP 源码在 `source/orchestrator/`，按 tasks、storage、execution、transfer
 
 ### 无参数源码安装与更新
 
+无参数 `$bridgepilot` 仅更新 BP 自身；统一升级本机 BP 和下游使用 `$bridgepilot-update`。
+
+### 统一升级入口与旧名称迁移
+
+`$bridgepilot-update` 由 BP 独立管理，先复用下述 BP 源码安装入口，取得实际程序安装与专用 Skill 成功收据后，再用新版 BP 的 `project-list` 读取全部登记下游，逐项目检查暂停、控制权和实际绑定，执行 Forge 骨架计划与升级。默认不提交、推送或 release；只在当前批次有明确且匹配的发布授权时接续。显式只读／dry-run 不运行安装脚本、不构建或写入，缺工具则报告预览缺口。
+
+BP 2.0.0 将 `bridgeforge-update` 改为 `bridgepilot-update`，安装包对应资产使用 `payload/bridgepilot-update-skill.md`，home 来源为 `source/orchestrator/skills/bridgepilot-update/SKILL.md`，稳定资产 ID 保留。后文历史包的旧文件名仅用于识别和恢复，不是新包写入目标。旧本机绑定和配置原位复用；新入口验证成功后才按精确归属退役旧入口，未知或用户编辑的同名文件保持并阻断。新安装不会改 Forge 公共模板或共享 Skill 登记。
+
+程序和 Skill 是两个受管事务，只有两阶段均核验成功才进入下游写入。已有同来源收据且当前程序、全部受管文件与 Skill 均一致时，返回 `mode=reused`、`build_invocations=0`，不重建或改写成功收据。来源变化或文件失配时重新准备，不能仅按版本号宣称已安装最新。
+
+迁移使用程序安装 journal schema 2 和 Skill journal schema 2，新程序仍能恢复旧 schema 1 的原文件布局。稳定 launcher 在内容变化时随安装事务刷新；若迁移日志写入后、启动器尚未切换就中断，旧启动器可能无法读取新日志，须使用失败收据 `recovery_core` 指向的本次固定候选程序执行 `install-recover` 或 `skill-recover`，不能删除日志或另下一个版本覆盖。已安装新入口后，不兼容的旧程序回退会被拒绝。
+
+首次从 0.10.0 等没有源码更新脚本的安装升级时，沿官方源码引导调用下述脚本，并显式复用原 home 和 Skills 绑定；不手工复制 Skill，不重新初始化私有档案。无参数 `$bridgepilot` 保留只更新 BP 自身的行为，不递归调用完整下游升级。
+
+### BP 自身的源码安装与更新
+
 已安装用户级入口后，在 Codex 调用 **`$bridgepilot`**，无需参数。入口从 `https://github.com/freakybridge/BridgePilot.git` 的 `main` 获取源码，固定本次提交，使用锁定的 `Cargo.lock` 构建 `bp` 和 `bp-launcher`，再由 Rust 安装器预览、安装并更新全部受管用户级 Skill。重复调用会更新同一安装。`init`、`status`、项目登记和交接模式保留原行为，不隐式更新程序。
 
 Windows 源码构建需要 Git、Rust 1.88 或更高版本及其 Windows C++ 构建工具；可复用本机已有环境。缺依赖时先报告具体缺口，按用户允许的安装范围准备，不自动提权或脚本化登录。构建可按 Cargo.lock 下载依赖，构建失败不切换当前安装。
@@ -180,7 +196,7 @@ BP 0.12.0 起，便携包新增 `payload/bridgepilot-cleanup-skill.md`，固定�
 3. **固定发布身份并下载。** 使用 `gh api --hostname github.com repos/freakybridge/BridgePilot/releases/latest`，读取同一非 draft、非 prerelease 的正式 Release，保存真实 id、tag、资产 id／name／size／digest。正式 tag 须可解析至该发布的固定源码提交。找不到完整 BP 包时停止，不能改用 main 源码编译、旧机器文件或未经验证的第三方二进制。通过 `gh release download <实际 tag> --repo freakybridge/BridgePilot --pattern <精确资产名> --dir <下载目录>` 下载，禁止通配或覆盖冲突文件；中断后先核对已有文件再复用。
 4. **执行前校验并组装包。** Release 必须包含 `package.json`、`bp-core.exe`、`bp-launcher.exe`、`controller-rules.md`、`readme.md`、`install.md`、`bridgepilot-skill.md`；core 0.6.0起另含 `bridgepilot-init.md`、`bridgepilot-projects.md`、`bridgepilot-handoff.md`、`bridgepilot-execution.md` 四个模式引用；0.8.0起另含 `bridgeforge-update-skill.md`，0.11.0起另含 `bridgepilot-update.ps1`，0.12.0起另含 `bridgepilot-cleanup-skill.md`。先按 GitHub 实际资产 digest（`sha256:`）校验 manifest，再核对 `product=BridgePilot` 和包格式：schema 2 必须为 BP 1.0.0 或更高、十三项固定资产、精确 components（orchestrator=embedded，forge=source-reference）及 launcher protocol 2，并与实际 core 自检核对；只有旧 schema 1 的 0.x 包按下列历史资产登记读取：0.12.0起十三项，0.11.x十二项，0.8.x至0.10.x十一项，0.6.x至0.7.x十项，旧0.5.x为六项。旧包仍可走旧安装流程，但不具备新版能力。源路径必须为对应 `payload/<上述文件名>`，拒绝额外入口、绝对路径、`..`、链接与未知目标；目标须匹配 BP 固定资产表（模式引用进入 home 的 `source/orchestrator/skills/bridgepilot/references/`，源码更新脚本进入该 Skill 的 `scripts/`，独立入口分别进入 `source/orchestrator/skills/bridgeforge-update/SKILL.md` 与 `source/orchestrator/skills/bridgepilot-cleanup/SKILL.md`）。它由用户级 BP 入口通过实际 home 加载，不另装 Forge 共享 Skill。逐文件校验大小、GitHub digest 和 manifest SHA256；缺失、漂移或身份不明时停止，不执行候选程序。组装到同一下载任务的 `bundle/`。校验后再执行 core `self-test` 与 launcher `--launcher-self-test`，核对 core 版本、所需能力与 manifest、launcher protocol=1 (legacy schema 1) / 2 (schema 2)；摘要和回执保存在本次下载目录。
 5. **安装、准备依赖并恢复。** 对新工作区调用 core `init`，先 `install-preview --bundle <已核验包> --home <home> --workspace <工作区>`，通过后执行 `install`；这两步无需 Git／gh，也不接管其他机器。用稳定 launcher `environment-check --context <home>` 检查；需要时经明确授权执行 `environment-install --home <home> --scope user --source <来源>`，安装日志和 Unknown 意图固定在 home，不允许换目录重发。只安装 Git.Git／GitHub.cli，不脚本化登录或提权。用户级不受支持时报告，只有用户明确授权才可 machine scope；成功但 PATH未刷新时先核实再检查，不重复安装。winget缺失时报告系统依赖，不猜第三方下载入口。首次配置只确认一次本人私有库，验证后 `sync-configure`；已有库用 `sync-download`，必须读回私有属性、完整历史与准确远端提交。全新空库按已确认初始化授权 enrol／upload，已有控制权不覆盖。已有工作区沿原配置，pending／分叉／活跃／Unknown先核销。最后核对 install-status、self-test和status；中断用 install-recover，不手改记录。
-6. **安装用户级入口并报告。** 按实际 CODEX_HOME（未设则本人 `~/.codex`）解析 skills 目录，使用 `skill-install-preview --home <home> --skills-root <目录>`，再 `skill-install`，用 `skill-status` 逐项验证。支持 `bp-parallel-cleanup-skill-v1` 的 core 同一事务安装 `bridgepilot`、`bridgeforge-update`、`bridgepilot-cleanup` 三个入口；已有安装可原位补齐。可直接选择 `/bridgeforge-update` 或输入 `$bridgeforge-update <项目与范围>`。其来源仍在 BP home，每个用户级入口只有受管投影和本机 home 绑定；不进入 Forge 共享分发，未知或用户修改的同名 Skill 拒绝覆盖。中断用 `skill-recover`；已安装独立升级入口时，回退 core 也必须支持该能力。返回 home、core版本、档案id／revision、项目、owner与本机身份、Skill安装结果和缺口。文件安装与客户端发现分别核验；未出现时刷新客户端或重启 Codex 后核对。只恢复档案的请求不接管、不上传、不恢复任务或heartbeat、不创建聊天；首次新库初始化另按用户确认的授权。显式 `$bridgepilot handoff restore` 才包含核验后的接管，成功后任务仍暂停。项目代码和业务环境不在私有档案中，恢复和执行分别按实际授权进行。
+6. **安装用户级入口并报告。** 按实际 CODEX_HOME（未设则本人 `~/.codex`）解析 skills 目录，使用 `skill-install-preview --home <home> --skills-root <目录>`，再 `skill-install`，用 `skill-status` 逐项验证。支持 `bp-update-first-v1` 的 core 同一事务安装 `bridgepilot`、`bridgepilot-update`、`bridgepilot-cleanup` 三个入口；已有安装可原位补齐。可直接选择 `/bridgepilot-update` 或输入 `$bridgepilot-update <项目与范围>`。其来源仍在 BP home，每个用户级入口只有受管投影和本机 home 绑定；不进入 Forge 共享分发，未知或用户修改的同名 Skill 拒绝覆盖。中断用 `skill-recover`；已安装独立升级入口时，回退 core 也必须支持该能力。返回 home、core版本、档案id／revision、项目、owner与本机身份、Skill安装结果和缺口。文件安装与客户端发现分别核验；未出现时刷新客户端或重启 Codex 后核对。只恢复档案的请求不接管、不上传、不恢复任务或heartbeat、不创建聊天；首次新库初始化另按用户确认的授权。显式 `$bridgepilot handoff restore` 才包含核验后的接管，成功后任务仍暂停。项目代码和业务环境不在私有档案中，恢复和执行分别按实际授权进行。
 
 公开 Release 的安装引导从本节生成，包资产从同一已验证便携包取得。公开产品资产不能包含个人档案、配置、凭据、日志或原生会话／Memory。恢复成功不等于已经完成物理换机接续；缺少旧机交接时，保留可查看档案的状态并报告。
 

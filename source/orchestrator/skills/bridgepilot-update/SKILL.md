@@ -1,21 +1,29 @@
 ---
-name: bridgeforge-update
-description: BP 私有的单项目或多项目骨架升级编排，组织范围核对、dry-run、问题解释与处理、正式升级，并在本次已有明确 release 授权时衔接发布。
+name: bridgepilot-update
+description: 先更新本机 BP 程序与专用 Skills，再逐个升级全部登记下游或指定项目的 Forge 骨架；只读预览不写入，默认不发布。
 user_invocable: true
 argument: 项目目录或项目集合，以及 dry-run、升级或本轮已授权的发布范围
 ---
 
-# bridgeforge-update
+# bridgepilot-update
 
-当前源码候选使用 Template-only：项目不再保留版本戳、分发旁文件、版本配置或收口账本。骨架升级按当前 bridgeforge-codex 计划／事务执行；后文涉及旧收口／受管 release 的说明不再作为入口，发布改按项目真实原生流程及本次明确授权。不要调用已退役的 Forge develop、setup/migration/release 参数，不为放行恢复旧 JSON。BP 旧账本自动认证不可用时保持实际状态并报告，不伪称 Released。
+本 Skill 归 BP 安装器所有，不进入 Forge 共享分发。正常调用授权先确保本机 BP 安装为本次核实的官方版本，再升级所选下游骨架；默认不提交、推送或 release。咨询只解释；显式只读／dry-run 不获取源码、构建、安装或写收据，缺工具时报告预览缺口。
+
+## 0. 先更新本机 BP
+
+从已有本机绑定解析安装 home、Skills 根和私有 workspace，复用 [BP 安装入口](../bridgepilot/SKILL.md#无参数安装或更新) 的 `scripts/bridgepilot_update.ps1`。旧安装没有更新脚本时，从官方源码的 INSTALL 进行一次受管引导，不复制开发工作区文件冒充已发布来源。
+
+必须取得 `BRIDGEPILOT_SOURCE_UPDATE_RECEIPT`，且 `status=source_update_completed`、程序安装和 Skill 核验成功；同来源、同安装身份复用有效结果，不强制重装。失败、pending 或未知结果时保留现场，停止下游写入。不能用仓库 VERSION、候选二进制或正式 Release 存在代替本机安装证明。
+
+成功后读取实际已安装 home 下 `source/orchestrator/skills/bridgepilot-update/SKILL.md`，携带本次安装收据从下游阶段继续，不递归调用本节。只读模式跳过安装，使用现有合格工具；本节结果不授权恢复任务、接管、清理或业务环境安装。
 
 由 BP 主对话编排整轮骨架升级，沿用 [BP 入口](../bridgepilot/SKILL.md) 的项目绑定、控制权和任务核验。实际维护、开发收口和发布分别使用当前可用的 bridgeforge-codex、develop、git-sync；能力缺失时报告具体缺口，不另造执行器。
 
-本入口由 BP 独立安装和维护，不进入 Forge 共享分发。用户级安装时，先读取本 Skill 目录的 `bridgepilot-local.json`，以实际 `home` 定位 `.build/bridgepilot/bin/bp.exe`，通过 `skill-status --home <home> --skills-root <实际根>` 核验各受管入口的归属与完整性，再读取该 home 下 `source/orchestrator/skills/bridgepilot/SKILL.md`。源码候选没有本机绑定时，先按 BP 入口核对当前项目根与实际安装，不猜 home；本入口被选择不等于获准 apply 或发布。
+读取本 Skill 目录的 `bridgepilot-local.json`，以实际 `home` 定位 `.build/bridgepilot/bin/bp.exe`；源码引导无绑定时按 BP 安装入口核对实际 home，不猜路径。正常调用的安装授权限于本节规定范围，不能扩展成发布授权。
 
 ## 1. 确定批次
 
-复用当前对话、BP 已有任务和真实授权，确定项目集合、目标来源、阶段与发布范围。未指定名单时定位当前项目，不从已登记推导升级全部项目。咨询只解释；只读 dry-run 不刷新产品、准备产物、接入远端或执行 apply。
+复用当前对话、BP 已有任务和真实授权，确定项目集合、目标来源、阶段与发布范围。无项目参数默认全部已登记下游；显式指定时只处理该子集。用更新后的 BP `project-list --workspace <绑定工作区>` 获取名单；指定子集用该命令的内部 `--input`，内容为 `{"projects":["精确ID或名称"]}`，不维护第二份项目清单、不用外部脚本直接读库。暂停、控制权、在途／Unknown 操作及非本机绑定逐项目检查；独立项目受阻时保留并继续其余可维护项目，来源或本机 BP 全局失败则停止整个下游阶段。咨询只解释；只读 dry-run 不刷新产品、准备产物、接入远端或执行 apply。
 
 开始就核对最后正式发布至当前的累计变化，以及暂存、未暂存、未跟踪业务改动。隔离未提交文件不能排除已提交的未发布业务；是否纳入须在长验证前明确。已有 release 授权仅在本轮项目、内容、目标仍匹配时继承，不成为以后批次的永久许可。暂停、恢复、预算及已确认决定跨阶段继承。
 
@@ -33,7 +41,7 @@ argument: 项目目录或项目集合，以及 dry-run、升级或本轮已授�
 
 ## 3. Dry-run 与问题决定
 
-逐项目执行锁定来源的零写入骨架计划，保存原始收据与 fingerprint。骨架计划、发布范围预览、真实提交 Hook 各有覆盖边界；明确已检查与未执行部分，不用 dry-run 保证提交、推送或 runtime 成功。
+逐项目执行锁定来源的零写入骨架计划，保留原始收据与 fingerprint；显式只读模式仅在对话中返回，不写磁盘记录。骨架计划、发布范围预览、真实提交 Hook 各有覆盖边界；明确已检查与未执行部分，不用 dry-run 保证提交、推送或 runtime 成功。
 
 单项目可用对话记录；跨项目或需要接续时维护一份批次记录。问题表至少包含：
 
@@ -56,7 +64,7 @@ argument: 项目目录或项目集合，以及 dry-run、升级或本轮已授�
 
 ## 5. 按授权衔接发布
 
-未获本轮 release 授权时交付升级结果与剩余事项；已有匹配授权时，主对话每项目只调用一次受管 `git-sync release`，由 CLI 完成聚合预检、原生准备、提交推送、平台发布和远端核验，不在外层追加预览、普通同步或手动发布，不再次索取同一授权。release 不补安装；真实入口缺口回到安装流程处理后接续。
+默认不 release。未获本轮明确且范围匹配的 release 授权时，完成安装后直接交付；已结束批次的发布授权不沿用。已有匹配授权时，主对话每项目只调用一次受管 `git-sync release`，由 CLI 完成聚合预检、原生准备、提交推送、平台发布和远端核验，不在外层追加预览、普通同步或手动发布，不再次索取同一授权。release 不补安装；真实入口缺口回到安装流程处理后接续。
 
 批量发布遵守本轮统一就绪或分别发布的约定；仅在部分就绪确实改变结果而策略未定时补问。逐仓发布不具备跨仓原子性；沿已确认的批次策略保留成功结果，失败仅阻断相关项目，独立项目继续。提交成功但推送失败时保留提交，不强推、不盲重跑整套发布。
 
