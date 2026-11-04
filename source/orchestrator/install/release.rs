@@ -91,6 +91,7 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value> {
         product: "BridgePilot".into(),
         version: package.version.clone(),
         repository: "freakybridge/BridgePilot".into(),
+        gitlab_origin: None,
         tag: format!("bp-v{}", package.version),
         title: format!("BridgePilot {} (Windows x64)", package.version),
         notes: format!(

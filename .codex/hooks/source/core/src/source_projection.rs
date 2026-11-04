@@ -364,12 +364,44 @@ pub fn render(root: &Path, public: bool) -> Result<BTreeMap<String, Vec<u8>>, St
     render_with_overlay(root, public, &BTreeMap::new())
 }
 
+fn input_hash(bytes:&[u8])->String {
+    use sha2::{Digest,Sha256};
+    format!("sha256:{:x}",Sha256::digest(bytes))
+}
+
+fn ignore_source(root:&Path)->Option<String> {
+    let template=template_relative(root,"templates/hooks/.gitignore");
+    if root.join(&template).is_file(){Some(template)}
+    else if root.join(".gitignore").is_file(){Some(".gitignore".into())}else{None}
+}
+
+/// Raw content and inventory proof, without regenerating projected manifests or
+/// validating every dependency again. It never relies on timestamps alone.
+pub fn input_fingerprint(root:&Path,public:bool)->Result<String,String> {
+    let root_bytes=read(root,"Cargo.toml")?;
+    let selected=members(&document(&root_bytes,"Cargo.toml")?,public)?;
+    let mut files=BTreeMap::new();for member in selected {collect(root,&member,&mut files)?;}
+    let mut records=files.iter().map(|(path,bytes)|(path.clone(),input_hash(bytes))).collect::<BTreeMap<_,_>>();
+    records.insert("Cargo.toml".into(),input_hash(&root_bytes));
+    records.insert("Cargo.lock".into(),input_hash(&read(root,"Cargo.lock")?));
+    if let Some(ignore)=ignore_source(root){records.insert(ignore.clone(),input_hash(&read(root,&ignore)?));}
+    crate::manifest::canonical_sha(&serde_json::json!(records))
+}
+
+pub fn render_with_fingerprint(root:&Path,public:bool)->Result<(BTreeMap<String,Vec<u8>>,String),String> {
+    render_capture(root,public,&BTreeMap::new())
+}
+
 /// Apply candidate native versions in memory, before a transaction writes them.
 pub fn render_with_overlay(
     root: &Path,
     public: bool,
     overlay: &BTreeMap<String, Vec<u8>>,
 ) -> Result<BTreeMap<String, Vec<u8>>, String> {
+    render_capture(root,public,overlay).map(|(files,_)|files)
+}
+
+fn render_capture(root:&Path,public:bool,overlay:&BTreeMap<String,Vec<u8>>)->Result<(BTreeMap<String,Vec<u8>>,String),String> {
     let root_bytes = overlay
         .get("Cargo.toml")
         .cloned()
@@ -403,6 +435,8 @@ pub fn render_with_overlay(
             return Err("projection has duplicate package names".into());
         }
     }
+    let mut input_records=files.iter().map(|(path,bytes)|(path.clone(),input_hash(bytes))).collect::<BTreeMap<_,_>>();
+    input_records.insert("Cargo.toml".into(),input_hash(&root_bytes));
     {
         manifest["workspace"]["members"] =
             value(selected.iter().map(|p| logical_path(p)).collect::<Array>());
@@ -455,22 +489,16 @@ pub fn render_with_overlay(
         }
     }
     files.insert("Cargo.toml".into(), manifest.to_string().into_bytes());
-    let template_ignore = template_relative(root, "templates/hooks/.gitignore");
-    let ignore = if root.join(&template_ignore).is_file() {
-        Some(template_ignore.as_str())
-    } else if root.join(".gitignore").is_file() {
-        Some(".gitignore")
-    } else {
-        None
-    };
-    if let Some(ignore) = ignore {
-        files.insert(".gitignore".into(), read(root, ignore)?);
+    if let Some(ignore) = ignore_source(root) {
+        let bytes=read(root,&ignore)?;input_records.insert(ignore,input_hash(&bytes));
+        files.insert(".gitignore".into(),bytes);
     }
     let lock = overlay
         .get("Cargo.lock")
         .cloned()
         .map(Ok)
         .unwrap_or_else(|| read(root, "Cargo.lock"))?;
+    input_records.insert("Cargo.lock".into(),input_hash(&lock));
     files.insert(
         "Cargo.lock".into(),
         lock_dependency_closure(&lock, &names)?,
@@ -482,7 +510,7 @@ pub fn render_with_overlay(
             return Err(format!("projection path collision: {logical}"));
         }
     }
-    Ok(logical_files)
+    Ok((logical_files,crate::manifest::canonical_sha(&serde_json::json!(input_records))?))
 }
 
 pub fn projected(root: &Path, mode: &str) -> Result<BTreeMap<String, Vec<u8>>, String> {

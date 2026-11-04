@@ -18,4 +18,6 @@ pub mod git_sync;
 pub mod project_sync;
 pub mod template_sync;
 pub mod public_artifacts;
+pub mod project_release;
+pub mod project_release_install;
 mod config_retirement;

@@ -14,9 +14,12 @@ pub struct FactoryVersionReport {
 }
 
 pub fn check(root: &Path) -> FactoryVersionReport {
+    check_contract(root,&bridgeforge_core::product_manifest::project(root).unwrap_or_default())
+}
+
+pub(crate) fn check_contract(root:&Path, contract:&serde_json::Value) -> FactoryVersionReport {
     let native_version = bridgeforge_core::product_version::forge(root);
     let version = native_version.clone().unwrap_or_default();
-    let contract = bridgeforge_core::product_manifest::project(root).unwrap_or_default();
     let contract_version = contract["release_version"]
         .as_str()
         .unwrap_or("")

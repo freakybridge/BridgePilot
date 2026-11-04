@@ -250,6 +250,7 @@ fn owned(release: &Value, plan: &Plan, commit: &str, marker: &str) -> Result<(),
 
 fn identity_plan(identity: &bridgeforge_core::native_release::SourceIdentity, version: &str) -> Plan {
     Plan { schema: 1, product: identity.product.clone(), version: version.into(),
+        gitlab_origin: None,
         repository: identity.repository.clone(), tag: format!("{}{version}", identity.tag_prefix),
         title: identity.product.clone(), notes: String::new(), assets: vec![] }
 }

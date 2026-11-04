@@ -68,6 +68,8 @@ $BRIDGEFORGE = Join-Path $env:USERPROFILE ".codex\bin\bridgeforge.exe"
 
 计划输出 aggregate_fingerprint、safe、risk、retired、gaps、blockers。blocker 停止；不存在风险或已有风险授权时直接继续，不重复询问。新增真实风险一次合并说明并确认，确认前不执行任何写入。
 
+发布入口部署属于本次安装／升级：按更新规则复用已有项目声明，首次缺失时在安装阶段整理并确认必要版本／构建／产物规则；将发布驱动、注册和收据纳入同一计划、事务及验收。gaps 未解决不能报告整体成功。批次复用同一公共准备产物，不逐项目重编公共驱动，不把业务构建或真实 release 当安装探针。
+
 读取 [事务与恢复](references/transaction.md)，用同一指纹及 $PUBLIC_ARTIFACTS 执行 --apply。工具在锁内重算计划，失败保护现场；不手工复制、删除或写戳。
 
 ## 5. 结果

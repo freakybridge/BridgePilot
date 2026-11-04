@@ -250,9 +250,25 @@ fn mixed_product_release_materializer_updates_consumer_lock_without_bumping_harn
         (root.join(crate::source_projection::physical_path(root, "source/cli/Cargo.toml")), cargo.to_string().into_bytes()),
         (root.join("Cargo.lock"), lock.to_string().into_bytes()),
     ]);
-    struct CandidateRunner(Runner);
+    struct CandidateRunner(Runner,std::cell::RefCell<BTreeMap<String,Value>>);
     impl ProcessRunner for CandidateRunner {
         fn run(&self, request: &ProcessRequest) -> std::io::Result<ProcessOutput> {
+            if request.program == "cargo" {
+                let args=request.args.iter().map(|v|v.to_string_lossy().into_owned()).collect::<Vec<_>>();
+                let argument=|flag:&str|args[args.iter().position(|v|v==flag).unwrap()+1].clone();
+                let binary=argument("--bin");
+                let source=PathBuf::from(argument("--manifest-path")).parent().unwrap().to_path_buf();
+                let package=match binary.as_str(){"bridgeforge"=>"cli","bridgeforge-hook"=>"hook","bridgeforge-factory"=>"factory",_=>panic!("unexpected binary")};
+                let native=fs::read_to_string(source.join(format!("source/{package}/Cargo.toml")))?.parse::<toml_edit::DocumentMut>().unwrap();
+                let cli=fs::read_to_string(source.join("source/cli/Cargo.toml"))?.parse::<toml_edit::DocumentMut>().unwrap();
+                let mut result=json!({"schema":1,"name":binary,"status":"ok","version":native["package"]["version"].as_str().unwrap(),
+                    "build_identity":{"protocol":1,"source_tree_sha256":request.env.get(std::ffi::OsStr::new("BRIDGEFORGE_BUILD_SOURCE_SHA")).unwrap().to_str().unwrap(),
+                    "lockfile_sha256":request.env.get(std::ffi::OsStr::new("BRIDGEFORGE_BUILD_LOCK_SHA")).unwrap().to_str().unwrap()}});
+                if binary=="bridgeforge-factory" {result["product_version"]=json!(cli["package"]["version"].as_str().unwrap());}
+                let output=self.0.run(request)?;
+                if output.code==0 {self.1.borrow_mut().insert(binary,result);}
+                return Ok(output);
+            }
             if request.program == "git" && request.args.first().is_some_and(|a| a == "check-ignore")
             {
                 // This fixture exercises candidate materialization, with no
@@ -264,24 +280,14 @@ fn mixed_product_release_materializer_updates_consumer_lock_without_bumping_harn
                     timed_out: false,
                 });
             }
-            if Path::new(&request.program)
-                .file_stem()
-                .and_then(|s| s.to_str())
-                == Some("bridgeforge-factory")
-            {
-                let cargo = fs::read_to_string(request.cwd.join("source/cli/Cargo.toml"))?
-                    .parse::<toml_edit::DocumentMut>()
-                    .unwrap();
-                let factory = fs::read_to_string(request.cwd.join("source/factory/Cargo.toml"))?
-                    .parse::<toml_edit::DocumentMut>()
-                    .unwrap();
-                return Ok(ProcessOutput{code:0,stdout:serde_json::to_vec(&json!({"schema":1,"name":"bridgeforge-factory","status":"ok",
-                    "version":factory["package"]["version"].as_str().unwrap(),"product_version":cargo["package"]["version"].as_str().unwrap()})).unwrap(),stderr:vec![],timed_out:false});
+            if let Some(binary)=Path::new(&request.program).file_stem().and_then(|s|s.to_str()).filter(|name|matches!(*name,"bridgeforge"|"bridgeforge-hook"|"bridgeforge-factory")) {
+                let identities=self.1.borrow();let identity=identities.get(binary).expect("candidate self-test must follow its actual captured build");
+                return Ok(ProcessOutput{code:0,stdout:serde_json::to_vec(identity).unwrap(),stderr:vec![],timed_out:false});
             }
             self.0.run(request)
         }
     }
-    let runner = CandidateRunner(Runner::new(root, "ok"));
+    let runner = CandidateRunner(Runner::new(root, "ok"),Default::default());
     let plan =
         crate::git_sync_plan::WritePlan::prepare(root, writes, BTreeMap::new(), true, &runner)
             .unwrap();
@@ -573,7 +579,9 @@ fn factory_prepare_checks_without_writes_and_reuses_healthy_cli_and_hook() {
     let calls = runner.calls.load(Ordering::Relaxed);
     assert_eq!(prepare(&fixture.0, true, &runner).code, 0);
     assert_eq!(runner.calls.load(Ordering::Relaxed), calls);
-    assert_eq!(prepare(&fixture.0, false, &runner).code, 0);
+    let noop=prepare(&fixture.0, false, &runner);
+    assert_eq!(noop.code,0,"{}",noop.stderr);
+    assert_eq!(noop.receipt.as_ref().unwrap()["written_files"],0);
     assert_eq!(runner.builds.load(Ordering::Relaxed), 3);
     assert_eq!(tree(&fixture.0), installed);
     for (path, time) in times {
@@ -588,6 +596,38 @@ fn factory_prepare_checks_without_writes_and_reuses_healthy_cli_and_hook() {
     .unwrap();
     assert_eq!(prepare(&fixture.0, false, &runner).code, 0);
     assert_eq!(runner.builds.load(Ordering::Relaxed), 4);
+}
+
+#[test]
+fn factory_public_receipt_reuses_verified_outputs_and_rejects_tampering() {
+    let fixture=Factory::new();let runner=Runner::new(&fixture.0,"");
+    let result=prepare(&fixture.0,false,&runner);assert_eq!(result.code,0,"{}",result.stderr);
+    let contract=bridgeforge_core::product_manifest::project(&fixture.0).unwrap();
+    let path=fixture.0.join(bridgeforge_workflow::public_artifacts::FACTORY_READY);
+    let calls=runner.calls.load(Ordering::Relaxed);let original=tree(&fixture.0);
+    let payload=bridgeforge_workflow::public_artifacts::read(&path,&contract).unwrap();assert_eq!(payload.len(),4);
+    assert_eq!(tree(&fixture.0),original);assert_eq!(runner.calls.load(Ordering::Relaxed),calls);
+    fs::write(fixture.0.join(".build/bridgeforge/bin/bridgeforge.exe"),b"tampered").unwrap();
+    assert!(bridgeforge_workflow::public_artifacts::read(&path,&contract).is_err());
+}
+
+#[test]
+fn factory_prepare_uses_native_candidate_version_without_prewriting_old_manifest() {
+    let fixture=Factory::new();
+    let path=fixture.0.join(bridgeforge_core::product_manifest::FILE);
+    let mut old:Value=serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    old["project_skeleton"]["release_version"]=json!("0.0.1");
+    fs::write(&path,serde_json::to_vec_pretty(&old).unwrap()).unwrap();
+    assert!(!crate::factory_version::check(&fixture.0).healthy);
+    let before=tree(&fixture.0);
+    let candidate=identity_mode(&fixture.0,false).unwrap().0;
+    assert_eq!(candidate["release_version"],bridgeforge_core::product_version::forge(&fixture.0).unwrap());
+    assert!(identity_mode(&fixture.0,true).is_err());
+    assert_eq!(tree(&fixture.0),before);
+    let runner=Runner::new(&fixture.0,"");
+    let result=prepare(&fixture.0,false,&runner);
+    assert_eq!(result.code,0,"{}",result.stderr);
+    assert!(crate::factory_version::check(&fixture.0).healthy);
 }
 
 #[test]

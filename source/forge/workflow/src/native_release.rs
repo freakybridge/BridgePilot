@@ -20,6 +20,8 @@ struct Calls {
     cargo: u64,
     github_reads: u64,
     github_writes: u64,
+    gitlab_reads: u64,
+    gitlab_writes: u64,
     upload: u64,
     timeouts: u64,
 }
@@ -54,6 +56,10 @@ impl ProcessRunner for Measured<'_> {
                 }
                 calls.upload += u64::from(args.starts_with(&["release", "upload"]));
             }
+            if program=="curl" && args.windows(2).any(|p|p[0]=="--url" && p[1].contains("/api/v4/projects/")) {
+                if args.windows(2).any(|p|p==["--request","GET"]) {calls.gitlab_reads+=1;} else {calls.gitlab_writes+=1;}
+                calls.upload+=u64::from(args.contains(&"--upload-file"));
+            }
         }
         let out = self.inner.run(q);
         if out.as_ref().is_ok_and(|v| v.timed_out) {
@@ -65,6 +71,10 @@ impl ProcessRunner for Measured<'_> {
 
 #[path = "native_release_github.rs"]
 mod github;
+#[path = "native_release_gitlab.rs"]
+mod gitlab;
+#[path = "native_release_platform.rs"]
+mod platform;
 #[path = "native_release_source.rs"]
 mod source;
 
@@ -76,6 +86,8 @@ struct Driver {
     args: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     source_args: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    prepare_timeout_seconds: Option<u64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -157,7 +169,7 @@ fn driver(root: &Path) -> Result<Driver, Stop> {
         })?;
     if table
         .iter()
-        .any(|(key, _)| !["build", "program", "args", "source-args"].contains(&key))
+        .any(|(key, _)| !["build", "program", "args", "source-args", "prepare-timeout-seconds"].contains(&key))
     {
         return Err(decision("unknown native release entry field"));
     }
@@ -178,6 +190,9 @@ fn driver(root: &Path) -> Result<Driver, Stop> {
         build: array("build")?,
         args: array("args")?,
         source_args: if table.contains_key("source-args") { array("source-args")? } else { vec![] },
+        prepare_timeout_seconds: table.get("prepare-timeout-seconds").map(|v|v.as_integer()
+            .and_then(|n|u64::try_from(n).ok()).filter(|n|(1..=21600).contains(n))
+            .ok_or_else(||decision("native prepare timeout must be between 1 and 21600 seconds"))).transpose()?,
         program: table
             .get("program")
             .and_then(toml_edit::Item::as_str)
@@ -207,6 +222,13 @@ pub fn preflight(root: &Path, runner: &dyn ProcessRunner) -> CommandOutcome {
             out
         }
     }
+}
+
+/// Local-only installation evidence. No fetch, build, credential or hosting API call.
+pub fn installation_target(root:&Path, repository:&str, gitlab_origin:Option<&str>) -> Result<Value,String> {
+    let target=anchor(root,&crate::SystemProcessRunner).map_err(|e|e.message)?;
+    platform::match_remote(&target.url,repository,gitlab_origin).map_err(|e|e.message)?;
+    serde_json::to_value(target).map_err(|e|e.to_string())
 }
 
 fn request(
@@ -466,7 +488,7 @@ fn require_repreparable(
             "reviewed source commit already exists; reprepare refused",
         ));
     }
-    github::match_remote(&current.url, &old.plan.repository)
+    platform::match_remote(&current.url, &old.plan.repository, old.plan.gitlab_origin.as_deref())
 }
 
 fn verified_source_commit(
@@ -559,7 +581,7 @@ pub fn run(
     if let Some(receipt) = outcome.receipt.as_mut() {
         receipt["execution_counts"] = serde_json::to_value(&*measured.calls.borrow()).unwrap();
         receipt["count_scope"] = json!(
-            "coordinator subprocess requests; compiler and gh internal subprocesses excluded"
+            "coordinator subprocess requests; native-driver, compiler and hosting-client internal subprocesses excluded"
         );
         receipt["elapsed_ms"] = json!(started.elapsed().as_millis());
     }
@@ -678,7 +700,7 @@ fn run_inner(
             }
             let reuse_release = selected_source.as_ref().and_then(|selected| selected.reuse_release.clone());
             let plan: Plan = if let Some(selected) = selected_source.as_ref().filter(|selected| selected.reuse_release.is_some()) {
-                github::existing_plan(root, runner, selected)?
+                platform::existing_plan(root, runner, selected)?
             } else {
             let output = format!(
                 ".build/native-release/{}-{}",
@@ -699,14 +721,14 @@ fn run_inner(
                 "--output".into(),
                 root.join(output).to_string_lossy().into_owned(),
             ]);
-            let prepared = request(root, runner, &argv, 300)?;
+            let prepared = request(root, runner, &argv, native.prepare_timeout_seconds.unwrap_or(300))?;
             let plan: Plan = serde_json::from_str(&prepared)
                 .map_err(|e| condition(format!("native release plan invalid: {e}")))?;
             plan.validate(root).map_err(condition)?;
             plan
             };
             if selected_source.as_ref().is_some_and(|selected| selected.identity.product != plan.product
-                || selected.identity.repository != plan.repository || selected.identity.version != plan.version
+                || selected.identity.repository != plan.repository || selected.identity.gitlab_origin != plan.gitlab_origin || selected.identity.version != plan.version
                 || format!("{}{}", selected.identity.tag_prefix, selected.identity.version) != plan.tag) {
                 return Err(conflict("artifact plan differs from the selected source version"));
             }
@@ -755,7 +777,7 @@ fn run_inner(
                 "release branch, push target or Git configuration changed",
             ));
         }
-        github::match_remote(&current.url, &state.plan.repository)?;
+        platform::match_remote(&current.url, &state.plan.repository, state.plan.gitlab_origin.as_deref())?;
         if let Some(commit) = &state.commit {
             if current.head != *commit || !git(root, runner, &["status", "--porcelain"])?.is_empty()
             {
@@ -795,9 +817,9 @@ fn run_inner(
         if !["pushed", "released"].contains(&state.status.as_str()) {
             stage = "publication-preflight";
             if let Some(published) = &state.reuse_release {
-                github::verify_existing(root, runner, &state.plan, &published.commit)?;
+                platform::verify_existing(root, runner, &state.plan, &published.commit)?;
             } else {
-                github::precheck(root, runner, &state.plan, &current.head,
+                platform::precheck(root, runner, &state.plan, &current.head,
                     !git(root, runner, &["status", "--porcelain"])?.is_empty())?;
             }
             stage = "source-push";
@@ -868,11 +890,11 @@ fn run_inner(
         }
         unchanged_state(&state_path, &expected)?;
         let mut result = if let Some(published) = &state.reuse_release {
-            github::verify_existing(root, runner, &state.plan, &published.commit)?
+            platform::verify_existing(root, runner, &state.plan, &published.commit)?
         } else if state.status == "released" {
-            github::verify_existing(root, runner, &state.plan, state.commit.as_deref().unwrap())?
+            platform::verify_existing(root, runner, &state.plan, state.commit.as_deref().unwrap())?
         } else {
-            github::publish(root, runner, &state.plan, state.commit.as_deref().unwrap())?
+            platform::publish(root, runner, &state.plan, state.commit.as_deref().unwrap())?
         };
         result["synchronization_commit"] = json!(state.commit);
         if fingerprint(root, runner)? != input {

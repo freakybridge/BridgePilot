@@ -65,6 +65,7 @@ impl Fixture {
             })
             .collect();
         let plan = Plan {
+            gitlab_origin: None,
             schema: 1,
             product: "Fixture".into(),
             version: "1.0.0".into(),
@@ -255,6 +256,7 @@ impl ProcessRunner for Runner {
                 use bridgeforge_core::native_release::{SourceIdentity, SourcePlan, SourceEdit};
                 let before = fs::read_to_string(q.cwd.join("VERSION"))?;
                 let mut identity = SourceIdentity { product: self.plan.product.clone(), repository: self.plan.repository.clone(),
+                    gitlab_origin: None,
                     version: before.trim().into(), tag_prefix: "bp-v".into(), paths: vec!["VERSION".into()] };
                 if !args.iter().any(|a| a == "--input") { return Ok(ok(&serde_json::to_value(identity).unwrap())); }
                 let selected = self.source_version.as_ref().unwrap();

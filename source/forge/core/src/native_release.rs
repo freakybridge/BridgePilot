@@ -8,6 +8,8 @@ use std::path::Path;
 pub struct SourceIdentity {
     pub product: String,
     pub repository: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gitlab_origin: Option<String>,
     pub version: String,
     pub tag_prefix: String,
     pub paths: Vec<String>,
@@ -67,6 +69,8 @@ pub struct Plan {
     pub product: String,
     pub version: String,
     pub repository: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gitlab_origin: Option<String>,
     pub tag: String,
     pub title: String,
     pub notes: String,
@@ -81,13 +85,8 @@ impl Plan {
         self.version
             .parse::<crate::SemVer>()
             .map_err(|e| e.to_string())?;
-        let repository: Vec<_> = self.repository.split('/').collect();
-        if repository.len() != 2
-            || repository.iter().any(|s| !identifier(s))
-            || !identifier(&self.tag)
-        {
-            return Err("invalid GitHub repository or release tag".into());
-        }
+        validate_repository(&self.repository, self.gitlab_origin.as_deref())?;
+        if !identifier(&self.tag) { return Err("invalid release tag".into()); }
         if self.assets.is_empty() {
             return Err("native release has no declared artifacts".into());
         }
@@ -108,6 +107,32 @@ impl Plan {
         }
         Ok(())
     }
+}
+
+/// An omitted origin preserves the v1 GitHub wire format and publication markers.
+pub fn validate_repository(repository: &str, gitlab_origin: Option<&str>) -> Result<(), String> {
+    let parts: Vec<_> = repository.split('/').collect();
+    if parts.len() < 2 || parts.len() > 32 || parts.iter().any(|p| !identifier(p))
+        || (gitlab_origin.is_none() && parts.len() != 2) {
+        return Err("invalid native release repository".into());
+    }
+    if let Some(origin) = gitlab_origin { validate_gitlab_origin(origin)?; }
+    Ok(())
+}
+
+pub fn validate_gitlab_origin(origin: &str) -> Result<(), String> {
+    let authority = origin.strip_prefix("https://").or_else(|| origin.strip_prefix("http://"))
+        .ok_or("GitLab origin must explicitly use http or https")?;
+    let mut pieces = authority.split(':');
+    let host = pieces.next().unwrap_or("");
+    let port = pieces.next();
+    if pieces.next().is_some() || host.is_empty() || host.len() > 253
+        || host.split('.').any(|p| p.is_empty() || p.starts_with('-') || p.ends_with('-')
+            || !p.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-'))
+        || port.is_some_and(|p| p.parse::<u16>().map_or(true, |n| n == 0)) {
+        return Err("GitLab origin must be a host and optional port, without credentials, path or query".into());
+    }
+    Ok(())
 }
 
 pub fn identifier(value: &str) -> bool {

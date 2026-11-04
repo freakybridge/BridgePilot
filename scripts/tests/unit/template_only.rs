@@ -37,6 +37,36 @@ fn template_runtime_installation_rejects_unknown_or_modified_bytes() {
 }
 
 #[test]
+fn cached_plan_revalidation_still_checks_new_transaction_guards_first() {
+    for relative in [".runtime/bridgeforge-codex/develop-transaction.json",".runtime/bridgeforge-codex/release-preparation/commit-guard.json"] {
+        let fixture=Fixture::new("new-guard");let root=&fixture.0;
+        let path=root.join(relative);fs::create_dir_all(path.parent().unwrap()).unwrap();fs::write(&path,b"{}").unwrap();
+        let plan=Plan{root:root.clone(),product:root.join("missing-product"),product_bytes:vec![],before:BTreeMap::new(),writes:BTreeMap::new(),retirements:BTreeMap::new(),
+            fingerprint:String::new(),report:json!({}),release_recipe:None,prepared:root.join("missing-ready"),binaries:BTreeSet::new(),source_inputs:String::new()};
+        assert!(revalidate(&plan).unwrap_err().contains("unfinished"));assert_eq!(fs::read(path).unwrap(),b"{}");
+    }
+}
+
+#[test]
+fn cached_plan_rejects_new_factory_identity_and_rolls_back_same_repository_target_drift() {
+    let fixture=Fixture::new("factory-and-target-drift");let root=&fixture.0;
+    let mut plan=Plan{root:root.clone(),product:root.join("missing-product"),product_bytes:vec![],before:BTreeMap::new(),writes:BTreeMap::new(),retirements:BTreeMap::new(),
+        fingerprint:String::new(),report:json!({}),release_recipe:None,prepared:root.join("missing-ready"),binaries:BTreeSet::new(),source_inputs:String::new()};
+    fs::create_dir_all(root.join("source/forge/factory")).unwrap();fs::write(root.join("source/forge/factory/Cargo.toml"),b"marker").unwrap();
+    assert!(revalidate(&plan).unwrap_err().contains("factory dogfood"));
+    let target=json!({"url":"https://github.com/fixture/project.git","branch":"refs/heads/main","push_ref":"refs/remotes/origin/main","head":"old","config_sha256":"old"});
+    plan.report=json!({"release_installation":{"target":target}});
+    assert!(verify_target(&plan,&target).is_ok());
+    let path=root.join("owned.txt");fs::write(&path,b"before").unwrap();
+    let writes=BTreeMap::from([(path.clone(),b"after".to_vec())]);let before=BTreeMap::from([(path.clone(),Some(b"before".to_vec()))]);
+    for field in ["branch","push_ref","head","config_sha256"] {
+        let mut changed=target.clone();changed[field]=json!("changed");
+        let result=crate::project_sync::install_template_transaction(root,&writes,&before,&BTreeSet::new(),&BTreeMap::new(),||verify_target(&plan,&changed));
+        assert!(result.unwrap_err().contains("rolled back"));assert_eq!(fs::read(&path).unwrap(),b"before");
+    }
+}
+
+#[test]
 fn retired_cleanup_does_not_consult_config_or_execute_any_process() {
     struct Never;
     impl bridgeforge_core::ProcessRunner for Never {

@@ -30,14 +30,14 @@ fn state(root: &Path, relative: &str) -> Result<Option<Vec<u8>>, String> {
     crate::project_sync::transaction_file_state(&managed_paths::safe_join(root, relative, "template transaction")?)
 }
 
-fn public_source(product: &Path) -> Result<BTreeMap<String, Vec<u8>>, String> {
-    let source = bridgeforge_core::source_projection::render(product, true)?;
+fn public_source(product: &Path) -> Result<(BTreeMap<String, Vec<u8>>,String), String> {
+    let (source,inputs) = bridgeforge_core::source_projection::render_with_fingerprint(product, true)?;
     let identity = build_identity::require()?;
     if identity["source_tree_sha256"] != bridgeforge_core::source_projection::tree_sha(&source)?
         || identity["lockfile_sha256"] != build_manifest::normalized_hash(source.get("Cargo.lock").ok_or("public lockfile missing")?) {
         return Err("product source changed or differs from compiled updater; prepare current public artifacts".into());
     }
-    Ok(source)
+    Ok((source,inputs))
 }
 
 fn runtime_targets(root: &Path, contract: &Value) -> Result<BTreeMap<PathBuf, Option<Vec<u8>>>, String> {
@@ -87,9 +87,65 @@ pub struct Plan {
     retirements: BTreeMap<PathBuf, Vec<u8>>,
     pub fingerprint: String,
     pub report: Value,
+    release_recipe: Option<crate::project_release::Recipe>,
+    prepared: PathBuf,
+    binaries: BTreeSet<PathBuf>,
+    source_inputs: String,
+}
+
+fn aggregate(root:&Path,product:&Path,product_bytes:&[u8],before:&BTreeMap<PathBuf,Option<Vec<u8>>>,writes:&BTreeMap<PathBuf,Vec<u8>>,
+    json_paths:&[String],recipe:Option<&crate::project_release::Recipe>,release_target:&Value,source_inputs:&str)->Result<String,String> {
+    let records=before.iter().map(|(p,b)|json!({"path":p.strip_prefix(root).unwrap().to_string_lossy().replace('\\',"/"),"sha256":b.as_ref().map(|b|hash(b))})).collect::<Vec<_>>();
+    let desired=writes.iter().map(|(p,b)|json!({"path":p.strip_prefix(root).unwrap().to_string_lossy().replace('\\',"/"),"sha256":hash(b)})).collect::<Vec<_>>();
+    build_manifest::canonical_sha(&json!({"schema":1,"model":"template-only-v1","root":root,"product":product,"product_sha256":hash(product_bytes),
+        "identity":build_identity::require()?,"json_paths":json_paths,"inputs":records,"desired":desired,"release_recipe":recipe,
+        "release_target":release_target,"source_inputs":source_inputs}))
+}
+
+fn revalidate(plan:&Plan)->Result<(),String> {
+    if plan.root==plan.product || plan.root.join("source/forge/factory/Cargo.toml").is_file() {
+        return Err("factory dogfood cannot use downstream project-sync".into());
+    }
+    require_no_pending_development(&plan.root)?;
+    if state(&plan.root,".runtime/bridgeforge-codex/release-preparation/commit-guard.json")?.is_some() {
+        return Err("unfinished Git commit guard; preserve and resolve it before template retirement".into());
+    }
+    let product=managed_paths::read_metadata(&plan.product.join(product_manifest::FILE),32*1024*1024)?.ok_or("product manifest disappeared")?;
+    let contract=product_manifest::parse(&product)?;
+    let mut runtime=crate::public_artifacts::read(&plan.prepared,&contract["project_skeleton"])?;
+    if let Some(recipe)=&plan.release_recipe {
+        let cli=runtime.get(&format!("{}/bridgeforge{}",bridgeforge_core::artifact_paths::PROJECT_BIN,std::env::consts::EXE_SUFFIX)).ok_or("prepared CLI missing")?;
+        let release=crate::project_release_install::payloads(recipe,cli)?;runtime.extend(release);
+    }
+    for (relative,bytes) in runtime {
+        let path=plan.root.join(relative);
+        let reviewed=plan.writes.get(&path).or_else(||plan.before.get(&path).and_then(Option::as_ref));
+        if reviewed!=Some(&bytes){return Err("prepared public or release driver bytes changed after planning".into());}
+    }
+    let source=bridgeforge_core::source_projection::input_fingerprint(&plan.product,true)?;
+    let before=plan.before.keys().map(|path|Ok((path.clone(),crate::project_sync::transaction_file_state(path)?))).collect::<Result<BTreeMap<_,_>,String>>()?;
+    let json_paths=bridgeforge_skeleton::template::json_paths(&plan.root)?;
+    let target=plan.release_recipe.as_ref().map(|r|crate::native_release::installation_target(&plan.root,&r.repository,r.gitlab_origin.as_deref())).transpose()?.unwrap_or(Value::Null);
+    if aggregate(&plan.root,&plan.product,&product,&before,&plan.writes,&json_paths,plan.release_recipe.as_ref(),&target,&source)?!=plan.fingerprint {
+        return Err("project or product drifted; regenerate plan".into());
+    }
+    Ok(())
+}
+
+fn verify_target(plan:&Plan,current:&Value)->Result<(),String> {
+    if current!=&plan.report["release_installation"]["target"] {return Err("Git target changed during installation; preserve external state".into());}
+    Ok(())
 }
 
 pub fn plan(root: &Path, product: &Path) -> Result<Plan, String> {
+    plan_with_release(root,product,None)
+}
+
+pub fn plan_with_release(root: &Path, product: &Path, requested:Option<&crate::project_release::Recipe>) -> Result<Plan, String> {
+    plan_with_artifacts(root,product,requested,None)
+}
+
+pub fn plan_with_artifacts(root: &Path, product: &Path, requested:Option<&crate::project_release::Recipe>, prepared:Option<&Path>) -> Result<Plan, String> {
     let root = root.canonicalize().map_err(|e| e.to_string())?;
     let product = product.canonicalize().map_err(|e| e.to_string())?;
     if root == product || root.join("source/forge/factory/Cargo.toml").is_file() {
@@ -144,7 +200,8 @@ pub fn plan(root: &Path, product: &Path) -> Result<Plan, String> {
     }
     // Keep the existing non-JSON tool source dependency usable by native
     // project Hook tests. This is public tool source, never old project data.
-    for (relative, payload) in public_source(&product)? {
+    let (projected_source,source_inputs)=public_source(&product)?;
+    for (relative, payload) in projected_source {
         let relative = format!(".codex/hooks/{relative}");
         if relative.to_ascii_lowercase().ends_with(".json") {
             return Err(format!("public source projection contains a retired JSON resource: {relative}"));
@@ -157,21 +214,34 @@ pub fn plan(root: &Path, product: &Path) -> Result<Plan, String> {
         }
         before.insert(path, current);
     }
-    let records = before.iter().map(|(p, b)| json!({
-        "path":p.strip_prefix(&root).unwrap().to_string_lossy().replace('\\',"/"),
-        "sha256":b.as_ref().map(|b|hash(b))})).collect::<Vec<_>>();
-    let desired = writes.iter().map(|(p,b)| json!({"path":p.strip_prefix(&root).unwrap().to_string_lossy().replace('\\',"/"),"sha256":hash(b)})).collect::<Vec<_>>();
-    let fingerprint = build_manifest::canonical_sha(&json!({"schema":1,"model":"template-only-v1",
-        "root":root,"product":product,"product_sha256":hash(&product_bytes),
-        "identity":identity,"json_paths":json_paths,"inputs":records,"desired":desired}))?;
+    let installation=crate::project_release_install::inspect(&root,requested)?;
+    for (path,bytes) in &installation.before {before.insert(path.clone(),bytes.clone());}
+    for (path,bytes) in installation.writes {
+        changed.push(path.strip_prefix(&root).map_err(|e|e.to_string())?.to_string_lossy().replace('\\',"/"));
+        writes.insert(path,bytes);
+    }
+    let prepared=match prepared {Some(path)=>path.to_path_buf(),None=>crate::public_artifacts::prepared_for_product(&product,&crate::public_artifacts::codex_home()?,contract)?};
+    let mut runtime=crate::public_artifacts::read(&prepared,contract)?;
+    if let Some(recipe)=&installation.recipe {
+        let cli=runtime.get(&format!("{}/bridgeforge{}",bridgeforge_core::artifact_paths::PROJECT_BIN,std::env::consts::EXE_SUFFIX)).ok_or("prepared CLI missing")?;
+        let release=crate::project_release_install::payloads(recipe,cli)?;runtime.extend(release);
+    }
+    let mut binaries=BTreeSet::new();
+    for (relative,bytes) in runtime {
+        let path=managed_paths::safe_join(&root,&relative,"prepared installation target")?;
+        let old=before.get(&path).ok_or("runtime target has no reviewed input snapshot")?;
+        if relative.ends_with(std::env::consts::EXE_SUFFIX) && !relative.ends_with(".json") {binaries.insert(path.clone());}
+        if old.as_deref()!=Some(bytes.as_slice()) {changed.push(relative);writes.insert(path,bytes);}
+    }
+    let fingerprint=aggregate(&root,&product,&product_bytes,&before,&writes,&json_paths,installation.recipe.as_ref(),&installation.report["target"],&source_inputs)?;
     let retired = retirements.keys().map(|p| p.strip_prefix(&root).unwrap().to_string_lossy().replace('\\', "/")).collect::<Vec<_>>();
     let risk = changed.iter().filter(|p| before[&root.join(p)].is_some()).cloned().chain(retired.iter().cloned()).collect::<Vec<_>>();
     let safe = changed.iter().filter(|p| before[&root.join(p)].is_none()).cloned().collect::<Vec<_>>();
     let report = json!({"schema":1,"status":"planned","model":"template-only-v1",
-        "aggregate_fingerprint":fingerprint,"safe":safe,"risk":risk,"retired":retired,"gaps":[],"blockers":[],
+        "aggregate_fingerprint":fingerprint,"safe":safe,"risk":risk,"retired":retired,"gaps":installation.gaps,"blockers":[],"release_installation":installation.report,
         "target_json_paths":["hooks.json"],"version":contract["release_version"],
         "public_installation":"receipt-bound; current tool bytes are included in aggregate_fingerprint"});
-    Ok(Plan {root, product, product_bytes, before, writes, retirements, fingerprint, report})
+    Ok(Plan {root, product, product_bytes, before, writes, retirements, fingerprint, report,release_recipe:installation.recipe,prepared,binaries,source_inputs})
 }
 
 fn backup(plan: &Plan, snapshots: &BTreeMap<PathBuf, Option<Vec<u8>>>) -> Result<PathBuf, String> {
@@ -190,35 +260,33 @@ fn backup(plan: &Plan, snapshots: &BTreeMap<PathBuf, Option<Vec<u8>>>) -> Result
 }
 
 pub fn apply(plan: Plan, fingerprint: &str, confirmed_risk: bool, prepared: &Path) -> Result<Value, String> {
+    if plan.report["gaps"].as_array().is_some_and(|v|!v.is_empty()) {return Err("installation incomplete: resolve native release recipe gaps before apply".into());}
     if fingerprint != plan.fingerprint { return Err("aggregate fingerprint mismatch".into()); }
     if plan.report["risk"].as_array().is_some_and(|r| !r.is_empty()) && !confirmed_risk { return Err("replacement/retirement requires --confirmed-risk".into()); }
     let _lock = ProjectLock::acquire(&plan.root)?;
-    if self::plan(&plan.root, &plan.product)?.fingerprint != fingerprint { return Err("project or product drifted; regenerate plan".into()); }
-    let product_value = product_manifest::parse(&plan.product_bytes)?;
-    let payloads = crate::public_artifacts::read(prepared, &product_value["project_skeleton"])?;
-    let mut snapshots = plan.before.clone();
-    let mut writes = plan.writes.clone();
-    let mut binaries = BTreeSet::new();
-    for (relative, bytes) in payloads {
-        let path = managed_paths::safe_join(&plan.root, &relative, "prepared runtime target")?;
-        let before = snapshots.get(&path).ok_or("prepared runtime target was not in the reviewed plan")?.clone();
-        if crate::project_sync::transaction_file_state(&path)? != before { return Err("public runtime changed after planning".into()); }
-        if relative.ends_with(std::env::consts::EXE_SUFFIX) && !relative.ends_with(".json") { binaries.insert(path.clone()); }
-        if before.as_deref() != Some(bytes.as_slice()) { writes.insert(path.clone(), bytes); }
-        snapshots.insert(path, before);
+    if prepared.canonicalize().map_err(|e|e.to_string())? != plan.prepared.canonicalize().map_err(|e|e.to_string())? {return Err("public artifact receipt differs from reviewed plan".into());}
+    revalidate(&plan)?;
+    let snapshots = &plan.before;
+    let writes = &plan.writes;
+    if writes.is_empty() && plan.retirements.is_empty() {
+        let release=crate::project_release::verify_driver(&plan.root)?;
+        return Ok(json!({"schema":1,"status":"succeeded","model":"template-only-v1","aggregate_fingerprint":fingerprint,
+            "written":0,"retired":[],"recovery":null,"release_installation":release,"baseline":bridgeforge_skeleton::template::verify(&plan.root,true)?}));
     }
-    let recovery = backup(&plan, &snapshots)?;
-    crate::project_sync::install_template_transaction(&plan.root, &writes, &snapshots,
-        &binaries, &plan.retirements, || {
+    let recovery = backup(&plan, snapshots)?;
+    crate::project_sync::install_template_transaction(&plan.root, writes, snapshots,
+        &plan.binaries, &plan.retirements, || {
             if fs::read(plan.product.join(product_manifest::FILE)).map_err(|e| e.to_string())? != plan.product_bytes {
                 return Err("product changed during installation".into());
             }
-            public_source(&plan.product)?;
-            bridgeforge_skeleton::template::verify(&plan.root, true).map(|_| ())
+            if bridgeforge_core::source_projection::input_fingerprint(&plan.product,true)?!=plan.source_inputs {return Err("product source changed during installation".into());}
+            bridgeforge_skeleton::template::verify(&plan.root, true)?;
+            if let Some(r)=&plan.release_recipe {verify_target(&plan,&crate::native_release::installation_target(&plan.root,&r.repository,r.gitlab_origin.as_deref())?)?;}
+            crate::project_release::verify_driver(&plan.root).map(|_| ())
         })?;
     Ok(json!({"schema":1,"status":"succeeded","model":"template-only-v1",
         "aggregate_fingerprint":fingerprint,"retired":plan.report["retired"],
-        "written":writes.len(),"recovery":recovery,"baseline":bridgeforge_skeleton::template::verify(&plan.root, true)?}))
+        "written":writes.len(),"recovery":recovery,"release_installation":crate::project_release::verify_driver(&plan.root)?,"baseline":bridgeforge_skeleton::template::verify(&plan.root, true)?}))
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]

@@ -58,6 +58,24 @@ fn source_projection_keeps_public_dependency_closure_and_excludes_factory_and_re
 }
 
 #[test]
+fn captured_projection_fingerprint_matches_raw_recheck_and_detects_content_and_inventory_drift() {
+    let f=fixture();
+    let (projected,proof)=render_with_fingerprint(&f.0,true).unwrap();
+    assert_eq!(projected,render(&f.0,true).unwrap());
+    assert_eq!(proof,input_fingerprint(&f.0,true).unwrap());
+    fs::write(f.0.join(".git/private"),"not relevant").unwrap();
+    fs::write(f.0.join("source/factory/src/lib.rs"),"private change").unwrap();
+    assert_eq!(proof,input_fingerprint(&f.0,true).unwrap());
+    let path=f.0.join("source/core/src/lib.rs");let stamp=fs::metadata(&path).unwrap().modified().unwrap();
+    fs::write(&path,"pub fn row() {}\n").unwrap();
+    fs::OpenOptions::new().write(true).open(&path).unwrap().set_modified(stamp).unwrap();
+    assert_ne!(proof,input_fingerprint(&f.0,true).unwrap());
+    let (_,changed)=render_with_fingerprint(&f.0,true).unwrap();assert_eq!(changed,input_fingerprint(&f.0,true).unwrap());
+    fs::write(f.0.join("source/core/src/new.rs"),"new input").unwrap();
+    assert_ne!(changed,input_fingerprint(&f.0,true).unwrap());
+}
+
+#[test]
 fn source_projection_rejects_dependency_on_an_excluded_local_package() {
     let f = fixture();
     fs::write(f.0.join("source/core/Cargo.toml"), "[package]\nname='bridgeforge-core'\nversion='0.1.0'\n[dependencies]\nbridgeforge-factory={path='../factory'}\n").unwrap();

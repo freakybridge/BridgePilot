@@ -2,6 +2,12 @@
 
 当前本地候选采用 Template-only，同步器不再解释旧项目合同、版本配置、账本或版本戳。下游 `.codex` 递归只允许 hooks.json；未知额外 JSON 阻断，已知退役项经精确计划、备份与事务清理。业务原生版本和数据不由骨架旁文件接管。
 
+项目安装／升级同时交付可用的原生发布入口。首次缺入口时，主对话依据项目 INSTALL、原生版本文件、已有构建命令、实际推送目标及明确产物范围整理安装规则；同一 `project-sync` 事务登记到根 Cargo metadata，并把复用公共 CLI 的 Rust 驱动部署到 `.build/project-release/bin/`。原生业务版本仍只在原文件维护。规则、程序、来源或目标不完整时，安装明确报告未就绪；不等到 release 才补安装，也不覆盖已有自定义入口。
+
+发布仍只使用 `$git-sync release`。GitHub 和明确声明实例的 GitLab 共用现有协调流程；GitLab 使用项目 Generic Package 与 Release 资产链接，并核对固定提交、文件大小和摘要。API 认证采用作用域匹配的 `GITLAB_ORIGIN` / `GITLAB_TOKEN`，或项目被忽略的 `.runtime/config/bridgeforge-gitlab-auth.json`（仅 `origin`、`token` 两字段）。令牌不能进入 Git、命令参数或发布收据。安装不创建令牌、启动业务或执行真实发布来探测权限；API 不可用时保留现场并报告。
+
+批次只准备一次公共产物，各项目复用；无变化不编译、不重复改写。发布阶段复用仍匹配的原生产物和固定提交，未知上传先核销再接续，不盲目重复写入。源码归档按项目显式规则选择，保留现有目录和启动方式，不表示提供独立安装包或已验证新机运行。
+
 BridgePilot 当前支持 Windows 和 Codex。源码开发及 Forge 工程维护需要 Rust/Cargo 1.88+；Cargo 在安装、升级及工厂运行时准备时按需构建
 受管 Rust 工具；日常 Hook 不调用 Cargo 或脚本解释器。请按自己的情况直接进入对应章节：
 

@@ -15,17 +15,18 @@ fn identity_mode(root: &Path, zero_write: bool) -> Result<(Value, Vec<u8>), Stri
     if root.join(".codex/.bridgeforge_codex_version").exists() {
         return Err("factory must not carry a downstream skeleton version stamp".into());
     }
+    bridgeforge_core::product_manifest::load(root)?;
     // The owning product manifest and native source define builds. A stale
     // project-side contract must neither prevent repair nor be recreated.
     if zero_write && manifest::rebuild(root, true)? {
         return Err("factory manifests or dogfood are stale".into());
     }
-    let versions = crate::factory_version::check(root);
-    if !versions.healthy {
-        return Err(versions.issues.join("; "));
-    }
     let bytes = manifest::render_managed_contract(root)?;
     let public: Value = crate::json::parse_unique_json(&bytes, "factory runtime contract")?;
+    // Preparation owns the manifest update in its transaction. Validate the
+    // freshly rendered candidate, not the installed manifest it is replacing.
+    let versions = crate::factory_version::check_contract(root,&public);
+    if !versions.healthy {return Err(versions.issues.join("; "));}
     let contract = manifest::runtime_contract(root, &public)?;
     // The manifests bind every product input. Rechecking also validates the
     // current source inventory, normalized source bytes and dogfood mirror.
@@ -94,6 +95,8 @@ fn prepare_inner(root: &Path, check: bool, runner: &dyn ProcessRunner) -> Result
         for asset in assets {
             crate::build_receipt::verify_generated(&root, asset)?;
         }
+        let public=bridgeforge_core::product_manifest::project(&root)?;
+        bridgeforge_workflow::public_artifacts::read(&root.join(bridgeforge_workflow::public_artifacts::FACTORY_READY),&public)?;
         if identity_mode(&root, true)?.1 != original {
             return Err("factory inputs changed during inspection".into());
         }
@@ -203,6 +206,24 @@ fn prepare_inner(root: &Path, check: bool, runner: &dyn ProcessRunner) -> Result
             }
         }
     }
+    let manifest_bytes=writes.get(&root.join(bridgeforge_core::product_manifest::FILE)).ok_or("candidate product manifest missing")?;
+    let public=bridgeforge_core::product_manifest::parse(manifest_bytes)?["project_skeleton"].clone();
+    let platform=bridgeforge_core::build_receipt::platform_key()?;
+    let mut public_payloads=BTreeMap::new();
+    for asset in public["generated_assets"].as_array().ok_or("candidate public artifacts missing")? {
+        for target in [asset["binary_targets"][platform].as_str().ok_or("public target missing")?,asset["receipt_target"].as_str().ok_or("public receipt target missing")?] {
+            let name=Path::new(target).file_name().ok_or("public artifact filename missing")?;
+            let path=root.join(bridgeforge_core::artifact_paths::FACTORY_BIN).join(name);
+            let bytes=writes.get(&path).cloned().or_else(||before.get(&path).and_then(Clone::clone)).ok_or("verified native public artifact missing")?;
+            public_payloads.insert(target.into(),bytes);
+        }
+    }
+    let public_receipt=root.join(bridgeforge_workflow::public_artifacts::FACTORY_READY);
+    let old_receipt=project_sync::transaction_file_state(&public_receipt)?;
+    if old_receipt.as_ref().is_some_and(|b|!bridgeforge_workflow::public_artifacts::factory_ready_owned(b)) {return Err("unowned factory public receipt preserved".into());}
+    before.insert(public_receipt.clone(),old_receipt);
+    writes.insert(public_receipt.clone(),bridgeforge_workflow::public_artifacts::factory_ready_bytes(&public,&public_payloads)?);
+    let written_files=writes.iter().filter(|(path,bytes)|before.get(*path).and_then(Option::as_deref)!=Some(bytes.as_slice())).count();
     if identity(&root)?.1 != original {
         return Err("factory inputs changed during build; installed files preserved".into());
     }
@@ -247,6 +268,7 @@ fn prepare_inner(root: &Path, check: bool, runner: &dyn ProcessRunner) -> Result
                     ));
                 }
             }
+            bridgeforge_workflow::public_artifacts::read(&public_receipt,&public)?;
             if identity(&root)?.1 != original {
                 return Err("factory inputs changed during final verification".into());
             }
@@ -256,7 +278,7 @@ fn prepare_inner(root: &Path, check: bool, runner: &dyn ProcessRunner) -> Result
     Ok(
         json!({"schema":1,"status":if rebuilt == 0 {"current"} else {"prepared"},
         "read_only":false,"self_test_executed":true,"reused":assets.len()-rebuilt,
-        "prepared":rebuilt,"written_files":writes.len(),"retired_files":retirements.len(),"build_policy":"verified-cache-or-locked-cargo"}),
+        "prepared":rebuilt,"written_files":written_files,"public_artifacts":public_receipt,"retired_files":retirements.len(),"build_policy":"verified-cache-or-locked-cargo"}),
     )
 }
 

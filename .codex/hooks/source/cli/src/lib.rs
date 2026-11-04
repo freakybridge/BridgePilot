@@ -176,7 +176,7 @@ fn self_test() -> CommandOutcome {
         "name": "bridgeforge",
         "status": "ok",
         "version": env!("CARGO_PKG_VERSION"),
-        "capabilities": ["template-only-v1", "compiled-build-provenance-v1", "user-cli-reuse-v1", "git-sync-preflight-v1", "public-artifacts-v1", "native-release-v1"],
+        "capabilities": ["template-only-v1", "compiled-build-provenance-v1", "user-cli-reuse-v1", "git-sync-preflight-v1", "public-artifacts-v1", "native-release-v1", "native-release-gitlab-v1", "project-release-install-v1"],
         "build_identity": bridgeforge_core::build_identity::identity()
     }))
 }
@@ -309,14 +309,18 @@ fn template_project_sync(args: &[String]) -> CommandOutcome {
             return Err("preview flags cannot authorize apply".into());
         }
         let product = path_value(args, "--template-root")?;
-        let plan = bridgeforge_workflow::template_sync::plan(&path_value(args, "--project-root")?, &product)?;
-        if !has(args, "--apply") { return Ok(plan.report); }
+        let specification=match value(args,"--release-spec") {
+            Some(path)=>Some(serde_json::from_value::<bridgeforge_workflow::project_release::Recipe>(bridgeforge_core::json::parse_unique_json(&std::fs::read(path).map_err(|e|e.to_string())?,"release installation recipe")?).map_err(|e|e.to_string())?),
+            None=>None,
+        };
         let contract = bridgeforge_core::product_manifest::project(&product)?;
         let prepared = match value(args, "--public-artifacts") {
             Some(path) => PathBuf::from(path),
-            None => bridgeforge_workflow::public_artifacts::prepared_path(
+            None => bridgeforge_workflow::public_artifacts::prepared_for_product(&product,
                 &bridgeforge_workflow::public_artifacts::codex_home()?, &contract)?,
         };
+        let plan = bridgeforge_workflow::template_sync::plan_with_artifacts(&path_value(args, "--project-root")?, &product,specification.as_ref(),Some(&prepared))?;
+        if !has(args, "--apply") { return Ok(plan.report); }
         bridgeforge_workflow::template_sync::apply(plan,
             &value(args, "--plan-fingerprint").ok_or("--apply requires --plan-fingerprint")?,
             has(args, "--confirmed-risk"), &prepared)
@@ -332,6 +336,21 @@ pub fn git_sync_with_runner(
 }
 
 pub fn run(args: &[String]) -> CommandOutcome {
+    if args.first().is_some_and(|s|s=="project-release") {
+        let result=(||->Result<Value,String>{
+            let root=path_value(args,"--project-root")?;
+            match args.get(1).map(String::as_str) {
+                Some("check")=>bridgeforge_workflow::project_release::verify_driver(&root),
+                Some("source")=>{
+                    let input=match value(args,"--input") {Some(path)=>Some(serde_json::from_slice::<bridgeforge_core::native_release::SourceContext>(&std::fs::read(path).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?),None=>None};
+                    bridgeforge_workflow::project_release::source(&root,input.as_ref())
+                },
+                Some("prepare")=>bridgeforge_workflow::project_release::prepare(&root,&path_value(args,"--output")?),
+                _=>Err("expected project-release check/source/prepare".into()),
+            }
+        })();
+        return match result {Ok(value)=>CommandOutcome::with_receipt(value),Err(error)=>blocked("project-release",error)};
+    }
     // Retired commands must stop before factory forwarding, support-floor reads
     // or legacy initialization can recreate project sidecars.
     if args.first().is_some_and(|c| c == "develop" || c == "cleanup") {

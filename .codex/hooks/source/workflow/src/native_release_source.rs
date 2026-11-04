@@ -112,9 +112,9 @@ pub(super) fn can_replace_obsolete_attempt(root: &Path, runner: &dyn ProcessRunn
         || driver(root)?.source_args.is_empty() { return Ok(false); }
     let (Some(commit), Some(before)) = (&old.commit, &old.anchor) else { return Ok(false); };
     if !before.same_target(current) { return Ok(false); }
-    github::match_remote(&current.url, &old.plan.repository)?;
+    platform::match_remote(&current.url, &old.plan.repository, old.plan.gitlab_origin.as_deref())?;
     if git(root, runner, &["merge-base", commit, &current.head])? != *commit { return Ok(false); }
-    github::obsolete_publication(root, runner, &old.plan, commit)
+    platform::obsolete_publication(root, runner, &old.plan, commit)
 }
 
 pub(super) fn prepare(root: &Path, runner: &dyn ProcessRunner, driver: &Driver, options: &git_sync::GitSyncOptions) -> Result<(bool, SourcePlan), Stop> {
@@ -134,8 +134,8 @@ pub(super) fn prepare(root: &Path, runner: &dyn ProcessRunner, driver: &Driver, 
         return Err(decision("invalid source adapter identity"));
     }
     identity.version.parse::<bridgeforge_core::SemVer>().map_err(decision)?;
-    github::match_remote(&checkpoint.url, &identity.repository)?;
-    let baseline = github::baseline(root, runner, &identity)?;
+    platform::match_remote(&checkpoint.url, &identity.repository, identity.gitlab_origin.as_deref())?;
+    let baseline = platform::baseline(root, runner, &identity)?;
     let message = match &options.message_file {
         Some(path) => Some(fs::read_to_string(path).map_err(|e| condition(e.to_string()))?),
         None => options.message.clone(),
@@ -146,6 +146,7 @@ pub(super) fn prepare(root: &Path, runner: &dyn ProcessRunner, driver: &Driver, 
     argv.extend(["--input".into(), context_path.to_string_lossy().into_owned()]);
     let plan: SourcePlan = serde_json::from_str(&request(root, runner, &argv, 120)?).map_err(|e| condition(e.to_string()))?;
     if plan.identity.product != identity.product || plan.identity.repository != identity.repository
+        || plan.identity.gitlab_origin != identity.gitlab_origin
         || plan.identity.tag_prefix != identity.tag_prefix || plan.identity.paths != identity.paths {
         return Err(conflict("source adapter changed its declared ownership or product"));
     }
@@ -163,7 +164,7 @@ pub(super) fn prepare(root: &Path, runner: &dyn ProcessRunner, driver: &Driver, 
         return Ok((false, plan));
     }
     let unchanged = plan.edits.is_empty() && git(root, runner, &["status", "--porcelain"])?.is_empty();
-    github::source_available(root, runner, &plan.identity, unchanged)?;
+    platform::source_available(root, runner, &plan.identity, unchanged)?;
     if plan.edits.is_empty() { return Ok((false, plan)); }
     let selected = plan.clone();
     let tx = Transaction { schema: 1, anchor: checkpoint,

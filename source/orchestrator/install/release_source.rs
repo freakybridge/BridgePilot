@@ -8,6 +8,7 @@ pub fn identity(root: &Path) -> Result<SourceIdentity> {
     let version = fs::read_to_string(root.join("VERSION")).map_err(|e| e.to_string())?;
     version.trim().parse::<SemVer>()?;
     Ok(SourceIdentity { product: "BridgePilot".into(), repository: "freakybridge/BridgePilot".into(),
+        gitlab_origin: None,
         version: version.trim().into(), tag_prefix: "bp-v".into(), paths: vec!["VERSION".into(), "CHANGELOG.md".into()] })
 }
 

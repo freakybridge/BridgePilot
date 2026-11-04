@@ -13,6 +13,68 @@ use std::{
 
 const OWNER: &str = "bridgeforge-public-artifacts-v1";
 const READY: &str = ".cache/bridgeforge/public-ready";
+pub const FACTORY_READY: &str = ".build/bridgeforge/public-ready.json";
+const FACTORY_OWNER: &str = "bridgeforge-factory-public-v1";
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FactoryPrepared {
+    schema:u32,
+    owner:String,
+    input:String,
+    version:String,
+    files:BTreeMap<String,String>,
+}
+
+pub fn prepared_for_product(product:&Path,codex:&Path,contract:&Value)->Result<PathBuf,String> {
+    let factory=product.join(FACTORY_READY);
+    if product.join("source/forge/factory/Cargo.toml").is_file() && factory.exists() {Ok(factory)}
+    else {prepared_path(codex,contract)}
+}
+
+/// Factory preparation supplies already verified native outputs in its existing
+/// transaction. This creates no independent compiler/cache/import workflow.
+pub fn factory_ready_bytes(contract:&Value,payloads:&BTreeMap<String,Vec<u8>>)->Result<Vec<u8>,String> {
+    let platform=bridgeforge_core::build_receipt::platform_key()?;
+    let mut files=BTreeMap::new();
+    for asset in assets(contract)? {
+        let target=asset["binary_targets"][platform].as_str().ok_or("public target missing")?;
+        let receipt=asset["receipt_target"].as_str().ok_or("public receipt target missing")?;
+        let binary=payloads.get(target).ok_or("verified factory CLI/Hook missing")?;
+        let proof=payloads.get(receipt).ok_or("verified factory public receipt missing")?;
+        bridgeforge_core::build_receipt::verify_generated_payload(asset,binary,proof)?;
+        files.insert(target.into(),digest(binary));files.insert(receipt.into(),digest(proof));
+    }
+    if files.len()!=4 || payloads.len()!=4 {return Err("factory public preparation must contain exactly CLI/Hook and their receipts".into())}
+    serde_json::to_vec_pretty(&FactoryPrepared{schema:1,owner:FACTORY_OWNER.into(),input:input(contract)?,
+        version:contract["release_version"].as_str().ok_or("public version missing")?.into(),files}).map_err(|e|e.to_string())
+}
+
+pub fn factory_ready_owned(bytes:&[u8])->bool {
+    crate::json::parse_unique_json(bytes,"factory public receipt").ok().and_then(|v|serde_json::from_value::<FactoryPrepared>(v).ok())
+        .is_some_and(|v|v.schema==1 && v.owner==FACTORY_OWNER)
+}
+
+fn read_factory(path:&Path,contract:&Value)->Result<BTreeMap<String,Vec<u8>>,String> {
+    let root=path.ancestors().nth(3).ok_or("invalid factory public receipt path")?;
+    if root.join(FACTORY_READY)!=path || !root.join("source/forge/factory/Cargo.toml").is_file() {return Err("public artifacts are outside a factory preparation".into())}
+    let original=crate::managed_paths::read_metadata(path,128*1024)?.ok_or("factory public receipt missing")?;
+    let record:FactoryPrepared=serde_json::from_value(crate::json::parse_unique_json(&original,"factory public receipt")?).map_err(|e|e.to_string())?;
+    if record.schema!=1 || record.owner!=FACTORY_OWNER || record.input!=input(contract)? || record.version!=contract["release_version"].as_str().unwrap_or("") {return Err("factory public receipt differs from current product".into())}
+    let platform=bridgeforge_core::build_receipt::platform_key()?;let mut result=BTreeMap::new();
+    for asset in assets(contract)? {
+        for target in [asset["binary_targets"][platform].as_str().ok_or("public target missing")?,asset["receipt_target"].as_str().ok_or("public receipt target missing")?] {
+            let name=Path::new(target).file_name().ok_or("public artifact filename missing")?.to_str().ok_or("public artifact filename must be UTF-8")?;
+            let file=safe_join(root,&format!("{}/{name}",bridgeforge_core::artifact_paths::FACTORY_BIN),"factory public artifact")?;
+            let bytes=crate::managed_paths::read_metadata(&file,512*1024*1024)?.ok_or("factory public artifact missing")?;
+            if record.files.get(target)!=Some(&digest(&bytes)) {return Err("factory public artifact changed after preparation".into())}
+            if result.insert(target.into(),bytes).is_some() {return Err("duplicate factory public target".into())}
+        }
+    }
+    if factory_ready_bytes(contract,&result)?!=original {return Err("factory public preparation is not canonical or its provenance drifted".into())}
+    if crate::managed_paths::read_metadata(path,128*1024)?.as_deref()!=Some(original.as_slice()) {return Err("factory public receipt changed during capture".into())}
+    Ok(result)
+}
 
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -115,6 +177,7 @@ pub fn locate_cli(
 /// Capture all public payloads before a project transaction. This does not
 /// compile, execute binaries, inspect project files or update cache recency.
 pub fn read(path: &Path, contract: &Value) -> Result<BTreeMap<String, Vec<u8>>, String> {
+    if path.file_name().is_some_and(|s|s=="public-ready.json") {return read_factory(path,contract);}
     let codex_root = path
         .ancestors()
         .nth(4)
