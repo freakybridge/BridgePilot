@@ -43,10 +43,10 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value> {
         serde_json::from_slice(&fs::read(output.join("package.json")).map_err(|e| e.to_string())?)
             .map_err(|e| e.to_string())?;
     if package.schema != 2
-        || package.assets.len() != 13
+        || package.assets.len() != install::assets().len()
         || package.components.as_ref() != Some(&versions::compiled()?)
     {
-        return Err("BP release requires the complete thirteen-asset product package".into());
+        return Err("BP release requires the complete product asset registry".into());
     }
     let mut files = vec![output.join("package.json")];
     files.extend(package.assets.iter().map(|a| output.join(&a.source)));
@@ -95,8 +95,8 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value> {
         tag: format!("bp-v{}", package.version),
         title: format!("BridgePilot {} (Windows x64)", package.version),
         notes: format!(
-            "{notes}\n\n组件：BF {}（source-reference）、orchestrator {}（embedded）。\n\n安装入口：对应标签源码中的 INSTALL.md；下载 package.json 和全部十三项 payload 文件，按安装说明校验后组装。仅包含产品文件，不包含个人档案、凭据、配置或 Memory。",
-            components.forge.version, components.orchestrator.version
+            "{notes}\n\n组件：BF {}（source-reference）、orchestrator {}（embedded）。\n\n安装入口：对应标签源码中的 INSTALL.md；下载 package.json 和全部 {} 项 payload 文件，按安装说明校验后组装。仅包含产品文件，不包含个人档案、凭据、配置或 Memory。",
+            components.forge.version, components.orchestrator.version, package.assets.len()
         ),
         assets: assets?,
     };

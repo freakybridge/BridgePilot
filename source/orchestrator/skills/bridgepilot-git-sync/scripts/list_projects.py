@@ -10,12 +10,22 @@ def read_json(path):
     return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
+def local_path(value):
+    # BP canonicalizes Windows bindings with extended-length prefixes. SQLite
+    # file URIs require a drive path or a real UNC host, never the '?' device.
+    if value.startswith("\\\\?\\UNC\\"):
+        value = "\\\\" + value[8:]
+    elif value.startswith("\\\\?\\"):
+        value = value[4:]
+    return Path(value)
+
+
 def snapshot(binding_path, selectors=()):
     binding = read_json(Path(binding_path))
     if binding.get("product") != "BridgePilot":
         raise ValueError("binding is not owned by BridgePilot")
-    home = Path(binding["home"])
-    workspace = Path(read_json(home / ".runtime/config/bridgepilot.json")["workspace"])
+    home = local_path(binding["home"])
+    workspace = local_path(read_json(home / ".runtime/config/bridgepilot.json")["workspace"])
     if not home.is_absolute() or not workspace.is_absolute():
         raise ValueError("home and workspace must be absolute")
     machine = read_json(workspace / ".runtime/config/bridgepilot-machine.json")["id"]

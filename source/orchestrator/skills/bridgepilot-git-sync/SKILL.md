@@ -19,7 +19,7 @@ description: 对 BridgePilot 已登记下游项目批量执行 git-sync；默认
 
 ## 定位与范围
 
-读取相邻 [bridgepilot](../bridgepilot/SKILL.md) 的本机绑定，按其流程核验实际 home、skill-status 和 bp-sqlite-status-v1，再调用只读 status。不能将当前目录或发行包猜作私有 workspace。本技能是本地扩展；现有 BP skill-status 仅核验其已有入口，不证明本扩展已纳入 BP 安装器。
+读取相邻 [bridgepilot](../bridgepilot/SKILL.md) 的本机绑定，按其流程核验实际 home、skill-status、bp-git-sync-skill-v1 和 bp-sqlite-status-v1，再调用只读 status。不能将当前目录或发行包猜作私有 workspace。本技能及名单脚本由 BP 打包、安装和校验；skill-status 须报告本入口 current=true。安装本入口不授权执行同步或发布。
 
 用本技能 `scripts/list_projects.py` 读取绑定指向的 SQLite，默认列出全部登记项目；指定子集时重复传 `--project <精确项目 ID 或名称>`。示例（脚本路径以本技能实际目录为准）：
 

@@ -85,6 +85,21 @@ fn documentation_only_changes_reuse_publication_without_classifying_message() {
 }
 
 #[test]
+fn modern_release_reuse_keeps_both_git_sync_assets() {
+    let repo = Repo::new();
+    fs::write(repo.0.join("VERSION"), "2.1.0\n").unwrap();
+    git(&repo.0, &["add", "VERSION"]).unwrap();
+    git(&repo.0, &["commit", "-m", "feat: managed git sync"]).unwrap();
+    let mut context = repo.context();
+    context.baseline.as_mut().unwrap().version = "2.1.0".into();
+    let result = plan(&repo.0, &context).unwrap();
+    assert!(result.reuse_release.is_some());
+    assert_eq!(result.release_assets.len(), 16);
+    assert!(result.release_assets.iter().any(|name| name == "bridgepilot-git-sync-skill.md"));
+    assert!(result.release_assets.iter().any(|name| name == "bridgepilot-git-sync-list-projects.py"));
+}
+
+#[test]
 fn docs_feat_commit_does_not_raise_code_fix_to_minor() {
     let repo = Repo::new();
     let context = repo.context();

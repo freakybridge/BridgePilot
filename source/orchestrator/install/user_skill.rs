@@ -26,9 +26,13 @@ const UPDATE: &str = "bridgepilot-update";
 const LEGACY_UPDATE: &str = "bridgeforge-update";
 fn legacy_update_name() -> String { LEGACY_UPDATE.into() }
 const CLEANUP: &str = "bridgepilot-cleanup";
+const GIT_SYNC: &str = "bridgepilot-git-sync";
+const GIT_SYNC_FILES: [&str; 2] = ["SKILL.md", "scripts/list_projects.py"];
 const UPDATE_FILES: [&str; 1] = ["SKILL.md"];
 fn assets(skill: &str) -> &[&str] {
-    if skill == UPDATE || skill == LEGACY_UPDATE || skill == CLEANUP {
+    if skill == GIT_SYNC {
+        &GIT_SYNC_FILES
+    } else if skill == UPDATE || skill == LEGACY_UPDATE || skill == CLEANUP {
         &UPDATE_FILES
     } else {
         &FILES
@@ -61,6 +65,8 @@ struct Journal {
     update: Option<Projection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     cleanup: Option<Projection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    git_sync: Option<Projection>,
     #[serde(default = "legacy_update_name")]
     update_name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -82,6 +88,9 @@ fn projections(j: &Journal) -> Vec<(&str, &Binding, &[Change])> {
     }
     if let Some(cleanup) = &j.cleanup {
         result.push((CLEANUP, &cleanup.binding, cleanup.changes.as_slice()));
+    }
+    if let Some(git_sync) = &j.git_sync {
+        result.push((GIT_SYNC, &git_sync.binding, git_sync.changes.as_slice()));
     }
     result
 }
@@ -118,7 +127,7 @@ fn roots(home: &Path, skills: &Path) -> Result<(PathBuf, PathBuf)> {
             .map_err(|e| e.to_string())?
             .join(skills.file_name().ok_or("skills name missing")?)
     };
-    for skill in ["bridgepilot", UPDATE, LEGACY_UPDATE, CLEANUP] {
+    for skill in ["bridgepilot", UPDATE, LEGACY_UPDATE, CLEANUP, GIT_SYNC] {
         let target = skills.join(skill);
         if target.starts_with(&home) || home.starts_with(&target) {
             return Err("user skill and product home must be separate".into());
@@ -142,7 +151,7 @@ fn valid(binding: &Binding, home: &Path, skills: &Path, skill: &str) -> Result<(
         || binding.skills_root != skills
         || ![
             assets(skill).len(),
-            if skill == "bridgepilot" { 5 } else { 1 },
+            if skill == "bridgepilot" { 5 } else { assets(skill).len() },
         ]
         .contains(&binding.files.len())
         || assets(skill)[..binding.files.len()]
@@ -165,15 +174,15 @@ fn members(target: &Path, skill: &str) -> Result<()> {
         let entry = entry.map_err(|e| e.to_string())?;
         ordinary(&entry.path())?;
         let name = entry.file_name().to_string_lossy().into_owned();
-        if skill == "bridgepilot"
-            && (name == "references" || name == "scripts")
+        if (name == "references" || name == "scripts")
+            && assets(skill).iter().any(|asset| asset.starts_with(&format!("{name}/")))
             && entry.file_type().map_err(|e| e.to_string())?.is_dir()
         {
             for child in fs::read_dir(entry.path()).map_err(|e| e.to_string())? {
                 let child = child.map_err(|e| e.to_string())?;
                 ordinary(&child.path())?;
                 let name = format!("{name}/{}", child.file_name().to_string_lossy());
-                if !FILES.contains(&name.as_str())
+                if !assets(skill).contains(&name.as_str())
                     || !child.file_type().map_err(|e| e.to_string())?.is_file()
                 {
                     return Err("unowned skill reference preserved".into());
@@ -284,12 +293,23 @@ pub fn status(home: &Path, skills: &Path) -> Result<Value> {
             "installed BP lacks the managed bridgepilot-cleanup source; upgrade BP first".into(),
         );
     }
+    let git_sync = available(&home, GIT_SYNC)?;
+    let git_sync_old = previous(&home, &skills, GIT_SYNC)?;
+    let git_sync_current = if git_sync {
+        Some(source(&home, &skills, GIT_SYNC)?.0)
+    } else {
+        None
+    };
+    if !git_sync && git_sync_old.is_some() {
+        return Err("installed BP lacks the managed bridgepilot-git-sync source; upgrade BP first".into());
+    }
     let is_current = old.as_ref() == Some(&current)
         && update_old == update_current
         && cleanup_old == cleanup_current
+        && git_sync_old == git_sync_current
         && (update_name != UPDATE || previous(&home, &skills, LEGACY_UPDATE)?.is_none());
     Ok(
-        json!({"schema":1,"status":if is_current{"user_skill_current"}else{"user_skill_install_required"},"home":home,"skills_root":skills,"installed":old.is_some(),"current":is_current,"binding":old,"skills":{"bridgepilot":{"installed":old.is_some(),"current":old.as_ref()==Some(&current)},(update_name):{"available":update,"installed":update_old.is_some(),"current":update && update_old==update_current},"bridgepilot-cleanup":{"available":cleanup,"installed":cleanup_old.is_some(),"current":cleanup && cleanup_old==cleanup_current}},"writes":false}),
+        json!({"schema":1,"status":if is_current{"user_skill_current"}else{"user_skill_install_required"},"home":home,"skills_root":skills,"installed":old.is_some(),"current":is_current,"binding":old,"skills":{"bridgepilot":{"installed":old.is_some(),"current":old.as_ref()==Some(&current)},(update_name):{"available":update,"installed":update_old.is_some(),"current":update && update_old==update_current},"bridgepilot-cleanup":{"available":cleanup,"installed":cleanup_old.is_some(),"current":cleanup && cleanup_old==cleanup_current},"bridgepilot-git-sync":{"available":git_sync,"installed":git_sync_old.is_some(),"current":git_sync && git_sync_old==git_sync_current}},"writes":false}),
     )
 }
 fn available(home: &Path, skill: &str) -> Result<bool> {
@@ -360,12 +380,21 @@ fn plan(home: &Path, skills: &Path) -> Result<Journal> {
             Ok::<_, String>(RetiredUpdate { binding, files })
         }).transpose()?
     } else { None };
+    let git_sync = if available(home, GIT_SYNC)? {
+        Some(projection(home, skills, GIT_SYNC)?)
+    } else {
+        if previous(home, skills, GIT_SYNC)?.is_some() {
+            return Err("installed BP lacks the managed bridgepilot-git-sync source; upgrade BP first".into());
+        }
+        None
+    };
     Ok(Journal {
         schema: 2,
         binding: primary.binding,
         changes: primary.changes,
         update,
         cleanup,
+        git_sync,
         update_name: update_name.into(),
         retired_update,
     })
@@ -501,7 +530,7 @@ fn verify_sources(home: &Path, skills: &Path, j: &Journal) -> Result<()> {
 fn write_marker(home: &Path, skills: &Path, j: &Journal) -> Result<()> {
     persistence::atomic_write_json(
         &marker(home),
-        &json!({"schema":1,"skills_root":skills,"independent_update":j.update.is_some(),"bp_update_first":j.update_name==UPDATE && j.update.is_some(),"source_update":j.binding.files.contains_key("scripts/bridgepilot_update.ps1"),"parallel_cleanup":j.cleanup.is_some()}),
+        &json!({"schema":1,"skills_root":skills,"independent_update":j.update.is_some(),"bp_update_first":j.update_name==UPDATE && j.update.is_some(),"source_update":j.binding.files.contains_key("scripts/bridgepilot_update.ps1"),"parallel_cleanup":j.cleanup.is_some(),"git_sync":j.git_sync.is_some()}),
     )
     .map_err(|e| e.to_string())
 }
@@ -699,38 +728,82 @@ mod tests {
     }
     fn with_entry(home: &Path, j: &mut Journal, old_present: bool, skill: &str) {
         let mut binding = j.binding.clone();
-        binding.files = BTreeMap::from([("SKILL.md".into(), digest(b"new update"))]);
+        binding.files = assets(skill).iter().map(|name| ((*name).into(), digest(b"new update"))).collect();
         let mut old_binding = binding.clone();
-        old_binding
-            .files
-            .insert("SKILL.md".into(), digest(b"old update"));
-        let changes = vec![
-            Change {
-                name: "SKILL.md".into(),
-                old: old_present.then(|| b"old update".to_vec()),
-                new: b"new update".to_vec(),
-            },
-            Change {
-                name: BINDING.into(),
-                old: old_present.then(|| serde_json::to_vec_pretty(&old_binding).unwrap()),
-                new: serde_json::to_vec_pretty(&binding).unwrap(),
-            },
-        ];
-        let relative = format!("source/orchestrator/skills/{skill}/SKILL.md");
-        persistence::atomic_write(&home.join(&relative), b"new update").unwrap();
+        for hash in old_binding.files.values_mut() { *hash = digest(b"old update"); }
+        let mut names = assets(skill)[1..].to_vec();
+        names.push("SKILL.md");
+        let mut changes: Vec<_> = names.iter().map(|name| Change {
+            name: (*name).into(),
+            old: old_present.then(|| b"old update".to_vec()),
+            new: b"new update".to_vec(),
+        }).collect();
+        changes.push(Change {
+            name: BINDING.into(),
+            old: old_present.then(|| serde_json::to_vec_pretty(&old_binding).unwrap()),
+            new: serde_json::to_vec_pretty(&binding).unwrap(),
+        });
         let path = home.join(".runtime/config/bridgepilot-installation.json");
         let mut installed: install::Installation = read_json(&path).unwrap();
-        installed.files.push(install::OwnedFile {
-            id: skill.into(),
-            target: relative,
-            sha256: digest(b"new update"),
-        });
+        for name in names {
+            let relative = format!("source/orchestrator/skills/{skill}/{name}");
+            persistence::atomic_write(&home.join(&relative), b"new update").unwrap();
+            installed.files.push(install::OwnedFile {
+                id: format!("{skill}/{name}"), target: relative, sha256: digest(b"new update"),
+            });
+        }
         persistence::atomic_write_json(&path, &installed).unwrap();
-        if skill == CLEANUP {
+        if skill == GIT_SYNC {
+            j.git_sync = Some(Projection { binding, changes });
+        } else if skill == CLEANUP {
             j.cleanup = Some(Projection { binding, changes });
         } else {
             j.update = Some(Projection { binding, changes });
         }
+    }
+    #[test]
+    fn git_sync_recovers_each_script_entry_and_binding_boundary() {
+        for old in [false, true] {
+            let count = FILES.len() + 1 + GIT_SYNC_FILES.len() + 1;
+            for prefix in 0..=count {
+                let (_root, home, skills, mut j) = fixture(old, true);
+                with_entry(&home, &mut j, old, GIT_SYNC);
+                let mut index = 0;
+                for (skill, _, changes) in projections(&j) {
+                    for change in changes {
+                        let path = skills.join(skill).join(&change.name);
+                        let selected = if index < prefix { Some(&change.new) } else { change.old.as_ref() };
+                        if let Some(bytes) = selected {
+                            persistence::atomic_write(&path, bytes).unwrap();
+                        } else if path.exists() { fs::remove_file(path).unwrap(); }
+                        index += 1;
+                    }
+                }
+                assert_eq!(index, count);
+                persistence::atomic_write_json(&journal(&home), &j).unwrap();
+                let receipt = recover(&home, &skills).unwrap();
+                assert_eq!(receipt["status"], if prefix == count { "user_skill_commit_recovered" } else { "user_skill_rollback_recovered" });
+                for (skill, _, changes) in projections(&j) {
+                    for change in changes {
+                        assert_eq!(read(&skills.join(skill).join(&change.name)).unwrap(),
+                            if prefix == count { Some(change.new.clone()) } else { change.old.clone() });
+                    }
+                }
+                if prefix == count {
+                    assert_eq!(status(&home, &skills).unwrap()["skills"][GIT_SYNC]["current"], true);
+                    let marker: Value = read_json(&marker(&home)).unwrap();
+                    assert_eq!(marker["git_sync"], true);
+                }
+            }
+        }
+        let (_root, home, skills, mut j) = fixture(false, true);
+        with_entry(&home, &mut j, false, GIT_SYNC);
+        let script = skills.join(GIT_SYNC).join("scripts/list_projects.py");
+        persistence::atomic_write(&script, b"user edit").unwrap();
+        persistence::atomic_write_json(&journal(&home), &j).unwrap();
+        assert!(recover(&home, &skills).unwrap_err().contains("external edits"));
+        assert_eq!(fs::read(script).unwrap(), b"user edit");
+        assert!(journal(&home).exists());
     }
     #[test]
     fn third_entry_recovers_at_every_boundary_and_preserves_external_edits() {
@@ -954,6 +1027,7 @@ mod tests {
             changes,
             update: None,
             cleanup: None,
+            git_sync: None,
             update_name: UPDATE.into(),
             retired_update: None,
         };

@@ -22,7 +22,7 @@ const RULES:&[u8]="# BridgePilot\n\n这是 BridgePilot 的安装控制入口。�
 const README:&[u8]="# BridgePilot\n\n在 Codex 中打开本目录并给出项目目标。由 BP 读取私有任务档案，确认必要方向后推进。\n\n- [安装、升级与换机](INSTALL.md)\n- [BP 工作流](source/orchestrator/skills/bridgepilot/SKILL.md)\n".as_bytes();
 const GUIDE: &[u8] = r#"# BridgePilot 安装与恢复
 
-BP 主产品从 1.0.0 起独立编号，bp versions 展示 BP、BF 来源引用和 orchestrator 版本。package/installation schema 2 使用 launcher protocol 2，固定十三项资产；BF 来源引用不表示外部 BF 已安装。旧 schema 1 的 0.x 版本按 orchestrator 解释，升级核对组件不降级及档案读兼容。使用新 core 直接执行 preview/install，旧 launcher 和 home claim 的升级纳入恢复事务；正在运行的旧 launcher 占用时停止并保留现场。新身份不回退到不能读取它的旧 core，不迁移私有档案或外部 BF。
+BP 主产品从 1.0.0 起独立编号，bp versions 展示 BP、BF 来源引用和 orchestrator 版本。package/installation schema 2 使用 launcher protocol 2；历史包为十三项资产，具备 bp-git-sync-skill-v1 的新包为十五项，按实际 core 能力校验精确资产表。BF 来源引用不表示外部 BF 已安装。旧 schema 1 的 0.x 版本按 orchestrator 解释，升级核对组件不降级及档案读兼容。使用新 core 直接执行 preview/install，旧 launcher 和 home claim 的升级纳入恢复事务；正在运行的旧 launcher 占用时停止并保留现场。新身份不回退到不能读取它的旧 core，不迁移私有档案或外部 BF。
 
 这些是 Agent 的执行摘要；用户继续在 Codex 中给目标，无需手填 JSON。
 
@@ -31,6 +31,8 @@ BP 主产品从 1.0.0 起独立编号，bp versions 展示 BP、BF 来源引用�
 无参数 `$bridgepilot` 运行受管 Skill 的 scripts/bridgepilot_update.ps1，从官方 freakybridge/BridgePilot 的 main 快进拉取源码，锁定 Cargo.lock 构建后执行程序与 Skill 的预览、安装和核验。默认源码 ~/.bridgepilot-source；需要 Git、Rust 1.88+ 及 Windows C++ 构建环境。首次只安装，不创建私有档案；已有 home／workspace 原位复用。完整源码引导见官方源码根 INSTALL.md“无参数源码安装与更新”；咨询及带参数模式不自动更新。失败保留现场，程序与 Skill 两阶段分别报告，中断先对应 recover；不从安装推导接管、同步或恢复任务授权。
 
 0.12.0起同一受管安装事务另安装 bridgepilot-cleanup 私有入口。项目名单由只读 project-list 提供，支持指定子集及只读 preview；旧配置化 cleanup 已退役，缺少可靠原生成品保护时阻断删除。安装此入口不执行清理。用户修改、事务中断及回退能力保护同时覆盖三个入口；新入口的原生客户端发现另行核对。
+
+具备 bp-git-sync-skill-v1 的包另含 bridgepilot-git-sync-skill.md 与 bridgepilot-git-sync-list-projects.py，安装到 home 的 source/orchestrator/skills/bridgepilot-git-sync/ 后由同一 Skill 事务投影正文、名单脚本及本机绑定。skill-status 核验四个入口的所有受管文件；未知或用户修改文件保持阻断，中断使用 skill-recover。安装后不能回退到缺少该能力的程序。该入口须另获明确同步或 release 调用，安装不执行项目提交、推送或发布。
 
 0.6.0起包另含四个Skill模式引用，均由BP固定资产表核验。程序install无需Git／gh；先安装程序，再由 `environment-check --context <已有目录>` 核对必要依赖，缺失时经本次授权用 `environment-install --home <已安装home> --scope user --source <来源>` 静默准备Git／GitHub CLI。状态与锁固定在home，用户级不支持或结果未知时报告，不自动提权或换目录重发；机器级scope只在明确授权后使用。登录本人完成，PATH未刷新不重复安装。
 
@@ -320,6 +322,18 @@ pub(crate) fn assets() -> Vec<(
             "source/orchestrator/skills/bridgepilot-cleanup/SKILL.md",
             Some(include_bytes!("../skills/bridgepilot-cleanup/SKILL.md")),
         ),
+        (
+            "bp.controller.skill.git-sync",
+            "payload/bridgepilot-git-sync-skill.md",
+            "source/orchestrator/skills/bridgepilot-git-sync/SKILL.md",
+            Some(include_bytes!("../skills/bridgepilot-git-sync/SKILL.md")),
+        ),
+        (
+            "bp.controller.skill.git-sync.projects",
+            "payload/bridgepilot-git-sync-list-projects.py",
+            "source/orchestrator/skills/bridgepilot-git-sync/scripts/list_projects.py",
+            Some(include_bytes!("../skills/bridgepilot-git-sync/scripts/list_projects.py")),
+        ),
     ]
 }
 pub fn bundle(output: &Path, core: &Path, launcher: &Path) -> Result<Value> {
@@ -422,7 +436,8 @@ fn package(root: &Path) -> Result<Package> {
         expected[10].2="source/orchestrator/skills/bridgeforge-update/SKILL.md";
     }
     // Only legacy schema 1 inferred its historical asset table from 0.x.
-    // Schema 2 has one explicit thirteen-asset format, independent of BP version.
+    // Historical product packages have thirteen assets. The actual core's
+    // capability below attests whether the two git-sync assets are required.
     if p.schema == 1 {
     if p.assets.len() == 6 && SemVer::from_str(&p.version)? < SemVer::from_str("0.6.0")? {
         expected.truncate(6);
@@ -433,6 +448,9 @@ fn package(root: &Path) -> Result<Package> {
     } else if p.assets.len() == 12 && SemVer::from_str(&p.version)? < SemVer::from_str("0.12.0")? {
         expected.truncate(12);
     }
+    }
+    if p.assets.len() == 13 {
+        expected.truncate(13);
     }
     if expected.len() != p.assets.len() {
         return Err("portable asset registry mismatch".into());
@@ -449,6 +467,11 @@ fn package(root: &Path) -> Result<Package> {
     let status = probe(&root.join("payload/bp-core.exe"), &["self-test".into()])?;
     if status["program"] != "bridgepilot" || status["version"] != p.version {
         return Err("portable core version differs from its actual program".into());
+    }
+    let git_sync = status["capabilities"].as_array()
+        .is_some_and(|caps| caps.iter().any(|cap| cap == "bp-git-sync-skill-v1"));
+    if git_sync != (p.assets.len() == assets().len()) {
+        return Err("portable git-sync asset registry differs from actual core capability".into());
     }
     let actual_components: Option<Components> = status.get("components").cloned()
         .map(serde_json::from_value).transpose().map_err(|e| e.to_string())?;
@@ -629,6 +652,10 @@ fn install_before_lock(
             return Err("rollback target cannot maintain the installed BP user Skill".into());
         }
         let marker: Value = read_json(&skill_marker)?;
+        if marker["git_sync"] == true && !candidate["capabilities"].as_array()
+            .is_some_and(|v| v.iter().any(|x| x == "bp-git-sync-skill-v1")) {
+            return Err("rollback target cannot maintain the bridgepilot-git-sync Skill".into());
+        }
         if marker["bp_update_first"] == true && !candidate["capabilities"].as_array()
             .is_some_and(|v|v.iter().any(|x|x=="bp-update-first-v1")) {
             return Err("rollback target cannot maintain the renamed bridgepilot-update Skill".into());

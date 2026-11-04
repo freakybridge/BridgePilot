@@ -201,7 +201,7 @@ dependencies = [
 
 [[package]]
 name = "bridgepilot-install"
-version = "0.8.0"
+version = "0.9.1"
 dependencies = [
  "bridgeforge-core",
  "bridgepilot-storage",
@@ -213,7 +213,7 @@ dependencies = [
 
 [[package]]
 name = "bridgepilot-orchestrator"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "bridgeforge-core",
  "bridgepilot-execution",

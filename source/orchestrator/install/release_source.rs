@@ -63,9 +63,14 @@ fn changed_paths(root: &Path, base: &str) -> Result<Vec<String>> {
     Ok(paths)
 }
 
-fn published_asset_names() -> Vec<String> {
+fn published_asset_names(version: SemVer) -> Vec<String> {
+    let mut registry = crate::install::assets();
+    // Retained releases predate the two assets added in BP 2.1.0.
+    if version < (SemVer { major: 2, minor: 1, patch: 0 }) {
+        registry.truncate(13);
+    }
     let mut names = vec!["package.json".into()];
-    names.extend(crate::install::assets().into_iter().map(|(_, path, _, _)|
+    names.extend(registry.into_iter().map(|(_, path, _, _)|
         Path::new(path).file_name().unwrap().to_string_lossy().into_owned()));
     names
 }
@@ -110,7 +115,7 @@ pub fn plan(root: &Path, context: &SourceContext) -> Result<SourcePlan> {
     identity.version = selected.to_string();
     if reuse_release.is_some() {
         return Ok(SourcePlan { schema: 1, identity, edits: vec![], reuse_release,
-            release_assets: published_asset_names() });
+            release_assets: published_asset_names(current) });
     }
     let heading = format!("## [BP {selected}]");
     let mut after_notes = before_notes.clone();

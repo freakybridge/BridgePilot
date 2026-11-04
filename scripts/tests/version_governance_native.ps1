@@ -37,7 +37,7 @@ if ($identity.version -ne '1.0.0' -or $identity.components.orchestrator.version 
     $identity.components.forge.delivery -ne 'source-reference') { throw 'Three-version identity mismatch.' }
 $launcher = Join-Path (Split-Path -Parent $Core) 'bp-launcher.exe'
 $package = Invoke-Core $Core @('bundle', '--output', $bundle, '--core', $Core, '--launcher', $launcher)
-if ($package.package_schema -ne 2 -or $package.assets -ne 13) { throw 'Modern package identity mismatch.' }
+if ($package.package_schema -ne 2 -or $package.assets -ne 15) { throw 'Modern package identity mismatch.' }
 $legacyCore = Join-Path $LegacyPackage 'payload/bp-core.exe'
 $legacyIdentity = Invoke-Core $legacyCore @('self-test')
 if ($legacyIdentity.version -ne '0.13.0') { throw 'A real legacy 0.13.0 artifact is required.' }

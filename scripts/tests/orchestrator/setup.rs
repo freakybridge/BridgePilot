@@ -181,7 +181,7 @@ fn user_skill_projection_is_previewable_idempotent_and_preserves_user_edits() {
         fs::read(home.join("source/orchestrator/skills").join(updater)).unwrap(),
         fs::read(skills.join(updater)).unwrap()
     );
-    for name in ["bridgepilot", "bridgepilot-update", "bridgepilot-cleanup"] {
+    for name in ["bridgepilot", "bridgepilot-update", "bridgepilot-cleanup", "bridgepilot-git-sync"] {
         let source = home.join(format!("source/orchestrator/skills/{name}/SKILL.md"));
         assert_eq!(
             fs::read(source).unwrap(),
@@ -203,6 +203,57 @@ fn user_skill_projection_is_previewable_idempotent_and_preserves_user_edits() {
     fs::write(&entry, b"user customization").unwrap();
     assert!(user_skill::install(&home, &skills, false).is_err());
     assert_eq!(fs::read(&entry).unwrap(), b"user customization");
+}
+#[test]
+fn git_sync_entry_requires_complete_assets_and_preserves_unknown_or_edited_files() {
+    let f = Fixture::new("complete");
+    f.store.update(|s| s.pause(true, &[])).unwrap();
+    let home = installed(&f, "git-sync");
+    let skills = f.root.join("git-sync-profile");
+    let entry = skills.join("bridgepilot-git-sync");
+    let script = entry.join("scripts/list_projects.py");
+    user_skill::install(&home, &skills, true).unwrap();
+    assert!(!skills.exists());
+    user_skill::install(&home, &skills, false).unwrap();
+    let before = fs::read(&script).unwrap();
+    assert_eq!(before, fs::read(home.join("source/orchestrator/skills/bridgepilot-git-sync/scripts/list_projects.py")).unwrap());
+    assert_eq!(user_skill::status(&home, &skills).unwrap()["skills"]["bridgepilot-git-sync"]["current"], true);
+    user_skill::install(&home, &skills, false).unwrap();
+    assert_eq!(before, fs::read(&script).unwrap());
+    fs::write(&script, b"user script edit").unwrap();
+    assert!(user_skill::install(&home, &skills, false).unwrap_err().contains("user-edited"));
+    assert_eq!(fs::read(&script).unwrap(), b"user script edit");
+    fs::write(&script, before).unwrap();
+    let unowned = entry.join("scripts/custom.py");
+    fs::write(&unowned, b"user file").unwrap();
+    assert!(user_skill::status(&home, &skills).is_err());
+    assert_eq!(fs::read(&unowned).unwrap(), b"user file");
+    let other = f.root.join("unowned-git-sync-profile");
+    let other_home = installed(&f, "unowned-git-sync");
+    fs::create_dir_all(other.join("bridgepilot-git-sync")).unwrap();
+    fs::write(other.join("bridgepilot-git-sync/SKILL.md"), b"local extension").unwrap();
+    assert!(user_skill::install(&other_home, &other, true).unwrap_err().contains("no BP ownership"));
+    assert!(!other.join("bridgepilot").exists());
+}
+
+#[test]
+fn git_sync_bundle_rejects_missing_script_and_stripped_registry_without_writes() {
+    let f = Fixture::new("complete");
+    let bundle = f.root.join("git-sync-package");
+    install::bundle(&bundle, Path::new(env!("CARGO_BIN_EXE_bp")), Path::new(env!("CARGO_BIN_EXE_bp-launcher"))).unwrap();
+    let manifest = bundle.join("package.json");
+    let original = fs::read(&manifest).unwrap();
+    let mut package: Value = serde_json::from_slice(&original).unwrap();
+    assert_eq!(package["assets"].as_array().unwrap().len(), 15);
+    let home = f.root.join("missing-script-home");
+    package["assets"].as_array_mut().unwrap().truncate(13);
+    fs::write(&manifest, serde_json::to_vec(&package).unwrap()).unwrap();
+    assert!(install::install(&bundle, &home, None, true).unwrap_err().contains("capability"));
+    assert!(!home.exists());
+    fs::write(&manifest, original).unwrap();
+    fs::remove_file(bundle.join("payload/bridgepilot-git-sync-list-projects.py")).unwrap();
+    assert!(install::install(&bundle, &home, None, true).is_err());
+    assert!(!home.exists());
 }
 #[test]
 fn source_entry_fresh_install_does_not_create_a_private_archive() {
