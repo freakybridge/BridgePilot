@@ -117,7 +117,7 @@
               {
                 "source": "source/forge/templates/skills/collab/SKILL.md",
                 "target": "SKILL.md",
-                "sha256": "sha256:430ec24e434f0421c8803d04a50a888a575f0b470df0e2173ca55c0eb1a518e2"
+                "sha256": "sha256:bbcd5cbf6a0b119615427815a55e614c55b4d4af1f1bf46676e37bea0751b253"
               }
             ]
           },
@@ -172,12 +172,12 @@
               {
                 "source": "source/forge/templates/skills/develop/references/agent-execution.md",
                 "target": "references/agent-execution.md",
-                "sha256": "sha256:57f173528279510f3fbc8484615ab39e564932f7b97a324774613e9d39e08a39"
+                "sha256": "sha256:117194ba9d75b7e7117719d960755c5efe781bccc13311006b251185b826e8b3"
               },
               {
                 "source": "source/forge/templates/skills/develop/references/ml-delivery.md",
                 "target": "references/ml-delivery.md",
-                "sha256": "sha256:1ce207d96273eae488b3da27edf8470d729d6167ba065d89c6dfff78240c0292"
+                "sha256": "sha256:2ccdcdcb7a9e1db4f551fd5fc8bfbfab10dd9254094be4588094cd6a3dda4055"
               },
               {
                 "source": "source/forge/templates/skills/develop/references/completion-release.md",
@@ -187,7 +187,7 @@
               {
                 "source": "source/forge/templates/skills/develop/SKILL.md",
                 "target": "SKILL.md",
-                "sha256": "sha256:f2cc14585a4dd224e99c2d0e7195e1ec4d1142a376321db2313291176c4bbc04"
+                "sha256": "sha256:12eed5cc7ede6870a33fd36727eebee279aceda827f9fdd18ce152de7cfd9e67"
               }
             ]
           },

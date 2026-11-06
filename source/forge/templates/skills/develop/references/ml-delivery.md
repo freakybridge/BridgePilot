@@ -12,5 +12,5 @@
 
 - 开始实施时 validation_status 为 in_progress；验证或适用收口缺口保留 awaiting_validation，并记录阻断和继续条件。
 - 本次完成条件及适用收口满足后可记 awaiting_user_acceptance；不能以构建通过或预览计划代替。lifecycle 保持 active，只有 summary accept 可结算为 completed。
-- D5 合并更新验收项、变更和必要既有设计记录，附实际证据与试用路径；不为交付增加 structured/prepared 记录。无关历史问题单列，不绑定全仓清零。
+- D6 合并更新验收项、变更和必要既有设计记录，附实际证据与试用路径；不为交付增加 structured/prepared 记录。无关历史问题单列，不绑定全仓清零。
 - 当前需求内的小 Bug 更新原记录，仅重验受影响部分；独立 Bug 按项目规范另记。新需求或实质超范围变化按主入口处理，不能由实现者自证用户验收。
