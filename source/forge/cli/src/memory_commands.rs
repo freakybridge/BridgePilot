@@ -132,6 +132,28 @@ fn migrate_memory_state(codex: &Path, state: &Path, ledger: &Path) -> Result<(),
         .map_err(|error| error.to_string())
 }
 
+fn dedicated_hook(codex: &Path) -> Result<PathBuf, String> {
+    bridgeforge_core::managed_paths::safe_join(
+        codex,
+        &format!(".bridgeforge-codex/native-memory-sync/bin/bridgeforge-memory-hook{}", std::env::consts::EXE_SUFFIX),
+        "native Memory hook executable",
+    )
+}
+
+fn installed_hook(codex: &Path) -> Result<PathBuf, String> {
+    let path = dedicated_hook(codex)?;
+    if !path.is_file() { return Err("the dedicated native Memory Hook runtime is not installed".into()); }
+    Ok(path)
+}
+
+fn hook_receipt_matches(receipt: &Value, binary: Option<&Path>) -> bool {
+    let Some(recorded) = receipt["executablePath"].as_str() else { return false; };
+    binary.is_some_and(|binary| {
+        let actual = fs::canonicalize(binary).ok();
+        actual.is_some() && actual == fs::canonicalize(recorded).ok()
+    })
+}
+
 fn record_hook_attempt(
     state: &Path,
     event: &str,
@@ -210,6 +232,23 @@ pub(super) fn memory_sync(args: &[String]) -> CommandOutcome {
         Err(error) => return blocked("memory-sync", error),
     };
     match command {
+        "retarget-hook" => {
+            let result = (|| -> Result<Value, String> {
+                if !has(args, "--confirmed-migration") { return Err("Memory Hook retarget requires explicit migration authorization".into()); }
+                let executable = std::env::current_exe().map_err(|error| error.to_string())?;
+                let runtime = installed_hook(&codex)?;
+                if memory_path_identity(&runtime)? != memory_path_identity(&executable)? {
+                    return Err("run hook migration from the installed dedicated Memory runtime".into());
+                }
+                let old = codex.join("bin").join(format!("bridgeforge{}", std::env::consts::EXE_SUFFIX));
+                let changed = bridgeforge_memory::user_config::retarget_user_hooks(&codex, &old, &runtime)
+                    .map_err(|error| error.to_string())?;
+                Ok(json!({"schema":1,"status":"hook_scope_ready","changed":changed,
+                    "enabled":bridgeforge_memory::user_config::memories_enabled(&codex),
+                    "hookInstalled":bridgeforge_memory::user_config::user_hooks_healthy(&codex,&runtime)}))
+            })();
+            match result { Ok(receipt) => CommandOutcome::with_receipt(receipt), Err(error) => blocked("memory-sync", error) }
+        }
         "setup" => {
             let Some(remote) = value(args, "--remote") else {
                 return blocked("memory-sync", "setup requires --remote");
@@ -219,7 +258,7 @@ pub(super) fn memory_sync(args: &[String]) -> CommandOutcome {
             {
                 return blocked("memory-sync", error);
             }
-            let binary = match std::env::current_exe() {
+            let binary = match installed_hook(&codex) {
                 Ok(value) => value,
                 Err(error) => return blocked("memory-sync", error),
             };
@@ -269,7 +308,7 @@ pub(super) fn memory_sync(args: &[String]) -> CommandOutcome {
                     "native memories are disabled by the user; hook repair is not authorized",
                 );
             }
-            let binary = match std::env::current_exe() {
+            let binary = match installed_hook(&codex) {
                 Ok(value) => value,
                 Err(error) => return blocked("memory-sync", error),
             };
@@ -297,7 +336,7 @@ pub(super) fn memory_sync(args: &[String]) -> CommandOutcome {
             let authorization = authorization.ok().flatten();
             let consent = authorization.as_ref().map(|value| value.decision.clone());
             let enabled = bridgeforge_memory::user_config::memories_enabled(&codex);
-            let binary = std::env::current_exe().ok();
+            let binary = installed_hook(&codex).ok().or_else(|| std::env::current_exe().ok());
             let hook_installed = binary.as_deref().is_some_and(|binary| {
                 bridgeforge_memory::user_config::user_hooks_healthy(&codex, binary)
             });
@@ -306,12 +345,14 @@ pub(super) fn memory_sync(args: &[String]) -> CommandOutcome {
                 .and_then(|payload| serde_json::from_slice(&payload).ok());
             let hook_runtime_verified = hook_runtime
                 .as_ref()
-                .is_some_and(bridgeforge_memory::runtime_receipt_healthy);
+                .is_some_and(|receipt| bridgeforge_memory::runtime_receipt_healthy(receipt)
+                    && hook_receipt_matches(receipt, binary.as_deref()));
             let hook_attempt: Option<Value> = fs::read(state_dir.join("hook-attempt.json"))
                 .ok()
                 .and_then(|payload| serde_json::from_slice(&payload).ok());
             let hook_dispatch_observed = hook_attempt.as_ref().is_some_and(|receipt| {
                 receipt["schema"].as_u64() == Some(1)
+                    && hook_receipt_matches(receipt, binary.as_deref())
                     && receipt["hookId"].as_str() == Some(bridgeforge_memory::user_config::HOOK_ID)
                     && receipt["event"].as_str().is_some_and(|event| {
                         bridgeforge_memory::user_config::HOOK_EVENTS.contains(&event)

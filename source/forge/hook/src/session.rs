@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::StepResult;
-use crate::post::source_tree_hash;
 use crate::util::{repo_root, run_command};
 
 fn git(args: &[String], timeout: Duration) -> Option<std::process::Output> {
@@ -332,79 +331,25 @@ pub fn show_state() -> StepResult {
     StepResult::output(lines.join("\n"))
 }
 
-fn normalize_hash(value: &str) -> Option<String> {
-    let mut normalized = value.trim().to_lowercase();
-    if let Some(stripped) = normalized.strip_prefix("sha256:") {
-        normalized = stripped.to_string();
-    }
-    (normalized.len() == 64 && normalized.chars().all(|value| value.is_ascii_hexdigit()))
-        .then_some(normalized)
-}
-
 pub fn skill_sync() -> StepResult {
-    let home = std::env::var_os("USERPROFILE")
-        .or_else(|| std::env::var_os("HOME"))
-        .map(PathBuf::from)
-        .unwrap_or_default();
-    let platform = home.join(".codex");
-    let shelf = platform.join("skills");
-    let entry = shelf.join("bridgeforge-codex/SKILL.md");
-    let ledger = platform.join("bridgeforge-codex-managed.json");
-    if !entry.is_file() && !ledger.exists() {
-        return StepResult::ok();
-    }
-    let warning = |detail: &str| {
-        StepResult::output(format!(
-            "[skill-sync] {detail}。请运行无参 $bridgeforge-codex 重新同步。"
-        ))
-    };
-    if !ledger.is_file() {
-        return warning("bridgeforge-codex 托管账本缺失");
-    }
-    let Ok(value) = fs::read_to_string(&ledger)
-        .ok()
-        .and_then(|text| {
-            serde_json::from_str::<Value>(text.strip_prefix('\u{feff}').unwrap_or(&text)).ok()
-        })
-        .ok_or(())
-    else {
-        return warning("bridgeforge-codex 托管账本无法读取");
-    };
-    if value.get("schema_version").and_then(Value::as_i64) != Some(1)
-        || value.get("platform").and_then(Value::as_str) != Some("codex")
-    {
-        return warning("bridgeforge-codex 托管账本版本或平台不匹配");
-    }
-    let Some(records) = value
-        .get("records")
-        .and_then(Value::as_object)
-        .filter(|records| !records.is_empty())
-    else {
-        return warning("bridgeforge-codex 托管账本没有有效记录");
-    };
+    let root = repo_root();
     let mut stale = Vec::new();
-    for (name, record) in records {
-        if name.is_empty() || name.contains(['/', '\\']) || matches!(name.as_str(), "." | "..") {
-            return warning("bridgeforge-codex 托管账本包含无效 skill 记录");
+    for asset in bridgeforge_core::template_standard::assets() {
+        if asset.rule.get("previous_sha256").is_none() {
+            continue;
         }
-        let Some(expected) = record
-            .get("content_hash")
-            .and_then(Value::as_str)
-            .and_then(normalize_hash)
-        else {
-            return warning("bridgeforge-codex 托管账本包含无效 skill 记录");
-        };
-        let root = shelf.join(name);
-        if !root.is_dir() || source_tree_hash(&root) != expected {
-            stale.push(name.clone());
+        let Some(target) = asset.rule["target"].as_str() else { continue };
+        let payload = bridgeforge_core::managed_paths::safe_join(&root, target, "project workflow")
+            .and_then(|path| bridgeforge_core::managed_paths::read_metadata(&path, 32 * 1024 * 1024));
+        if !matches!(payload, Ok(Some(bytes)) if asset.rule["current_sha256"] == bridgeforge_core::build_manifest::normalized_hash(&bytes)) {
+            stale.push(target.to_owned());
         }
     }
     if stale.is_empty() {
         StepResult::ok()
     } else {
-        warning(&format!(
-            "{} 个托管 skill 缺失或内容漂移（{}）",
-            stale.len(),
+        StepResult::output(format!(
+            "[skill-sync] 项目工作流缺失或内容漂移（{}）。请按项目 INSTALL.md 核对骨架。",
             stale.join("、")
         ))
     }

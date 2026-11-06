@@ -18,6 +18,15 @@ function Tree {
     }
     return ($result | ConvertTo-Json -Compress)
 }
+function Move-FixturePath([string]$Source, [string]$Destination) {
+    $root = [IO.Path]::GetFullPath($batch).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+    $from = (Resolve-Path -LiteralPath $Source).Path
+    $to = [IO.Path]::GetFullPath($Destination)
+    if (!$from.StartsWith($root, [StringComparison]::OrdinalIgnoreCase) -or !$to.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Fixture move escapes its test directory'
+    }
+    Move-Item -LiteralPath $from -Destination $to
+}
 function Invoke-NativeCli([string[]]$Arguments, [bool]$ExpectFailure = $false) {
     $timer = [Diagnostics.Stopwatch]::StartNew()
     $output = & $cli @Arguments 2>&1
@@ -52,7 +61,9 @@ $argsBase = @('project-sync','--project-root',$fixture,'--template-root',$Projec
 $original = Tree
 $preview = Invoke-NativeCli ($argsBase + @('--release-spec',$specPath))
 if ($preview.value.gaps.Count -ne 0) { throw 'Configured fixture has readiness gaps' }
-foreach ($path in @('Cargo.toml','.build/project-release/bin/bridgeforge.exe','.build/project-release/bin/receipt.json')) {
+foreach ($path in @('Cargo.toml','.build/project-release/bin/bridgeforge.exe','.build/project-release/bin/receipt.json',
+    '.agents/skills/develop/SKILL.md','.agents/skills/git-sync/references/first-use.md',
+    '.codex/maintenance/bridgeforge-codex/MAINTENANCE.md')) {
     if ($preview.value.safe -notcontains $path) { throw ('Missing exact planned target: ' + $path) }
 }
 if ((Tree) -ne $original) { throw 'Dry-run wrote fixture files' }
@@ -65,10 +76,31 @@ $repeat = Invoke-NativeCli $argsBase
 if ($repeat.value.safe.Count -or $repeat.value.risk.Count -or $repeat.value.gaps.Count) { throw 'Repeated plan is not empty' }
 $noop = Invoke-NativeCli ($argsBase + @('--apply','--plan-fingerprint',$repeat.value.aggregate_fingerprint))
 if ($noop.value.written -ne 0 -or $null -ne $noop.value.recovery -or (Tree) -ne $after) { throw 'No-op rewrote files or created recovery artifacts' }
+
+# Model an already installed runtime that predates project-scoped workflows.
+Move-FixturePath (Join-Path $fixture '.agents/skills') (Join-Path $batch 'v2-skill-copy')
+Move-FixturePath (Join-Path $fixture '.codex/maintenance') (Join-Path $batch 'v2-maintenance-copy')
+$private = Join-Path $fixture '.agents/skills/personal/SKILL.md'
+New-Item -ItemType Directory -Path (Split-Path -Parent $private) -Force | Out-Null
+[IO.File]::WriteAllText($private, 'personal fixture skill')
+$previousScope = Tree
+$upgrade = Invoke-NativeCli $argsBase
+if ($upgrade.value.safe -notcontains '.agents/skills/develop/SKILL.md' -or (Tree) -ne $previousScope) { throw 'Old installation preview did not plan a zero-write project Skill migration' }
+$migrated = Invoke-NativeCli ($argsBase + @('--apply','--confirmed-risk','--plan-fingerprint',$upgrade.value.aggregate_fingerprint))
+if ($migrated.value.status -ne 'succeeded' -or [IO.File]::ReadAllText($private) -ne 'personal fixture skill') { throw 'Project workflow upgrade or preservation failed' }
+
+$legacy = Join-Path $fixture '.codex/skills/develop/SKILL.md'
+New-Item -ItemType Directory -Path (Split-Path -Parent $legacy) -Force | Out-Null
+[IO.File]::WriteAllText($legacy, 'personal same-name skill')
+$collision = Tree
+$collisionResult = Invoke-NativeCli $argsBase $true
+if ($collisionResult.output -notlike '*same-name project Skill*' -or (Tree) -ne $collision) { throw 'Same-name project Skill was not preserved' }
+Move-FixturePath $legacy (Join-Path $batch 'preserved-same-name.md')
+
 Set-Content -LiteralPath (Join-Path $fixture 'VERSION') -Value '1.0.1' -Encoding utf8NoBOM
 $drifted = Tree
 $rejected = Invoke-NativeCli ($argsBase + @('--apply','--plan-fingerprint',$repeat.value.aggregate_fingerprint)) $true
 if ((Tree) -ne $drifted) { throw 'Stale fingerprint rejection wrote files' }
-$result = [ordered]@{schema=1;status='passed';fixture=$fixture;dry_run_zero_write=$true;runtime_targets_planned=$true;installed=$installed.value;noop=$noop.value;stale_fingerprint_zero_write=$true;timings_ms=@{plan=$preview.elapsed_ms;apply=$installed.elapsed_ms;repeat_plan=$repeat.elapsed_ms;noop_apply=$noop.elapsed_ms};platform_network_calls=0}
+$result = [ordered]@{schema=1;status='passed';fixture=$fixture;dry_run_zero_write=$true;runtime_targets_planned=$true;installed=$installed.value;noop=$noop.value;project_workflows_migrated=$true;same_name_conflict_preserved=$true;stale_fingerprint_zero_write=$true;timings_ms=@{plan=$preview.elapsed_ms;apply=$installed.elapsed_ms;repeat_plan=$repeat.elapsed_ms;noop_apply=$noop.elapsed_ms};platform_network_calls=0}
 $result | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath (Join-Path $batch 'result.json') -Encoding utf8NoBOM
 $result | ConvertTo-Json -Depth 12 -Compress

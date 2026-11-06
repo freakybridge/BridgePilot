@@ -184,7 +184,16 @@ foreach ($scenario in @('create', 'noop', 'failure', 'interrupted', 'drift', 'ba
 # Source provenance (canonical main) is tested by the updater; this case checks packaging and swap.
 $fixtureProfile = Join-Path $Base 'autopilot-install'
 New-Item -ItemType Directory -Path (Join-Path $fixtureProfile '.codex/skills') -Force | Out-Null
-$catalog = ([IO.File]::ReadAllText((Join-Path $RepositoryRoot 'source/forge/bridgeforge-manifest.json')) | ConvertFrom-Json).shared_skills
+# Synthesize a historical install catalog only for transaction compatibility fixtures.
+$assetManifest = ([IO.File]::ReadAllText((Join-Path $RepositoryRoot $ManifestName)) | ConvertFrom-Json).project_skeleton
+$legacyFixtureSkills = foreach ($name in @("autopilot", "confirm", "summary")) {
+    $prefix = ".agents/skills/$name/"
+    $files = @($assetManifest.assets | Where-Object { $_.target.StartsWith($prefix) } | ForEach-Object {
+        @{source=$_.source; target=$_.target.Substring($prefix.Length); sha256="sha256:$(Get-Sha256 -Path (Join-Path $RepositoryRoot $_.source))"}
+    })
+    @{name=$name;files=$files}
+}
+$catalog = @{platforms=@{codex=@{skills=$legacyFixtureSkills}}} | ConvertTo-Json -Depth 12 | ConvertFrom-Json
 $selected = @($catalog.platforms.codex.skills | Where-Object { $_.name -in @('autopilot', 'confirm') })
 Assert-True ($selected.Count -eq 2 -and @($selected.name | Select-Object -Unique).Count -eq 2) 'Budget Skills are missing or duplicated in the distribution catalog'
 $manifest = @{ platforms = @{ codex = @{ skills = $selected } } } | ConvertTo-Json -Depth 12 | ConvertFrom-Json
@@ -240,3 +249,71 @@ foreach ($scenario in @('retire', 'retire-drift')) {
 Write-Output 'summary installation and legacy Skill retirement passed'
 Write-Output 'confirm weekly quota reference packaging passed'
 Write-Output 'shared bundle rollback and deferred committed cleanup passed'
+
+$CanonicalRemote = 'https://github.com/freakybridge/BridgePilot.git'
+foreach ($outcome in @('scope-retired', 'scope-restored')) {
+    $legacyProfile = Join-Path $Base $outcome
+    $codex = Join-Path $legacyProfile '.codex'
+    $legacyHome = Join-Path $legacyProfile $CommandHomeName
+    $oldCli = Join-Path $codex 'bin/bridgeforge.exe'
+    $proof = Join-Path $codex 'bin/bridgeforge-cli-provenance.json'
+    $legacySkill = Join-Path $codex 'skills/develop'
+    $privateSkill = Join-Path $codex 'skills/personal'
+    New-Item -ItemType Directory -Path $legacyHome,(Split-Path -Parent $oldCli),$legacySkill,$privateSkill -Force | Out-Null
+    [IO.File]::WriteAllText((Join-Path $legacyHome 'VERSION'), 'historical checkout')
+    $null = Invoke-Git -WorkingDirectory $legacyHome -Arguments @('init','-b','main')
+    $null = Invoke-Git -WorkingDirectory $legacyHome -Arguments @('remote','add','origin',$CanonicalRemote)
+    $null = Invoke-Git -WorkingDirectory $legacyHome -Arguments @('add','VERSION')
+    $null = Invoke-Git -WorkingDirectory $legacyHome -Arguments @('-c','user.name=fixture','-c','user.email=fixture@example.invalid','-c','commit.gpgsign=false','commit','-m','fixture')
+    [IO.File]::WriteAllText($oldCli, 'legacy CLI bytes')
+    Write-JsonAtomic -Path $proof -Value @{schema=1;owner='bridgeforge-user-cli-v1';binary_sha256=(Get-Sha256 -Path $oldCli)}
+    [IO.File]::WriteAllText((Join-Path $legacySkill 'SKILL.md'), 'owned user skill')
+    [IO.File]::WriteAllText((Join-Path $privateSkill 'SKILL.md'), 'private user skill')
+    $ledger = Join-Path $codex 'bridgeforge-codex-managed.json'
+    Write-JsonAtomic -Path $ledger -Value @{schema_version=1;platform='codex';
+        consents=@{native_memories=@{decision='declined';policy_version=1;scope='~/.codex/memories/**';sync_mode='bidirectional';auto_hook_maintenance=$true;repository='bridgeforge-codex-memories';require_private=$true;remote=$null}};
+        records=@{develop=@{source_commit=('a'*40);content_hash=(Get-DirectoryContentHash -Root $legacySkill);installed_at='2026-11-06'}}}
+    $originalLedger = Get-Sha256 -Path $ledger
+    $operation = [Guid]::NewGuid().ToString('N')
+    $retirements = @(New-UserRetirementPlans -UserProfile $legacyProfile -Operation $operation)
+    Assert-True ($retirements.Count -eq 3) 'Missing exact home, CLI or CLI provenance retirement'
+
+    $hooks = Join-Path $codex 'hooks.json'
+    Write-JsonAtomic -Path $hooks -Value @{hooks=@{Stop=@(@{hooks=@(@{type='command';command=(Join-Path $legacyHome 'custom-helper.exe')})})}}
+    $blocked = $false
+    try { $null = Get-UserHookRetirementWitness -Path $hooks -Retirements $retirements }
+    catch { if ($_.Exception.Message -notlike '*still references*') { throw }; $blocked = $true }
+    Assert-True $blocked 'Third-party hook dependency did not block retirement'
+    Write-JsonAtomic -Path $hooks -Value @{hooks=@{Stop=@(@{hooks=@(@{type='command';command='fixture-personal-hook'})})}}
+    $witness = Get-UserHookRetirementWitness -Path $hooks -Retirements $retirements
+
+    $empty = @{platforms=@{codex=@{skills=@()}}} | ConvertTo-Json -Depth 8 | ConvertFrom-Json
+    $plans = @(New-UpdatePlan -Manifest $empty -UserProfile $legacyProfile -OperationId $operation -Commit ('b'*40))
+    $log = Join-Path $legacyProfile '.bridgeforge-codex-shared-update.json'
+    $TestFailAfterSwap = if ($outcome -eq 'scope-restored') { 'codex:1' } else { '' }
+    $injected = $false
+    try {
+        Invoke-UpdateTransaction -RepositoryRoot $RepositoryRoot -Manifest $empty -Commit ('b'*40) `
+            -ManifestHash ("sha256:$(Get-Sha256 -Path (Join-Path $RepositoryRoot $ManifestName))") -UserProfile $legacyProfile `
+            -LogPath $log -OperationId $operation -PlatformPlans $plans -RetirementPlans $retirements -UserScope -UserHookWitness $witness
+    } catch { if ($_.Exception.Message -notlike '*Injected test failure*') { throw }; $injected = $true }
+    Assert-True (-not (Test-Path -LiteralPath $log)) 'User-scope transaction left an unexpected journal'
+    Assert-True ((Get-Sha256 -Path $hooks) -eq $witness.hash) 'Third-party Hook changed'
+    Assert-True ([IO.File]::ReadAllText((Join-Path $privateSkill 'SKILL.md')) -eq 'private user skill') 'Unmanaged Skill changed'
+    if ($outcome -eq 'scope-restored') {
+        Assert-True $injected 'Retirement rollback test did not inject failure'
+        Assert-True ((Get-Sha256 -Path $ledger) -eq $originalLedger) 'Ledger rollback changed bytes'
+        foreach ($plan in $retirements) { Assert-True (Test-Path -LiteralPath $plan.target) 'Rollback did not restore a legacy target' }
+        Assert-True (Test-Path -LiteralPath (Join-Path $legacySkill 'SKILL.md')) 'Rollback did not restore the legacy Skill'
+    } else {
+        foreach ($plan in $retirements) {
+            Assert-True (-not (Test-Path -LiteralPath $plan.target)) 'Retired path is still active'
+            Assert-True (Test-Path -LiteralPath $plan.backup) 'Retired CLI or checkout recovery is missing'
+        }
+        Assert-True (-not (Test-Path -LiteralPath $legacySkill)) 'Legacy Skill is still active'
+        $saved = Read-JsonFile -Path $ledger
+        Assert-True ($saved.consents.native_memories.decision -eq 'declined') 'Memory choice changed'
+        Assert-True (@($saved.records.PSObject.Properties).Count -eq 0) 'Retired Skills remain registered'
+    }
+}
+Write-Output 'user-scope legacy ownership, third-party protection, retirement and rollback passed'

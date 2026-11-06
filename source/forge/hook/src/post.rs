@@ -2,12 +2,10 @@ use chrono::Local;
 use regex::Regex;
 use serde_json::{Value, json};
 use sha1::{Digest as Sha1Digest, Sha1};
-use sha2::Sha256;
 use std::collections::BTreeSet;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use walkdir::WalkDir;
 
 use crate::StepResult;
 use crate::util::{
@@ -505,31 +503,4 @@ pub fn precommit_encoding() -> i32 {
             2
         }
     }
-}
-
-pub fn source_tree_hash(root: &Path) -> String {
-    let mut records = Vec::new();
-    for entry in WalkDir::new(root)
-        .follow_links(false)
-        .into_iter()
-        .filter_entry(|entry| !matches!(entry.file_name().to_str(), Some(".git" | "__pycache__")))
-        .filter_map(Result::ok)
-        .filter(|entry| entry.file_type().is_file())
-    {
-        let Ok(bytes) = fs::read(entry.path()) else {
-            continue;
-        };
-        let mut hasher = Sha256::new();
-        hasher.update(bytes);
-        records.push((
-            relative_display(root, entry.path()),
-            format!("{:x}", hasher.finalize()),
-        ));
-    }
-    records.sort();
-    let mut hasher = Sha256::new();
-    for (path, digest) in records {
-        hasher.update(format!("{path}\n{digest}\n"));
-    }
-    format!("{:x}", hasher.finalize())
 }

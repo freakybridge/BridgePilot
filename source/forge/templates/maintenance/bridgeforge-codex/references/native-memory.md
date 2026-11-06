@@ -12,7 +12,7 @@
 
 `repair-hook/setup/decline` 必须传 `--project-root .`，并进入根入口的统一 safe/risk/gap accumulator；禁止提前执行或另问一次。`repair-hook` 只能修改用户 hooks 并核对受管 Rust 入口，禁止访问 GitHub、Git、读取 Memory 或调用 `reconcile`。
 
-实际同步只由已授权的生命周期 Hook 触发：Hook 只登记 pending 并启动或复用单一隐藏 worker，worker 合并并发事件；每次同步前必须验证长期授权、远端身份和 private 状态。`gh` 登录失效时必须无感复用系统 Git 凭证完成 private API 校验，不得要求用户重复登录，也不得回显或持久化凭证。用户级 Hook 只能调用 updater 安装的用户级 `bridgeforge` Rust 二进制；禁止持久化任一项目的运行时路径。
+实际同步由已授权的生命周期 Hook 触发。Hook 调用 Codex 用户目录中 `.bridgeforge-codex/native-memory-sync/bin/bridgeforge-memory-hook.exe`，登记 pending 并启动或复用隐藏 worker。worker 合并并发事件，核验长期授权、远端身份和 private 状态。`gh` 登录失效时复用系统 Git 凭证完成 private API 校验，凭证不得回显或持久化。用户级迁移保留同步授权和状态。
 
 - `pending` 或 `busy`：表示等待，禁止算作成功；状态不变时不得提示用户。
 - `degraded` / `failed`：同一 `alertId` 只在下一次 SessionStart 或 已授权维护流程 输出一次；随后保持静默，直到状态产生新的告警 ID。

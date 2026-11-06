@@ -149,11 +149,7 @@ impl WritePlan {
                 paths.insert(source.into());
             }
         }
-        for platform in skills["platforms"]
-            .as_object()
-            .ok_or("missing distribution platforms")?
-            .values()
-        {
+        for platform in skills["platforms"].as_object().into_iter().flat_map(|platforms| platforms.values()) {
             for skill in platform["skills"]
                 .as_array()
                 .ok_or("missing platform skills")?

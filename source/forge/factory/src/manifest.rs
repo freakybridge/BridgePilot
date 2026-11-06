@@ -341,7 +341,16 @@ fn render_contract_value(
         } else {
             payload
         };
-        asset["current_sha256"] = Value::String(sha_git(&payload));
+        let digest = Value::String(sha_git(&payload));
+        let previous = asset["current_sha256"].clone();
+        if previous != digest
+            && previous.as_str().is_some_and(|hash| !hash.is_empty())
+            && let Some(history) = asset.get_mut("previous_sha256").and_then(Value::as_array_mut)
+            && !history.contains(&previous)
+        {
+            history.push(previous);
+        }
+        asset["current_sha256"] = digest;
         if let Some(blocks) = asset
             .get_mut("managed_blocks")
             .filter(|value| value.is_object())
@@ -513,7 +522,9 @@ fn factory_entrypoints(root: &Path) -> Result<BTreeMap<String, Vec<u8>>, String>
 pub(crate) fn render_product_manifest(root: &Path, overlay: &BTreeMap<String, Vec<u8>>) -> Result<Vec<u8>, String> {
     let mut product = bridgeforge_core::product_manifest::load(root)?;
     product["project_skeleton"] = serde_json::from_slice(&render_managed_contract_with_overlay(root, overlay)?).map_err(|e| e.to_string())?;
-    product["shared_skills"] = serde_json::from_slice(&render_distribution_manifest(root)?).map_err(|e| e.to_string())?;
+    if product["schema_version"] == 1 {
+        product["shared_skills"] = serde_json::from_slice(&render_distribution_manifest(root)?).map_err(|e| e.to_string())?;
+    }
     product["user_instructions"] = serde_json::from_slice(&crate::user_agents::render_manifest(root)?).map_err(|e| e.to_string())?;
     let mut bytes = serde_json::to_vec_pretty(&product).map_err(|e| e.to_string())?;
     bytes.push(b'\n');
@@ -558,11 +569,6 @@ pub(crate) fn render_targets(root: &Path) -> Result<Vec<(PathBuf, Vec<u8>)>, Str
     if crate::source_projection::available(root) {
         targets.extend(
             factory_entrypoints(root)?
-                .into_iter()
-                .map(|(p, b)| (root.join(p), b)),
-        );
-        targets.extend(
-            crate::dogfood::render(root)?
                 .into_iter()
                 .map(|(p, b)| (root.join(p), b)),
         );
@@ -753,7 +759,6 @@ pub fn development_projection(
         .into_iter()
         .map(|(p, b)| (format!(".codex/hooks/{p}"), b))
         .collect::<BTreeMap<_, _>>();
-    outputs.extend(crate::dogfood::render(root)?);
     outputs.insert(bridgeforge_core::product_manifest::FILE.into(), render_product_manifest(root, native)?);
     outputs.extend(factory_entrypoints(root)?);
 

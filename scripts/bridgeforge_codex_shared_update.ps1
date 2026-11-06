@@ -10,6 +10,12 @@ param(
     [Parameter(DontShow = $true)]
     [switch]$InternalMaintenanceOnly,
 
+    [switch]$MigrateUserScope,
+    [string]$PreparedSourceCommit,
+    [string[]]$MigratedProjectRoot,
+    [switch]$NoDependentProjects,
+    [switch]$InstallMemoryRuntime,
+
     [Parameter(DontShow = $true)]
     [switch]$TestNonWindows,
 
@@ -36,6 +42,8 @@ $script:PhaseTimings = [ordered]@{}
 $script:CleanupPending = $false
 $script:UserAgentsReceipt = $null
 $script:PublicArtifactsReceipt = $null
+$script:MemoryMigrationReceipt = $null
+$script:MemoryRuntimePath = $null
 $script:UpdateTimer = [Diagnostics.Stopwatch]::StartNew()
 $script:BuildCounts = [ordered]@{ cargo_build_invocations = 0; installed_cli_reused = 0; public_cli_reused = 0; source_clones = 0; source_reused = 0 }
 
@@ -984,6 +992,12 @@ function Assert-BundlePlan {
         $stage = Join-Path $bin ".bridgeforge-stage-$OperationId.exe"
         $backup = Join-Path $bin ".bridgeforge-backup-$OperationId.exe"
     }
+    elseif ([string]$Plan.kind -eq "cli-provenance") {
+        $bin = Join-Path $UserProfile '.codex\bin'
+        $target = Join-Path $bin 'bridgeforge-cli-provenance.json'
+        $stage = Join-Path $bin ".bridgeforge-provenance-stage-$OperationId.json"
+        $backup = Join-Path $bin ".bridgeforge-provenance-backup-$OperationId.json"
+    }
     elseif ([string]$Plan.kind -eq "user-agents") {
         $codexRoot = Join-Path $UserProfile ".codex"
         $target = Join-Path $codexRoot "AGENTS.md"
@@ -1016,6 +1030,26 @@ function Restore-BundlePlan {
     $target = [string]$Plan.target
     $backup = [string]$Plan.backup
     $stage = [string]$Plan.stage
+    if (Test-RetiringBundle $Plan) {
+        if ($Committed) {
+            if ((Test-Path -LiteralPath $target) -or -not (Test-Path -LiteralPath $backup) -or
+                (Get-BundleHash -Plan $Plan -Path $backup) -cne [string]$Plan.original_hash) {
+                throw "Committed retirement or its recovery copy changed: $target"
+            }
+        }
+        elseif (Test-Path -LiteralPath $backup) {
+            if ((Test-Path -LiteralPath $target) -or
+                (Get-BundleHash -Plan $Plan -Path $backup) -cne [string]$Plan.original_hash) {
+                throw "Retirement rollback cannot prove ownership; preserve both paths: $target"
+            }
+            Move-Item -LiteralPath $backup -Destination $target
+        }
+        elseif (-not (Test-Path -LiteralPath $target) -or
+            (Get-BundleHash -Plan $Plan -Path $target) -cne [string]$Plan.original_hash) {
+            throw "Retirement rollback original changed or is missing: $target"
+        }
+        return
+    }
     if ($Committed) {
         if (-not (Test-Path -LiteralPath $target) -or (Get-BundleHash -Plan $Plan -Path $target) -ne [string]$Plan.desired_hash) {
             throw "Committed shared bundle target is missing or changed: $target"
@@ -1048,6 +1082,22 @@ function Restore-BundlePlan {
         Remove-BundlePath -Plan $Plan -Path $target
     }
     Remove-BundlePath -Plan $Plan -Path $stage
+}
+
+function Test-RetiringBundle($Plan) {
+    if ($Plan -is [System.Collections.IDictionary]) { return $Plan.Contains('retire') -and [bool]$Plan.retire }
+    return ($null -ne $Plan.PSObject.Properties['retire']) -and [bool]$Plan.retire
+}
+
+function Move-RetiringBundle($Plan) {
+    if ((Test-Path -LiteralPath $Plan.backup) -or
+        (Get-BundleHash -Plan $Plan -Path $Plan.target) -cne [string]$Plan.original_hash) {
+        throw "Legacy Forge asset changed after planning: $($Plan.target)"
+    }
+    Move-Item -LiteralPath $Plan.target -Destination $Plan.backup
+    if ((Get-BundleHash -Plan $Plan -Path $Plan.backup) -cne [string]$Plan.original_hash) {
+        throw "Retired Forge asset backup differs from its reviewed bytes: $($Plan.target)"
+    }
 }
 
 function Restore-InterruptedOperation {
@@ -1181,7 +1231,9 @@ function Restore-InterruptedOperation {
             Remove-Item -LiteralPath ([string]$platformPlan.ledger_stage) -Force
         }
     }
-    if (-not $seenPlatforms.ContainsKey("codex") -or $seenPlatforms.Count -ne 1) {
+    $scopeOnly = $null -ne $log.PSObject.Properties['user_scope'] -and [bool]$log.user_scope
+    if ((!$scopeOnly -or $seenPlatforms.Count -gt 0) -and
+        (-not $seenPlatforms.ContainsKey("codex") -or $seenPlatforms.Count -ne 1)) {
         throw "Recovery log must contain exactly the codex platform."
     }
     foreach ($bundle in $bundles) { Restore-BundlePlan -Plan $bundle -Committed ([bool]$log.committed) }
@@ -1302,17 +1354,20 @@ function Invoke-UpdateTransaction {
         [Parameter(Mandatory = $true)][string]$UserProfile,
         [Parameter(Mandatory = $true)][string]$LogPath,
         [Parameter(Mandatory = $true)][string]$OperationId,
-        [Parameter(Mandatory = $true)]$PlatformPlans,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()]$PlatformPlans,
         $CommandHomePlan,
         $RustCliPlan,
-        $UserAgentsPlan
+        $UserAgentsPlan,
+        [object[]]$RetirementPlans = @(),
+        [switch]$UserScope,
+        $UserHookWitness
     )
     Assert-ProductManifestHash -RepositoryRoot $RepositoryRoot -Expected $ManifestHash
     foreach ($platformPlan in $PlatformPlans) { Assert-LedgerSnapshot -Plan $platformPlan }
     Initialize-BundlePlan -Plan $CommandHomePlan -Kind "home"
     Initialize-BundlePlan -Plan $RustCliPlan -Kind "cli"
     # User instruction witnesses come from Rust staging, before the transaction.
-    $bundles = @(@($CommandHomePlan, $RustCliPlan, $UserAgentsPlan) | Where-Object { $null -ne $_ })
+    $bundles = @(@($CommandHomePlan, $RustCliPlan, $UserAgentsPlan) | Where-Object { $null -ne $_ }) + $RetirementPlans
     foreach ($bundle in $bundles) { Assert-BundlePlan -Plan $bundle -UserProfile $UserProfile -OperationId $OperationId }
     $log = [ordered]@{
         schema_version = 1
@@ -1323,11 +1378,17 @@ function Invoke-UpdateTransaction {
         committed = $false
         platforms = $PlatformPlans
         bundles = $bundles
+        user_scope = [bool]$UserScope
     }
     Write-JsonAtomic -Path $LogPath -Value $log
     $completedActionCount = 0
 
     try {
+        if ($null -ne $UserHookWitness) {
+            $currentHooks = if (Test-Path -LiteralPath $UserHookWitness.path) { Get-Sha256 -Path $UserHookWitness.path } else { $null }
+            if ($currentHooks -cne $UserHookWitness.hash) { throw 'User Hook configuration changed after retirement planning.' }
+        }
+        foreach ($retirement in $RetirementPlans) { Move-RetiringBundle $retirement }
         if ($null -ne $CommandHomePlan) { Install-CommandHome -Plan $CommandHomePlan }
         if ($null -ne $RustCliPlan) { Install-RustCli -Plan $RustCliPlan }
         if ($null -ne $UserAgentsPlan) {
@@ -1424,6 +1485,10 @@ function Invoke-UpdateTransaction {
         }
         Assert-RustCliState -Plan $RustCliPlan -RepositoryRoot $RepositoryRoot -Installed
         Assert-ProductManifestHash -RepositoryRoot $RepositoryRoot -Expected $ManifestHash
+        if ($null -ne $UserHookWitness) {
+            $currentHooks = if (Test-Path -LiteralPath $UserHookWitness.path) { Get-Sha256 -Path $UserHookWitness.path } else { $null }
+            if ($currentHooks -cne $UserHookWitness.hash) { throw 'User Hook configuration changed during retirement.' }
+        }
         $log.committed = $true
         Write-JsonAtomic -Path $LogPath -Value $log
     }
@@ -2059,204 +2124,228 @@ function Install-UserAgents {
     $Plan.status = "installed"
 }
 
-function Invoke-InternalMaintenanceUpdate {
-    Assert-Windows
-    if (-not $SourceRepositoryRoot -or $ResumeSourceCommit) { throw 'Internal candidate installation requires an explicit source root and no resume commit.' }
-    $repository = [IO.Path]::GetFullPath($SourceRepositoryRoot).TrimEnd('\')
-    $actual = ([string](Invoke-Git -Arguments @('rev-parse', '--show-toplevel') -WorkingDirectory $repository)).Trim()
-    if ([IO.Path]::GetFullPath($actual).TrimEnd('\') -cne $repository) { throw 'Internal maintenance source must be the repository root.' }
-    $origin = ([string](Invoke-Git -Arguments @('config', '--get', 'remote.origin.url') -WorkingDirectory $repository)).Trim()
-    if ((Get-NormalizedRemote $origin) -ne (Get-NormalizedRemote $CanonicalRemote)) { throw 'Internal maintenance source origin differs from the product repository.' }
-    $commit = ([string](Invoke-Git -Arguments @('rev-parse', 'HEAD') -WorkingDirectory $repository)).Trim()
-    $userProfile = [string]$env:USERPROFILE
-    $mutex = Enter-UpdateMutex -UserProfile $userProfile
-    try {
-        $log = Join-Path $userProfile $OperationLogName
-        if (Test-Path -LiteralPath $log) { throw 'An existing shared update is pending; recover it before internal maintenance installation.' }
-        $validated = Assert-Manifest -RepositoryRoot $repository -UserProfile $userProfile
-        $manifest = $validated.value
-        $manifest.platforms.codex.skills = @($manifest.platforms.codex.skills | Where-Object { $_.name -ceq 'bridgeforge-codex' })
-        $operation = [Guid]::NewGuid().ToString('N')
-        $plans = @(New-UpdatePlan -Manifest $manifest -UserProfile $userProfile -OperationId $operation -Commit $commit -OnlyBundle 'bridgeforge-codex')
-        $changed = @($plans | Where-Object { $_.ledger_needs_update -or @($_.actions).Count -gt 0 }).Count -gt 0
-        if ($changed) {
-            Invoke-UpdateTransaction -RepositoryRoot $repository -Manifest $manifest -Commit $commit -ManifestHash $validated.hash -UserProfile $userProfile -LogPath $log -OperationId $operation -PlatformPlans $plans
+function New-UserRetirementPlans([string]$UserProfile, [string]$Operation) {
+    $legacyCheckout = Join-Path $UserProfile $CommandHomeName
+    $bin = Join-Path $UserProfile '.codex\bin'
+    $cli = Join-Path $bin 'bridgeforge.exe'
+    $proof = Join-Path $bin 'bridgeforge-cli-provenance.json'
+    $cliHash = $null
+    $proofHash = $null
+    foreach ($path in @($legacyCheckout, $cli, $proof)) { Assert-NoReparseUnderProfile -Path $path -UserProfile $UserProfile }
+    if ((Test-Path -LiteralPath $cli) -or (Test-Path -LiteralPath $proof)) {
+        if (-not (Test-Path -LiteralPath $cli -PathType Leaf) -or -not (Test-Path -LiteralPath $proof -PathType Leaf)) {
+            throw 'The legacy user CLI and its provenance are incomplete; both are preserved.'
         }
-        Assert-PlatformTargets -PlatformManifest $manifest.platforms.codex -SkillsRoot (Join-Path $userProfile '.codex/skills') -Platform 'codex'
-        @{ status='internal_maintenance_current'; mode=$(if ($changed) {'updated'} else {'reused'}); source_state='local-candidate'; source_commit=$commit; menu_entry=$false; user_agents_changed=$false; other_skills_changed=$false } | ConvertTo-Json -Compress
+        $cliHash = Get-Sha256 -Path $cli
+        $proofHash = Get-Sha256 -Path $proof
+        $record = Read-JsonFile -Path $proof
+        if ($record.schema -ne 1 -or $record.owner -cne 'bridgeforge-user-cli-v1' -or
+            $record.binary_sha256 -cne $cliHash -or (Get-Sha256 -Path $proof) -cne $proofHash) { throw 'Legacy user CLI ownership is unproven; preserve it.' }
+    }
+    $checkoutIdentity = if (Test-Path -LiteralPath $legacyCheckout) { Get-RepositoryIdentity -Root $legacyCheckout } else { $null }
+    $plans = @(
+        [ordered]@{kind='home'; target=$legacyCheckout; stage=(Join-Path $UserProfile ".bridgeforge-codex-stage-$Operation"); backup=(Join-Path $UserProfile ".bridgeforge-codex-backup-$Operation")},
+        [ordered]@{kind='cli'; target=$cli; stage=(Join-Path $bin ".bridgeforge-stage-$Operation.exe"); backup=(Join-Path $bin ".bridgeforge-backup-$Operation.exe")},
+        [ordered]@{kind='cli-provenance'; target=$proof; stage=(Join-Path $bin ".bridgeforge-provenance-stage-$Operation.json"); backup=(Join-Path $bin ".bridgeforge-provenance-backup-$Operation.json")}
+    )
+    foreach ($plan in $plans) {
+        if (-not (Test-Path -LiteralPath $plan.target)) { continue }
+        $plan.original_hash = switch ($plan.kind) {
+            'cli' { $cliHash }
+            'cli-provenance' { $proofHash }
+            default { Get-BundleHash -Plan $plan -Path $plan.target }
+        }
+        if ((Get-BundleHash -Plan $plan -Path $plan.target) -cne $plan.original_hash) {
+            throw "Legacy Forge ownership changed after verification: $($plan.target)"
+        }
+        if ($plan.kind -eq 'home') {
+            $after = Get-RepositoryIdentity -Root $legacyCheckout
+            if ($null -eq $checkoutIdentity -or $after.commit -cne $checkoutIdentity.commit -or $after.remote -cne $checkoutIdentity.remote) {
+                throw 'Legacy Forge checkout changed during ownership verification.'
+            }
+        }
+        $plan.desired_hash = $plan.original_hash
+        $plan.retire = $true
+        $plan.had_original = $true
+        $plan.needs_swap = $true
+        Assert-BundlePlan -Plan $plan -UserProfile $UserProfile -OperationId $Operation
+        if ((Test-Path -LiteralPath $plan.stage) -or (Test-Path -LiteralPath $plan.backup)) { throw 'Retirement recovery paths already exist.' }
+        $plan
+    }
+}
+
+function Invoke-CheckedJson([string]$Program, [string[]]$Arguments) {
+    $previousEncoding = [Console]::OutputEncoding
+    try {
+        [Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
+        $output = & $Program @Arguments
+        if ($LASTEXITCODE -ne 0) { throw "Managed command failed: $($Arguments[0])" }
+    } finally { [Console]::OutputEncoding = $previousEncoding }
+    return ($output -join "`n") | ConvertFrom-Json
+}
+
+function Get-UserHookRetirementWitness([string]$Path, [object[]]$Retirements) {
+    if (-not (Test-Path -LiteralPath $Path)) { return @{path=$Path;hash=$null} }
+    $witness = Get-Sha256 -Path $Path
+    $document = Read-JsonFile -Path $Path
+    $retiringPaths = @($Retirements | Where-Object { $_.kind -in @('home', 'cli', 'skill') } | ForEach-Object {
+        $pathText = ([string]$_.target).Replace('\','/').ToLowerInvariant()
+        $pathText
+        $relativeCodex = $pathText.IndexOf('/.codex/')
+        if ($relativeCodex -ge 0) { $pathText.Substring($relativeCodex + 1) }
+    })
+    $events = @()
+    if ($null -ne $document.PSObject.Properties['hooks']) { $events = @($document.hooks.PSObject.Properties) }
+    foreach ($event in $events) {
+        foreach ($group in @($event.Value)) {
+            foreach ($handler in @($group.hooks)) {
+                foreach ($property in $handler.PSObject.Properties) {
+                    if ($property.Name -notlike 'command*' -or $property.Value -isnot [string]) { continue }
+                    $command = $property.Value.Replace('\','/').ToLowerInvariant()
+                    $depends = @($retiringPaths | Where-Object { $command.Contains($_) }).Count -gt 0
+                    if ($retiringPaths.Count -and ($depends -or
+                        $command -match '(?i)\.codex/+bin/+bridgeforge\.exe|(?:^|/)\.bridgeforge-codex/(?!native-memory-sync/)|codex_memory_sync_hook')) {
+                        throw "User Hook for $($event.Name) still references the retiring Forge runtime. Preserve the legacy installation."
+                    }
+                }
+            }
+        }
+    }
+    if ((Get-Sha256 -Path $Path) -cne $witness) { throw 'User Hooks changed while checking retirement dependencies.' }
+    return @{path=$Path;hash=$witness}
+}
+
+function Install-DedicatedMemoryRuntime([string]$Repository, [string]$migrationProfile, $Identity) {
+    $codex = Join-Path $migrationProfile '.codex'
+    $destination = Join-Path $codex '.bridgeforge-codex/native-memory-sync/bin/bridgeforge-memory-hook.exe'
+    Assert-NoReparseUnderProfile -Path $destination -UserProfile $migrationProfile
+    $previousSource = $env:BRIDGEFORGE_BUILD_SOURCE_SHA
+    $previousLock = $env:BRIDGEFORGE_BUILD_LOCK_SHA
+    $env:BRIDGEFORGE_BUILD_SOURCE_SHA = [string]$Identity.source_tree_sha256
+    $env:BRIDGEFORGE_BUILD_LOCK_SHA = [string]$Identity.lockfile_sha256
+    Push-Location -LiteralPath $Repository
+    try {
+        & cargo build --locked --release --manifest-path Cargo.toml --target-dir .build/bridgeforge/cargo/memory -p bridgeforge-cli --bin bridgeforge-memory-hook | Out-Host
+        if ($LASTEXITCODE -ne 0) { throw 'Native Memory Hook runtime build failed.' }
+    } finally {
+        Pop-Location
+        $env:BRIDGEFORGE_BUILD_SOURCE_SHA = $previousSource
+        $env:BRIDGEFORGE_BUILD_LOCK_SHA = $previousLock
+    }
+    $candidate = Join-Path $Repository '.build/bridgeforge/cargo/memory/release/bridgeforge-memory-hook.exe'
+    $self = Invoke-CheckedJson $candidate @('self-test', '--json')
+    if ($self.name -cne 'bridgeforge-memory-hook' -or $self.status -cne 'ok' -or
+        $self.build_identity.source_tree_sha256 -cne $Identity.source_tree_sha256 -or
+        $self.build_identity.lockfile_sha256 -cne $Identity.lockfile_sha256) { throw 'Memory runtime provenance differs from the prepared Forge product.' }
+    $digest = Get-Sha256 -Path $candidate
+    if (Test-Path -LiteralPath $destination) {
+        if ((Get-Sha256 -Path $destination) -cne $digest) { throw 'Dedicated Memory runtime bytes differ; preserve the existing runtime.' }
+    } else {
+        $parent = Split-Path -Parent $destination
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
+        $stage = Join-Path $parent ('.bridgeforge-memory-stage-' + [Guid]::NewGuid().ToString('N'))
+        try {
+            Copy-Item -LiteralPath $candidate -Destination $stage
+            if ((Get-Sha256 -Path $stage) -cne $digest) { throw 'Memory runtime changed while staging.' }
+            [IO.File]::Move($stage, $destination)
+        } finally {
+            if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Force }
+        }
+    }
+    $script:MemoryRuntimePath = $destination
+    $receipt = Invoke-CheckedJson $destination @('memory-sync', 'retarget-hook', '--confirmed-migration', '--codex-home', $codex)
+    if ($receipt.status -cne 'hook_scope_ready') { throw 'Native Memory Hook migration did not produce a ready receipt.' }
+    $script:MemoryMigrationReceipt = $receipt
+    return $receipt
+}
+
+function Invoke-UserScopeMigration {
+    Assert-Windows
+    if (!$SourceRepositoryRoot -or $PreparedSourceCommit -cnotmatch '^[0-9a-f]{40}$' -or
+        (!$MigratedProjectRoot -and !$NoDependentProjects) -or ($MigratedProjectRoot -and $NoDependentProjects)) {
+        throw 'Explicit user retirement requires prepared Forge source and all migrated projects, or -NoDependentProjects.'
+    }
+    $repository = [IO.Path]::GetFullPath($SourceRepositoryRoot).TrimEnd('\')
+    $source = Get-RepositoryIdentity -Root $repository
+    $upstream = ((Invoke-Git -WorkingDirectory $repository -Arguments @('rev-parse', 'refs/remotes/origin/main')) -join '').Trim()
+    $root = ((Invoke-Git -WorkingDirectory $repository -Arguments @('rev-parse', '--show-toplevel')) -join '').Trim()
+    if ($source.commit -cne $PreparedSourceCommit -or $upstream -cne $PreparedSourceCommit -or [IO.Path]::GetFullPath($root).TrimEnd('\') -ne $repository) {
+        throw 'The prepared Forge source is outside its fixed repository and upstream commit.'
+    }
+    $manifestPath = Join-Path $repository $ManifestName
+    $manifestHash = "sha256:$(Get-Sha256 -Path $manifestPath)"
+    $product = Read-JsonFile -Path $manifestPath
+    if ($product.schema_version -ne 2 -or $null -ne $product.PSObject.Properties['shared_skills']) { throw 'The product has not migrated to project-scoped workflows.' }
+    $cli = Join-Path $repository '.build/bridgeforge/bin/bridgeforge.exe'
+    $proof = Read-JsonFile -Path (Join-Path $repository '.build/bridgeforge/bin/build-receipt-cli.json')
+    if ($proof.generated_asset_id -cne 'codex.bridgeforge-cli' -or $proof.binary_sha256 -cne "sha256:$(Get-Sha256 -Path $cli)") {
+        throw 'The prepared Forge CLI is missing or differs from its build receipt.'
+    }
+    $self = Invoke-CheckedJson $cli @('self-test', '--json')
+    $declared = @($product.project_skeleton.generated_assets | Where-Object { $_.id -eq 'codex.bridgeforge-cli' })
+    if ($self.name -cne 'bridgeforge' -or $declared.Count -ne 1 -or
+        $self.build_identity.source_tree_sha256 -cne $declared[0].source_tree_sha256 -or
+        $self.build_identity.lockfile_sha256 -cne $declared[0].lockfile_sha256) { throw 'The prepared CLI differs from the current project distribution.' }
+    foreach ($project in $MigratedProjectRoot) {
+        $project = [IO.Path]::GetFullPath($project)
+        $ready = Invoke-CheckedJson $cli @('check', 'baseline', '--root', $project)
+        if ($ready.state -cne 'clean' -or $ready.model -notin @('template-only-v1', 'factory-template-v1') -or !$ready.runtime_verified) {
+            throw "Project has no current project-scoped baseline: $project"
+        }
+    }
+
+    $migrationProfile = [IO.Path]::GetFullPath($env:USERPROFILE)
+    if ($env:CODEX_HOME -and [IO.Path]::GetFullPath($env:CODEX_HOME).TrimEnd('\', '/') -ne (Join-Path $migrationProfile '.codex')) {
+        throw 'User Forge retirement requires the default Codex home; an alternate CODEX_HOME may still depend on it.'
+    }
+    if ($repository -eq (Join-Path $migrationProfile $CommandHomeName)) { throw 'The retiring user checkout cannot be the migration source.' }
+    $mutex = Enter-UpdateMutex -UserProfile $migrationProfile
+    try {
+        $log = Join-Path $migrationProfile $OperationLogName
+        Restore-InterruptedOperation -LogPath $log -UserProfile $migrationProfile
+        Restore-CommandHomeOperation -UserProfile $migrationProfile
+        $operation = [Guid]::NewGuid().ToString('N')
+        $empty = [pscustomobject]@{platforms=[pscustomobject]@{codex=[pscustomobject]@{target='~/.codex/skills';skills=@()}}}
+        $ledger = Join-Path $migrationProfile '.codex/bridgeforge-codex-managed.json'
+        $plans = @()
+        if (Test-Path -LiteralPath $ledger) {
+            Assert-NoReparseUnderProfile -Path $ledger -UserProfile $migrationProfile
+            $plans = @(New-UpdatePlan -Manifest $empty -UserProfile $migrationProfile -OperationId $operation -Commit $source.commit | Where-Object { $_.ledger_needs_update })
+        }
+        $retire = @(New-UserRetirementPlans -UserProfile $migrationProfile -Operation $operation)
+        $hooks = Join-Path $migrationProfile '.codex/hooks.json'
+        Assert-NoReparseUnderProfile -Path $hooks -UserProfile $migrationProfile
+        $memory = $null
+        if ($InstallMemoryRuntime -or ((Test-Path -LiteralPath $hooks) -and
+            ([IO.File]::ReadAllText($hooks) -match 'bridgeforge-codex\.native-memory-sync|codex_memory_sync_hook'))) {
+            $memory = Install-DedicatedMemoryRuntime $repository $migrationProfile $self.build_identity
+        }
+        $removedSkills = @($plans | ForEach-Object { $_.actions } | Where-Object { $_.kind -eq 'remove' } |
+            ForEach-Object { @{kind='skill';target=$_.target} })
+        $hookWitness = Get-UserHookRetirementWitness -Path $hooks -Retirements ($retire + $removedSkills)
+        if ($proof.binary_sha256 -cne "sha256:$(Get-Sha256 -Path $cli)") { throw 'Prepared Forge CLI changed before user migration.' }
+        $agents = New-UserAgentsPlan -RepositoryRoot $repository -UserProfile $migrationProfile -OperationId $operation -RustCliPlan @{target=$cli;needs_swap=$false}
+        if ($plans.Count -or $retire.Count -or $agents.needs_swap) {
+            Invoke-UpdateTransaction -RepositoryRoot $repository -Manifest $empty -Commit $source.commit -ManifestHash $manifestHash `
+                -UserProfile $migrationProfile -LogPath $log -OperationId $operation -PlatformPlans $plans -UserAgentsPlan $agents -RetirementPlans $retire `
+                -UserScope -UserHookWitness $hookWitness
+        }
+        [ordered]@{schema=1;status='user_scope_migrated';source_commit=$source.commit;project_count=@($MigratedProjectRoot | Where-Object { $_ }).Count;
+            retired_recovery=@($retire | ForEach-Object {$_.backup});memory=$memory;cleanup_pending=$script:CleanupPending} | ConvertTo-Json -Depth 6 -Compress
     } finally { $mutex.ReleaseMutex(); $mutex.Dispose() }
 }
 
-function Invoke-Main {
-    Assert-Windows
-    $userProfile = [string]$env:USERPROFILE
-    if ([string]::IsNullOrWhiteSpace($userProfile) -or -not (Test-Path -LiteralPath $userProfile -PathType Container)) {
-        throw "USERPROFILE is not a valid existing directory."
-    }
-    $mutex = Enter-UpdateMutex -UserProfile $userProfile
-    try {
-        if ($TestHoldLockMilliseconds -gt 0) {
-            Start-Sleep -Milliseconds $TestHoldLockMilliseconds
-        }
-        $logPath = Join-Path $userProfile $OperationLogName
-        $phase = [Diagnostics.Stopwatch]::StartNew()
-        Restore-InterruptedOperation -LogPath $logPath -UserProfile $userProfile
-        Restore-CommandHomeOperation -UserProfile $userProfile
-        Complete-PhaseTiming -Name "recovery" -Stopwatch $phase
-
-        $cloneRoot = $null
-        $commandHomePlan = $null
-        $rustCliPlan = $null
-        $userAgentsPlan = $null
-        $commit = $null
-        $resultMode = $null
-        $actionCount = 0
-        try {
-            $phase = [Diagnostics.Stopwatch]::StartNew()
-            try {
-            if (-not [string]::IsNullOrWhiteSpace($ResumeSourceCommit)) {
-                if (-not [string]::IsNullOrWhiteSpace($SourceRepositoryRoot)) { throw 'Resume cannot override the installed product source.' }
-                $selection = Select-ResumeSource -UserProfile $userProfile -ExpectedCommit $ResumeSourceCommit
-                $repositoryRoot = [string]$selection.root
-                $commit = [string]$selection.commit
-            }
-            elseif ([string]::IsNullOrWhiteSpace($SourceRepositoryRoot)) {
-                $selection = Select-CanonicalSource -UserProfile $userProfile
-                $cloneRoot = $selection.clone
-                $repositoryRoot = [string]$selection.root
-                $commit = [string]$selection.commit
-            }
-            else {
-                $repositoryRoot = [IO.Path]::GetFullPath($SourceRepositoryRoot)
-                $commit = Assert-Repository -Root $repositoryRoot
-            }
-            $manifestResult = Assert-Manifest `
-                -RepositoryRoot $repositoryRoot `
-                -UserProfile $userProfile `
-                -ValidateSources
-            } finally { Complete-PhaseTiming -Name "source_probe" -Stopwatch $phase }
-
-            $operationId = [Guid]::NewGuid().ToString("N")
-            $preparationPhase = [Diagnostics.Stopwatch]::StartNew()
-            try {
-            $commandHomePlan = New-CommandHomePlan `
-                -SourceRoot $repositoryRoot `
-                -UserProfile $userProfile `
-                -OperationId $operationId `
-                -Commit $commit
-            $rustCliPlan = New-RustCliPlan `
-                -RepositoryRoot $repositoryRoot `
-                -UserProfile $userProfile `
-                -OperationId $operationId -KeepBuildTree
-            Prepare-PublicArtifacts -Plan $rustCliPlan -RepositoryRoot $repositoryRoot -UserProfile $userProfile
-            $userAgentsPlan = New-UserAgentsPlan -RepositoryRoot $repositoryRoot -UserProfile $userProfile -OperationId $operationId -RustCliPlan $rustCliPlan
-            } finally { Complete-PhaseTiming -Name 'component_preparation' -Stopwatch $preparationPhase }
-            $phase = [Diagnostics.Stopwatch]::StartNew()
-            try {
-            $platformPlans = @(
-                New-UpdatePlan `
-                    -Manifest $manifestResult.value `
-                    -UserProfile $userProfile `
-                    -OperationId $operationId `
-                    -Commit $commit
-            )
-            $actionCount = @(
-                $platformPlans | ForEach-Object { @($_.actions).Count }
-            ) | Measure-Object -Sum | Select-Object -ExpandProperty Sum
-            if ([bool]$commandHomePlan.needs_swap) {
-                $actionCount += 1
-            }
-            if ([bool]$rustCliPlan.needs_swap) {
-                $actionCount += 1
-            }
-            if ([bool]$userAgentsPlan.needs_swap) { $actionCount += 1 }
-            $needsTransaction = [bool]($actionCount -gt 0 -or @(
-                $platformPlans | Where-Object { [bool]$_.ledger_needs_update }
-            ).Count -gt 0)
-            } finally { Complete-PhaseTiming -Name "target_plan" -Stopwatch $phase }
-
-            $needsTransaction = [bool](
-                $needsTransaction -or
-                [bool]$commandHomePlan.needs_swap -or
-                [bool]$rustCliPlan.needs_swap
-            )
-            $phase = [Diagnostics.Stopwatch]::StartNew()
-            try {
-                Assert-RustCliState -Plan $rustCliPlan -RepositoryRoot $repositoryRoot
-                Assert-ProductManifestHash -RepositoryRoot $repositoryRoot -Expected $manifestResult.hash
-            }
-            finally { Complete-PhaseTiming -Name 'component_validation' -Stopwatch $phase }
-            if (-not $needsTransaction) {
-                Write-Host "bridgeforge-codex shared skills already current at commit $commit."
-                $resultMode = "noop"
-            }
-            else {
-                $phase = [Diagnostics.Stopwatch]::StartNew()
-                try {
-                    Invoke-UpdateTransaction `
-                        -RepositoryRoot $repositoryRoot `
-                        -Manifest $manifestResult.value `
-                        -Commit $commit `
-                        -ManifestHash $manifestResult.hash `
-                        -UserProfile $userProfile `
-                        -LogPath $logPath `
-                        -OperationId $operationId `
-                        -PlatformPlans $platformPlans -CommandHomePlan $commandHomePlan -RustCliPlan $rustCliPlan -UserAgentsPlan $userAgentsPlan
-                } finally { Complete-PhaseTiming -Name "transaction" -Stopwatch $phase }
-                Write-Host "bridgeforge-codex shared skills updated to commit $commit."
-                $resultMode = "updated"
-            }
-            $phase = [Diagnostics.Stopwatch]::StartNew()
-            try { Save-RustCliProvenance -Plan $rustCliPlan -RepositoryRoot $repositoryRoot -UserProfile $userProfile }
-            finally { Complete-PhaseTiming -Name 'reuse_provenance' -Stopwatch $phase }
-            $script:UserAgentsReceipt = [ordered]@{
-                status = if ([bool]$userAgentsPlan.needs_swap) { "updated" } else { "noop" }
-                target = [string]$userAgentsPlan.target
-                backup = if ([bool]$userAgentsPlan.needs_swap -and [bool]$userAgentsPlan.had_original) { [string]$userAgentsPlan.backup } else { $null }
-                original_sha256 = $userAgentsPlan.original_hash
-                installed_sha256 = $userAgentsPlan.desired_hash
-                override_present = [bool]$userAgentsPlan.override_present
-            }
-        }
-        finally {
-            $phase = [Diagnostics.Stopwatch]::StartNew()
-            if ($null -ne $commandHomePlan -and
-                [string]$commandHomePlan.status -eq "staged") {
-                Undo-CommandHome -Plan $commandHomePlan
-            }
-            if ($null -ne $rustCliPlan -and [string]$rustCliPlan.status -eq "staged") {
-                Undo-RustCli -Plan $rustCliPlan
-            }
-            if ($null -ne $rustCliPlan -and $rustCliPlan.Contains('bootstrap_target') -and
-                $rustCliPlan.bootstrap_target -and (Test-Path -LiteralPath ([string]$rustCliPlan.bootstrap_target))) {
-                Remove-SafeTree -Path ([string]$rustCliPlan.bootstrap_target)
-            }
-            if ($cloneRoot -and (Test-Path -LiteralPath $cloneRoot)) {
-                Remove-SafeTree -Path $cloneRoot
-            }
-            if ($null -ne $userAgentsPlan -and -not (Test-Path -LiteralPath $logPath)) {
-                Remove-BundlePath -Plan $userAgentsPlan -Path ([string]$userAgentsPlan.stage)
-            }
-            Complete-PhaseTiming -Name "cleanup" -Stopwatch $phase
-        }
-        Write-UpdateReceipt `
-            -Status "completed" `
-            -Commit $commit `
-            -Mode $resultMode `
-            -ActionCount $actionCount
-    }
-    finally {
-        $mutex.ReleaseMutex()
-        $mutex.Dispose()
-    }
-}
-
 try {
-    if ($InternalMaintenanceOnly) { Invoke-InternalMaintenanceUpdate } else { Invoke-Main }
+    if ($MigrateUserScope) { Invoke-UserScopeMigration }
+    else { throw 'User-level Forge distribution is retired. Install project workflows from INSTALL.md, then explicitly migrate the user scope.' }
     exit 0
 }
 catch {
-    Write-UpdateReceipt -Status "failed" -Mode "failed" -ErrorMessage $_.Exception.Message
+    if ($MigrateUserScope) {
+        [ordered]@{schema=1;status='user_scope_incomplete';error=$_.Exception.Message;
+            memory_runtime=$script:MemoryRuntimePath;memory_migration=$script:MemoryMigrationReceipt;
+            cleanup_pending=$script:CleanupPending} | ConvertTo-Json -Depth 6 -Compress
+    } else { Write-UpdateReceipt -Status "failed" -Mode "failed" -ErrorMessage $_.Exception.Message }
     Write-Error $_.Exception.Message
     exit 1
 }

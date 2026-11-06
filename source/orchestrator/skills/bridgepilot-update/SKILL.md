@@ -17,7 +17,7 @@ argument: 项目目录或项目集合，以及 dry-run、升级或本轮已授�
 
 成功后读取实际已安装 home 下 `source/orchestrator/skills/bridgepilot-update/SKILL.md`，携带本次安装收据从下游阶段继续，不递归调用本节。只读模式跳过安装，使用现有合格工具；本节结果不授权恢复任务、接管、清理或业务环境安装。
 
-由 BP 主对话编排整轮骨架升级，沿用 [BP 入口](../bridgepilot/SKILL.md) 的项目绑定、控制权和任务核验。Forge 维护读取内部 MAINTENANCE.md，开发与发布使用 develop、git-sync；不要求菜单存在 bridgeforge-codex Skill。按 BP 的实际 Skills 绑定读取相邻 bridgeforge-codex/MAINTENANCE.md；首次安装可从本次成功源码更新收据的 source_root/source/forge/templates/maintenance/bridgeforge-codex/MAINTENANCE.md 读取。路径不存在或来源不可核验时报告缺口，不退回旧菜单入口。
+由 BP 主对话编排整轮骨架升级，沿用 [BP 入口](../bridgepilot/SKILL.md) 的项目绑定、控制权和任务核验。从本次成功源码更新收据固定的 `source_root/source/forge/templates/maintenance/bridgeforge-codex/MAINTENANCE.md` 进入 Forge 维护。已安装的项目工作流从该项目 `.agents/skills/` 读取。只读时复用已经核验的源码与 prepared 收据，缺项时报告预览缺口。
 
 读取本 Skill 目录的 `bridgepilot-local.json`，以实际 `home` 定位 `.build/bridgepilot/bin/bp.exe`；源码引导无绑定时按 BP 安装入口核对实际 home，不猜路径。正常调用的安装授权限于本节规定范围，不能扩展成发布授权。
 
@@ -31,7 +31,7 @@ argument: 项目目录或项目集合，以及 dry-run、升级或本轮已授�
 
 ## 2. 锁定来源与前置条件
 
-在已有维护授权内，按已读取的内部维护手册从官方入口刷新一次用户级产品，记录版本、不可变来源提交、实际 CLI 和 prepared 公共产物收据；同一批次复用，不逐项目重新追随上游。仅查本地版本不能称为最新。目标变化时更新批次决定，并核对受影响计划。
+在已有维护授权内，按维护手册调用官方固定来源的 `scripts/prepare-project.ps1`，记录来源提交、实际 CLI 和 prepared 公共产物收据。同一批次复用，目标变化时核对受影响计划。
 
 从各项目 INSTALL.md 及其明确导航进入，核对骨架身份、定制区、实际 Hook 调用、必要可执行文件、编码和验证环境。先核对低成本且可能阻断长任务的条件。缺安装说明、私有 Hook 或业务依赖时按归属处理，不把骨架维护扩成业务环境恢复；必要产物沿项目自己的锁定构建与安装入口准备。
 
@@ -54,7 +54,7 @@ argument: 项目目录或项目集合，以及 dry-run、升级或本轮已授�
 
 ## 4. 处理与升级
 
-通用修复在 Forge 完成必要开发验证；需要官方发布、用户级刷新时须有对应授权，不从下游升级推导上游发布权限。项目专项留在项目，仅修改获准范围；源与生成镜像分开处理，保护资料、定制、业务改动和原生 Memory。
+通用修复在 Forge 完成必要开发验证；官方发布与用户级迁移分别按授权执行。项目专项留在项目，仅修改获准范围；源与生成镜像分开处理，保护资料、定制、业务改动和原生 Memory。
 
 按真实内容、依赖、构建输入选择最小充分验证，优先暴露便宜的失败。复用仍有效的受管记录；确已失效才补对应检查和子包收口。不从包数或缺记录推定全包重测，不为放行删除输入归属、削减必需检查、猜造可复用环境或导入聊天 passed。
 

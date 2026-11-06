@@ -315,20 +315,65 @@ pub fn merge_user_hooks(codex_home: &Path, binary: &Path) -> MemoryResult<bool> 
     )
 }
 
+/// Replace only the known installed registrations. Never enables Memory or adds a missing hook.
+pub fn retarget_user_hooks(codex_home: &Path, previous: &Path, binary: &Path) -> MemoryResult<bool> {
+    use super::ownership::{canonicalize, render_document};
+    let path = codex_home.join("hooks.json");
+    let _lock = UserHooksLock::acquire(codex_home)?;
+    let payload = match fs::read(&path) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(error.into()),
+    };
+    let prefix = format!("{HOOK_ID}:");
+    let next = expected_user_groups(binary, codex_home, Some(&payload))?;
+    if complete_user_hooks(&payload, &next, &prefix) {
+        return Ok(false);
+    }
+    let known_legacy = migrate_python_handlers(&payload, codex_home, previous)?;
+    let current = known_legacy.as_deref().unwrap_or(&payload);
+    let mut document = load_document(current, "native memory hooks")?;
+    let old = expected_user_groups(previous, codex_home, Some(current))?;
+    let extracted = canonicalize(&document, &old, &[&prefix], "native memory hooks", Some(&managed_looking), false, None)?;
+    if extracted.receipts.iter().all(|receipt| receipt.action != "canonicalize") { return Ok(false); }
+    if !complete_registrations(&extracted, &old) {
+        return Err(MemorySyncError::new("incomplete native Memory registrations; preserve the old runtime"));
+    }
+    for spec in &next {
+        let handler = document["hooks"][&spec.event].as_array_mut().into_iter().flatten()
+            .filter_map(|group| group["hooks"].as_array_mut()).flatten()
+            .find(|handler| handler[MANAGED_ID_KEY] == spec.id)
+            .ok_or_else(|| MemorySyncError::new("verified native Memory registration disappeared"))?;
+        for key in ["command", "commandWindows"] {
+            handler[key] = spec.handler[key].clone();
+        }
+    }
+    let desired = render_document(&document)?;
+    if fs::read(&path)? != payload {
+        return Err(MemorySyncError::new("user hooks changed during the locked CAS"));
+    }
+    atomic_write(&path, &desired)?;
+    Ok(true)
+}
+
+fn complete_registrations(found: &super::ownership::CanonicalizedHooks, expected: &[ExpectedGroup]) -> bool {
+    expected.iter().all(|spec| found.receipts.iter().filter(|receipt|
+        receipt.id == spec.id && receipt.action == "canonicalize").count() == 1)
+}
+
+fn complete_user_hooks(payload: &[u8], expected: &[ExpectedGroup], prefix: &str) -> bool {
+    load_document(payload, "native memory hooks").and_then(|document| {
+        super::ownership::canonicalize(&document, expected, &[prefix], "native memory hooks", Some(&managed_looking), false, None)
+    }).is_ok_and(|found| complete_registrations(&found, expected))
+}
+
 pub fn user_hooks_healthy(codex_home: &Path, binary: &Path) -> bool {
     let prefix = format!("{HOOK_ID}:");
     let Ok(payload) = fs::read(codex_home.join("hooks.json")) else {
         return false;
     };
-    expected_user_groups(binary, codex_home, Some(&payload)).is_ok_and(|expected| {
-        managed_document_healthy(
-            &payload,
-            &expected,
-            &[&prefix],
-            "native memory hooks",
-            Some(&managed_looking),
-        )
-    })
+    expected_user_groups(binary, codex_home, Some(&payload))
+        .is_ok_and(|expected| complete_user_hooks(&payload, &expected, &prefix))
 }
 
 fn parse_config(text: &str) -> MemoryResult<toml_edit::DocumentMut> {

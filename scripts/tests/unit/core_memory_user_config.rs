@@ -6,6 +6,47 @@ use super::*;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[test]
+fn dedicated_memory_retarget_preserves_enablement_external_hooks_and_drift() {
+    let home = test_artifacts::root(env!("CARGO_MANIFEST_DIR"), "memory-user-config")
+        .join(format!("bf-hook-scope-{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
+    fs::create_dir_all(&home).unwrap();
+    let before_runtime = home.join("bin/bridgeforge.exe");
+    let dedicated = home.join(".bridgeforge-codex/native-memory-sync/bin/bridgeforge-memory-hook.exe");
+    let hook_path = home.join("hooks.json");
+    let settings = home.join("config.toml");
+    fs::write(&settings, b"[features]\nmemories = false\n").unwrap();
+    assert!(!retarget_user_hooks(&home, &before_runtime, &dedicated).unwrap());
+    assert!(!hook_path.exists());
+    let mut document = expected_document(&before_runtime, &home);
+    let external = json!([{"hooks":[{"type":"command", "command":"personal-hook"}]}]);
+    document["hooks"]["UserPromptSubmit"] = external.clone();
+    document["hooks"]["SessionStart"].as_array_mut().unwrap().push(external[0].clone());
+    fs::write(&hook_path, serde_json::to_vec(&document).unwrap()).unwrap();
+    assert!(retarget_user_hooks(&home, &before_runtime, &dedicated).unwrap());
+    assert!(user_hooks_healthy(&home, &dedicated));
+    assert!(!user_hooks_healthy(&home, &before_runtime));
+    assert!(!retarget_user_hooks(&home, &before_runtime, &dedicated).unwrap());
+    let migrated = load_document(&fs::read(&hook_path).unwrap(), "test").unwrap();
+    assert_eq!(migrated["hooks"]["UserPromptSubmit"], external);
+    assert_eq!(migrated["hooks"]["SessionStart"][1], external[0]);
+    assert_eq!(fs::read(&settings).unwrap(), b"[features]\nmemories = false\n");
+    let mut missing = document.clone();
+    let repeated = missing["hooks"]["SessionStart"][0].clone();
+    missing["hooks"]["SessionStart"].as_array_mut().unwrap().push(repeated);
+    missing["hooks"].as_object_mut().unwrap().remove("SessionEnd");
+    let duplicate = serde_json::to_vec(&missing).unwrap();
+    fs::write(&hook_path, &duplicate).unwrap();
+    assert!(retarget_user_hooks(&home, &before_runtime, &dedicated).is_err());
+    assert_eq!(fs::read(&hook_path).unwrap(), duplicate);
+    document["hooks"]["SessionStart"][0]["hooks"][0]["command"] = json!("unexpected");
+    let drift = serde_json::to_vec(&document).unwrap();
+    fs::write(&hook_path, &drift).unwrap();
+    assert!(retarget_user_hooks(&home, &before_runtime, &dedicated).is_err());
+    assert_eq!(fs::read(&hook_path).unwrap(), drift);
+    fs::remove_dir_all(&home).unwrap();
+}
+
 #[cfg(windows)]
 fn python_hook_fixture(home: &Path) -> Value {
     let parent = home.parent().unwrap().to_string_lossy();

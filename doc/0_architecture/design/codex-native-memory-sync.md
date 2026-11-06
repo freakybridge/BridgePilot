@@ -20,7 +20,7 @@ Agent 的只读分析与同步器职责分开：`$summary` 检索相关记忆后
 ```text
 Codex 官方生成/读取 ~/.codex/memories/
   -> 用户级生命周期 Hook 只登记 pending
-  -> 用户级受管 bridgeforge 二进制启动或复用单一隐藏 worker
+  -> 用户级专用 bridgeforge-memory-hook 启动或复用单一隐藏 worker
   -> Rust memory-sync 读取 opaque bytes 与 SHA-256 manifest
   -> 以 last-synced commit 做逐路径三方合并
   -> 以远端 HEAD 为父创建普通 commit 并 fast-forward 推送
@@ -28,7 +28,7 @@ Codex 官方生成/读取 ~/.codex/memories/
 ```
 
 - `bridgeforge memory-sync` 是唯一同步实现；用户级 Hook 只负责触发，不解释 Memory 正文。
-- Windows `commandWindows` 在 PowerShell 5/7 宿主中以调用符与单引号字面量直接调用用户级受管 `bridgeforge.exe memory-sync hook-run`，启动错误必须非零退出；本入口不声明 cmd 宿主兼容。隐藏 worker
+- Windows `commandWindows` 在 PowerShell 5/7 宿主中以调用符与单引号字面量直接调用用户级专用 `bridgeforge-memory-hook.exe memory-sync hook-run`，启动错误必须非零退出；本入口不声明 cmd 宿主兼容。隐藏 worker
   使用 `CreateProcessW` 的 `DETACHED_PROCESS` 且禁止继承任何句柄，避免宿主管道副本延迟 Hook 退出；禁止同时组合会被忽略的 `CREATE_NO_WINDOW`，禁止借此突破父 Job 的取消策略。此无标准句柄入口只用于通过状态文件通信的 Rust Memory worker，不是通用子进程启动器。配置中禁止持久化项目路径或语言运行时。
   旧 wrapper 和脚本命令只用于识别并迁移历史 handler，不是当前正式入口。
 - 用户级 Hook merge 必须保留第三方 handler；BridgeForge 只能替换内容完全匹配的受管旧

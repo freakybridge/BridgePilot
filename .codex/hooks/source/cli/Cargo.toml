@@ -1,6 +1,6 @@
 [package]
 name = "bridgeforge-cli"
-version = "18.0.0"
+version = "19.0.0"
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
@@ -21,3 +21,7 @@ toml_edit.workspace = true
 [[bin]]
 name = "bridgeforge"
 path = "src/main.rs"
+
+[[bin]]
+name = "bridgeforge-memory-hook"
+path = "src/memory_hook_main.rs"

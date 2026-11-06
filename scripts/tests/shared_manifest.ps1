@@ -18,47 +18,17 @@ $TestCrashAfterActionCount = 0
 $script:CleanupPending = $false
 $profileRoot = Join-Path $Base 'profile'
 New-Item -ItemType Directory -Path $profileRoot -Force | Out-Null
-# The production installer clones with core.autocrlf=false. Model those Git
-# bytes instead of the developer checkout's optional CRLF worktree conversion.
-$validationRoot = Join-Path $Base 'canonical-source'
-New-Item -ItemType Directory -Path $validationRoot -Force | Out-Null
-New-Item -ItemType Directory -Path (Split-Path -Parent (Join-Path $validationRoot $ManifestName)) -Force | Out-Null
-Copy-Item -LiteralPath (Join-Path $RepositoryRoot $ManifestName) -Destination (Join-Path $validationRoot $ManifestName)
 $sourceManifest = Read-JsonFile -Path (Join-Path $RepositoryRoot $ManifestName)
-foreach ($skill in $sourceManifest.shared_skills.platforms.codex.skills) {
-    foreach ($entry in $skill.files) {
-        $target = Join-Path $validationRoot $entry.source
-        New-Item -ItemType Directory -Path ([IO.Path]::GetDirectoryName($target)) -Force | Out-Null
-        $bytes = [IO.File]::ReadAllBytes((Join-Path $RepositoryRoot $entry.source))
-        if ($bytes -notcontains 0) {
-            $text = [Text.Encoding]::UTF8.GetString($bytes).Replace("`r`n", "`n").Replace("`r", "`n")
-            $bytes = [Text.Encoding]::UTF8.GetBytes($text)
-        }
-        [IO.File]::WriteAllBytes($target, $bytes)
-    }
+if ($sourceManifest.schema_version -ne 2 -or $null -ne $sourceManifest.PSObject.Properties['shared_skills']) { throw 'Expected project-only distribution' }
+$entries = @($sourceManifest.project_skeleton.assets | Where-Object { $_.target -like '.agents/skills/*/SKILL.md' })
+if ($entries.Count -ne 19) { throw 'Incorrect project Skill count' }
+foreach ($entry in $entries) {
+    if ($entry.strategy -cne 'whole' -or $entry.id -notlike 'codex.project-workflow.*') { throw 'Project Skill has no explicit ownership' }
+    if (-not (Test-Path -LiteralPath (Join-Path $RepositoryRoot $entry.source) -PathType Leaf)) { throw 'Project Skill source missing' }
 }
-$validated = Assert-Manifest -RepositoryRoot $validationRoot -UserProfile $profileRoot -ValidateSources
-if ($null -ne $validated.value.PSObject.Properties['project_skeleton'] -or
-    $null -ne $validated.value.PSObject.Properties['user_instructions']) { throw 'Shared installer received another scope.' }
-# An old installed updater cannot resolve the removed sidecar. Recovery starts
-# from install-shared-skills, which dispatches the updater inside its new clone.
-$ManifestName = 'bridgeforge-codex-manifest.json'
 $blocked = $false
-try { Assert-Manifest -RepositoryRoot $RepositoryRoot -UserProfile $profileRoot | Out-Null }
-catch { if ($_.Exception.Message -notlike '*Missing root distribution manifest*') { throw }; $blocked = $true }
-if (-not $blocked) { throw 'Old sidecar unexpectedly accepted.' }
-$ManifestName = 'source/forge/bridgeforge-manifest.json'
-$installer = [IO.File]::ReadAllText((Join-Path $RepositoryRoot 'scripts/install-shared-skills.ps1'))
-if (-not $installer.Contains('$updater = Join-Path $cloneRoot') -or
-    -not $installer.Contains('-File $updater -SourceRepositoryRoot $cloneRoot')) { throw 'Recovery installer no longer delegates to fresh source.' }
-# Previous root-manifest updaters must fail explicitly and recover through the
-# same fresh-source bootstrap; no duplicate root manifest is required.
-$ManifestName = 'bridgeforge-manifest.json'
-$blocked = $false
-try { Assert-Manifest -RepositoryRoot $RepositoryRoot -UserProfile $profileRoot | Out-Null }
-catch { if ($_.Exception.Message -notlike '*Missing root distribution manifest*') { throw }; $blocked = $true }
-if (-not $blocked) { throw 'Legacy root manifest unexpectedly accepted.' }
-$ManifestName = 'source/forge/bridgeforge-manifest.json'
+try { Assert-Manifest -RepositoryRoot $RepositoryRoot -UserProfile $profileRoot | Out-Null } catch { $blocked = $true }
+if (-not $blocked) { throw 'Legacy user distribution accepted the v2 product manifest' }
 
 $script:OriginalAssertRustCliState = (Get-Item Function:Assert-RustCliState).ScriptBlock
 function Assert-RustCliState {
@@ -71,7 +41,7 @@ function Assert-RustCliState {
         [IO.File]::WriteAllText($path, ($value | ConvertTo-Json -Depth 100), (New-Object Text.UTF8Encoding($false)))
     }
 }
-foreach ($section in @('user_instructions', 'shared_skills', 'project_skeleton')) {
+foreach ($section in @('user_instructions', 'project_skeleton')) {
     foreach ($phase in @('before', 'commit')) {
         $repo = Join-Path $Base "$section-$phase-source"
         $profile = Join-Path $Base "$section-$phase-profile"
@@ -103,5 +73,5 @@ foreach ($section in @('user_instructions', 'shared_skills', 'project_skeleton')
         if ((Get-Sha256 -Path (Join-Path $repo $ManifestName)) -eq $expected.Substring(7)) { throw 'External manifest change was overwritten.' }
     }
 }
-Write-Output 'unified scopes, old-entry recovery routing and six drift/rollback scenarios passed'
+Write-Output 'project-only manifest and four drift/rollback scenarios passed'
 

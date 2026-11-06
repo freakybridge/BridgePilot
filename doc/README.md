@@ -4,6 +4,8 @@ delivery_layout: flat
 
 # BridgePilot Documents
 
+- 已验收：[Forge 项目级工作流分发迁移](1_delivery/forge-simplification/plan_2026-11-06_project-workflows.md#用户验收2026-11-06)（Forge 19.0.0 候选，工厂核验、隔离项目安装和用户级端到端迁移通过，已授权正式发布）。
+
 - 已验收：[develop 新增工程清理阶段](1_delivery/forge-simplification/acceptance_2026-11-06_develop-engineering-cleanup.md)（2026-11-06，新增 D3 工程清理，验证、原生版本收口和交付顺延至 D4–D6。阶段引用和分发清单检查通过，已授权正式发布）。
 
 - 已验收：[BP 同版本源码重建复用修复](1_delivery/bridgepilot-update/plan_2026-11-04_self-first-update.md#同版本重建复用修复验收2026-11-05)（2026-11-05；仅 PE 时间戳／PDB GUID 不同则保留现有程序，完整哈希与实际内容差异保护保留；35 项单元测试、21 项源码更新检查、真实 EXE 验证及两份故障 2.2.0 重放通过，独立复核无阻断。本轮已授权正式发布，结果以 CLI 收据为准；未替换用户级安装或升级真实下游）。

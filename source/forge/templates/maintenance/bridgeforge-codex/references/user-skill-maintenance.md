@@ -1,24 +1,12 @@
-# 用户级受管 skill 维护
+# Forge 用户级迁移
 
-updater 先查询官方 main 提交：本机产品源同提交且完整、干净时直接复用，不 clone；变化时验证临时源，不原地 fetch/覆盖正式安装。离线、来源异常、未知本地改动或查询后提交漂移时停止。
+先用同一份已准备 Forge 来源升级所有仍依赖用户级 Forge 的项目，并从新 Codex 会话核对项目 Skill 的实际路径。用户级迁移需要明确授权，执行前确认传入所有已切换项目根。
 
-updater 统一准备公共 CLI 与公共 Hook。重复维护先复用有效的已安装 CLI 或公共缓存中的 CLI，证据不足才按锁定配方引导构建；首次 CLI 构建结果作为已验证输入进入公共缓存，不在项目端重编。编译与环境身份必须匹配，未知 provenance 保留。产物缓存位于用户级 `.codex/.cache/bridgeforge/public-build`，沿用 ownership、锁、内容/收据/自检验证和有限保留；准备收据位于 `public-ready`，仅引用不可变构建身份。缓存不属于产品源工作树或 Git 资产。
+从已验证官方源码调用 `scripts/bridgeforge_codex_shared_update.ps1 -MigrateUserScope -SourceRepositoryRoot <官方源码根> -PreparedSourceCommit <固定提交> -MigratedProjectRoot <项目根数组>`。入口先逐仓验证当前骨架及公共工具，再准备用户级变更。
 
-成功收据的 `public_artifacts.receipt` 交给项目 Apply；项目只读捕获公共字节，不执行编译器、缓存自检或写缓存 recency。用户级安装与项目安装分别报告和回滚，项目失败不能撤销已成功的共享用户级安装。`build_counts` 和 `public_artifacts.build_metrics` 区分引导编译、公共编译与复用；父子阶段计时不能相加。普通 update 不重复 doctor，也不巡检 Native Memory。
+- 将 Forge 登记且哈希一致的旧用户级 Skill 退出活动路径。用户级 CLI 和产品检出必须通过原归属核对，事务完成后保留其恢复副本。
+- 用户级 `~/.codex/AGENTS.md` 有不同内容时先按原始字节备份再更新。同样的文本复用现有文件。
+- 已有 Forge Memory Hook 时，从同一锁定来源准备专用执行器并校验来源，再切换旧注册。保留启用状态、Memory 配置、授权及第三方 Hook。首次显式安装 Memory 执行器时可加 `-InstallMemoryRuntime`，后续由用户决定是否启用同步。
+- 归属、内容或恢复记录有冲突时保留现场。已有其他团队或个人的 Skill、Hook 和用户配置由原归属管理。
 
-用户级 `~/.codex/AGENTS.md` 由 `source/forge/templates/user/AGENTS.md` 单向分发，合同为Forge 分发清单 `source/forge/bridgeforge-manifest.json` 的 `user_instructions` 分区。相同文本（忽略换行差异）不写；不同则以原始字节备份到 `~/.codex/.AGENTS.bridgeforge-backup-<operation_id>.md` 后覆盖。成功备份长期保留，失败按同一分发日志回滚。该覆盖策略仅适用于用户指令，不改变 Skill 的归属冲突检查。
-
-本功能仅管理默认 `USERPROFILE/.codex`，不管理自定义 `CODEX_HOME`。用户模板不进入项目骨架清单，不参与项目专区合并；不合并本地个人编辑、不删除 override 文件。源哈希、固定路径或原始文件校验失败时停止，禁止手工覆盖绕过事务。
-
-- 活跃目录：`~/.codex/skills/`。
-- 活跃账本：`~/.codex/bridgeforge-codex-managed.json`。
-- 完整产品 home：`~/.bridgeforge-codex/`。
-- 内部维护目录：`~/.codex/skills/bridgeforge-codex/`，只含 MAINTENANCE.md、references 与 bootstrap updater，不含 SKILL.md 或菜单元数据。
-- 仅获准维护后运行薄入口的 `scripts/bridgeforge_codex_shared_update.ps1`；只读诊断禁止触发更新或事务恢复。刷新次数及旧入口一次性过渡条件以 MAINTENANCE.md §1 为准。
-- updater 处理 `source/forge/bridgeforge-manifest.json` 中 `shared_skills` 登记的 Codex skills 和 `user_instructions` 登记的用户 AGENTS；`project_skeleton` 仅交给项目同步器；第三方 Skill 目录不得修改。
-- source 必须来自 GitHub `freakybridge/BridgePilot` 的 `main` 并逐文件验 hash。
-- 产品 home、用户级 `.codex/bin/bridgeforge.exe`、用户 AGENTS、skill stage/swap 与 ledger 必须由同一持久日志决定提交或回滚；恢复时核对组件路径和原始内容哈希。
-- 统一提交前失败必须回滚全部组件；提交后备份清理失败不得单独回退 CLI。收据 `cleanup_pending=true` 表示分发已提交、旧备份待清理，后续维护先依据同一日志完成清理，禁止手工删除活动日志。
-- 恢复删除新目录／账本前必须匹配本次写入指纹；外部修改或旧日志缺少该指纹时保留目标、备份和日志并报告，不猜测回滚，也不删除日志重新安装。
-
-旧 `$bridgeforge`、旧 Codex/Claude ledger、`.bridgeforge` home 与旧 Claude Skill 已退役，禁止读取、接管或删除；需按安装说明重新安装。正式 Skill、hash 与 ledger 一致性仅由当前 updater 维护。
+结果以 `user_scope_migrated` 收据为准。`cleanup_pending` 表示有待核销的事务收尾。Memory 的后续运行证据见 [Native Memory 状态处理](native-memory.md)。

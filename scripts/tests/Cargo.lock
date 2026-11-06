@@ -58,7 +58,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-core"
-version = "11.3.0"
+version = "11.4.0"
 dependencies = [
  "chrono",
  "libc",
@@ -73,7 +73,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-factory"
-version = "0.12.5"
+version = "0.13.0"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
@@ -90,7 +90,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-hook"
-version = "17.1.0"
+version = "17.2.0"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
@@ -126,7 +126,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-memory"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "bridgeforge-core",
  "chrono",
@@ -141,7 +141,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-skeleton"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "bridgeforge-core",
  "regex",
@@ -153,7 +153,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-workflow"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",

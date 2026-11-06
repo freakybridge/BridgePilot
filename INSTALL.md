@@ -50,73 +50,19 @@ Cargo 引导可能产生增量构建及缓存写入，只用于已授权维护�
 
 公共 `.gitattributes` 默认文本使用 LF，`.bat`、`.cmd` 使用 CRLF；PowerShell 与 VBScript 不统一强制 CRLF。更新保留项目附加规则，显式冲突阻断而不覆盖。严格只读检查支持可证明的简单规则和路径通配；宏、带引号路径等不支持的语法报告无法证明，不创建临时 Git 仓库兜底。普通基线检查保留完整 Git 属性语义核验，并同时检查公共换行例外。
 
-## 首次安装
+## Forge 项目安装和升级
 
-1. 克隆产品仓库：
+1. 在目标项目确认 Git 根、原生版本和发布入口。通过 `$bridgepilot-update` 固定本批官方源码；独立引导从 `https://github.com/freakybridge/BridgePilot.git` 获取干净 `main`，以已获取的 `origin/main` 提交为准。
+2. 从固定源码阅读 [Forge 项目维护手册](source/forge/templates/maintenance/bridgeforge-codex/MAINTENANCE.md)。按手册调用 `prepare-project.ps1` 准备一次公共 CLI 和 Hook，然后用该收据生成目标项目的零写入计划。
+3. 按计划和指纹应用。项目 Skill 安装在 `.agents/skills/`，内部维护手册在 `.codex/maintenance/bridgeforge-codex/`，公共 Hook 注册在 `.codex/hooks.json`，公共工具及构建收据在 `.deps/bridgeforge/bin/`。应用保护项目自有 Skill、Hook、AGENTS 项目区和 pre-commit 私有扩展。用新 Codex 会话核对实际 Skill 路径。
 
-   ```powershell
-   git clone https://github.com/freakybridge/BridgePilot.git "$env:USERPROFILE\tools\BridgePilot"
-   Set-Location "$env:USERPROFILE\tools\BridgePilot"
-   ```
+项目同步采用统一的 Template-only 规则。旧项目合同、版本配置、账本、目录覆盖及 Hook 旁文件进入精确退役；未知额外 JSON 保留并阻断。Apply 核对指纹、公共工具编译来源和 `.codex` 递归仅 hooks.json，失败恢复自身改动并保留外部变化。详见 [项目同步设计](doc/0_architecture/design/codex-project-sync.md)。
 
-2. 用锁定的 Cargo workspace 构建工厂 dogfood 工具，再安装用户级入口、通用 Skills 和统一用户指令：
+## Forge 用户级迁移
 
-   ```powershell
-   cargo build --locked --release --manifest-path .\Cargo.toml --target-dir .build/bridgeforge/cargo/local --bin bridgeforge
-   & powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-shared-skills.ps1
-   ```
+完成各项目骨架迁移和实际 Skill 发现核对后，按单独授权从同一官方来源执行 [用户级迁移手册](source/forge/templates/maintenance/bridgeforge-codex/references/user-skill-maintenance.md)。用户级保留统一 `~/.codex/AGENTS.md` 和原生 Memory Hook 所需的专用执行器。用户指令有不同内容时备份原始字节。项目维护与用户级迁移分别核验。
 
-3. 新开 Codex 会话，通过 `$bridgepilot-update` 指定目标项目和维护范围；不使用 BP 时，明确要求 Agent 读取已安装的 `~/.codex/skills/bridgeforge-codex/MAINTENANCE.md`，再按当前目标和授权执行。
-
-安装器会把完整产品仓库原子安装到 `~/.bridgeforge-codex`，在
-`~/.codex/skills/bridgeforge-codex` 保留不含 SKILL.md／菜单元数据的内部维护目录，并把其他受管 Skills
-写入 `~/.codex/skills/`。`~/.codex/bridgeforge-codex-managed.json` 记录哪些用户级
-Skills 由产品管理，避免覆盖来源不明或被人工修改的 Skill 文件。
-
-安装和获准维护同时分发 `source/forge/templates/user/AGENTS.md` 到默认 `~/.codex/AGENTS.md`。
-文本相同则不写；本地有不同内容（包括个人编辑）时，原始文件先保存为
-`~/.codex/.AGENTS.bridgeforge-backup-<operation_id>.md`，再覆盖为统一标准版。
-备份成功后保留，收据给出具体路径；需要恢复时可用对应备份替换 AGENTS.md，但下次维护仍会恢复标准版。
-这不改变项目专区保留规则，也不删除 `AGENTS.override.md`；现有会话不保证重载，请新开会话。
-自定义 `CODEX_HOME` 不在本功能管理范围。旧薄入口首次刷新缺少用户指令收据时，按内部维护手册补跑一次 updater 完成过渡。
-
-项目侧运行面包括 `AGENTS.md`、`.codex/` 和 `.githooks/pre-commit`。项目同步器会先给出
-计划，需要决定的项目会停下来确认；无法安全判断的冲突直接停止，应用失败时回滚。项目
-指令由根或嵌套 `AGENTS.md` 原生加载，机器可判约束由 Hook 或 pre-commit 执行，操作流程
-由 Skill 执行，长说明放在 `doc/`。
-
-项目旧 `.codex/settings.json`、`project-hook-policy.json` 和 `project-hook-migrations.json` 不再分发。同步器只对可识别的历史默认 settings 及明确所有权、结构和状态的旧策略／迁移状态生成退役动作；未知或项目修改的内容保留并阻断，不能按名称盲删。当前版本登记仍引用待退役文件时，先经受管配置入口解除当前引用，历史基线与账本保持。dry-run 不写文件，apply 纳入同一指纹与回滚事务；生命周期 Hook 不创建这些旧文件或备份，用户级 settings 不在退役范围。
-
-骨架 Hook 与项目自有 Hook 独立维护，边界固定在代码中。安装和升级仅维护公共源码、产物与公共注册，保留项目 Hook 源码、程序、收据、注册及扩展字段；项目 Hook 的构建、安装、路径迁移和业务验证由项目自己的开发流程负责。
-
-## 统一清单格式的入口刷新
-
-Forge 分发清单位于 `source/forge/bridgeforge-manifest.json`，包含 `user_instructions`、`shared_skills` 和 `project_skeleton`。清单内的源码路径仍相对 BridgePilot 仓库根解析，命令仍从仓库根执行；根目录不保留清单副本。该清单仅作为工具侧事实源，下游不再生成 `.codex/managed-skeleton.json`。旧版 updater 若因根目录清单缺失而退出，从本节的 `install-shared-skills.ps1` 安装入口重试，由新克隆中的 updater 接续；不要手动复制清单回根目录。
-
-此前已安装的薄入口仍查找 `bridgeforge-codex-manifest.json`，首次更新到统一清单版本可能报“Missing root distribution manifest”。这不是下游项目文件损坏。请从可信的产品仓库运行现有安装入口，完成一次用户级入口刷新：
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-shared-skills.ps1
-```
-
-安装入口重新获取并验证官方 main，再运行新 checkout 内的 updater；它不依赖旧薄入口解析新清单。共享 Skills 的归属冲突校验、用户 AGENTS 原始字节备份及事务回滚保持有效，不手工复制或伪造旧清单来绕过校验。刷新后新开会话，通过 BP 升级入口或明确读取内部 MAINTENANCE.md 发起目标项目维护。若旧入口留下未完成事务，先按现有事务诊断恢复，不删除日志。
-
-## 旧 BridgeForge 用户重新安装
-
-旧 `$bridgeforge` 到 `$bridgeforge-codex` 的自动迁移已经退役。请直接执行上面的“首次安装”
-流程。
-
-当前安装器不会读取、接管或删除旧 Codex/Claude 受管记录、旧 `.bridgeforge` 产品目录或
-旧用户级 Skill。如果正式 Skill 的目标路径已被旧安装占用，安装器会把它报告为“不属于
-当前产品管理的冲突”并停止，不会根据旧记录猜测文件归属。
-
-## 项目升级与异常诊断
-
-咨询、诊断或只读预览不刷新安装；明确维护才按 bridgeforge-codex 刷新已验证产品与公共产物。项目 `project-sync --project-root <根> --template-root <产品根>` 生成零写计划，`init/adopt/update/auto` 共用通用规则，不按旧版本戳分流。
-
-旧项目合同、版本配置、账本、目录覆盖及 Hook 旁文件进入精确退役；未知额外 JSON 保留并阻断。AGENTS 项目区、pre-commit 私有扩展、原生 Hook 和 Skill 保持项目所有。Apply 用同一指纹和 prepared 公共产物，先备份后安装／删除，再校验模板、编译来源和递归仅 hooks.json；失败恢复自身改动、保留外部变化。不写新版本戳、PreservationManifest 或替代项目配置。
-
-版本、构建、测试与发布按项目原生入口执行；Forge 配置化 develop/release/setup/migration 以及依赖旧 keep 声明的 cleanup 已退役。原生 Memory 的用户级同步不属于项目 JSON 清理范围。详细规则见[项目同步设计](doc/0_architecture/design/codex-project-sync.md)。
+存在依赖项目时，传入完整的已迁移项目根列表。确认没有依赖项目的机器可显式使用 `-NoDependentProjects`。旧产品检出和通用 CLI 的恢复副本由迁移收据列出。
 
 ## BridgePilot 本地试用与档案恢复
 

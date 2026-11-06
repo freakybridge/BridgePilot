@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 fn unified_manifest_rejects_ambiguous_sections_before_staging() {
     let f = Fixture::new();
     let original: Value = serde_json::from_slice(&fs::read(f.0.join(MANIFEST)).unwrap()).unwrap();
-    for name in ["user_instructions", "shared_skills", "project_skeleton"] {
+    for name in ["user_instructions", "project_skeleton"] {
         let mut invalid = original.clone();
         invalid.as_object_mut().unwrap().remove(name);
         fs::write(f.0.join(MANIFEST), serde_json::to_vec(&invalid).unwrap()).unwrap();

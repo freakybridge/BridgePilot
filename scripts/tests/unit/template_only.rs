@@ -37,6 +37,33 @@ fn template_runtime_installation_rejects_unknown_or_modified_bytes() {
 }
 
 #[test]
+fn project_workflow_ownership_distinguishes_current_history_and_conflicts() {
+    let fixture = Fixture::new("workflow-ownership");
+    let root = &fixture.0;
+    let target = ".agents/skills/develop/SKILL.md";
+    let workflow = template_standard::assets().into_iter().find(|asset| asset.rule["target"] == target).unwrap();
+    let mut rule = workflow.rule;
+    rule["previous_sha256"] = json!([build_manifest::normalized_hash(b"previous\n")]);
+    assert!(verify_workflow_asset(target, &rule, None).is_ok());
+    assert!(verify_workflow_asset(target, &rule, Some(&workflow.payload)).is_ok());
+    assert!(verify_workflow_asset(target, &rule, Some(b"previous\r\n")).is_ok());
+    assert!(verify_workflow_asset(target, &rule, Some(b"local edits")).unwrap_err().contains("preserved"));
+
+    assert!(verify_workflow_root(root, target).is_ok());
+    let references = root.join(".agents/skills/develop/references");
+    fs::create_dir_all(&references).unwrap();
+    fs::write(references.join("private.md"), b"local").unwrap();
+    assert!(verify_workflow_root(root, target).unwrap_err().contains("unowned nonempty"));
+    fs::write(root.join(target), workflow.payload).unwrap();
+    assert!(verify_workflow_root(root, target).is_ok());
+    let legacy = root.join(".codex/skills/develop/SKILL.md");
+    fs::create_dir_all(legacy.parent().unwrap()).unwrap();
+    fs::write(&legacy, b"legacy private").unwrap();
+    assert!(verify_workflow_root(root, target).unwrap_err().contains("same-name"));
+    assert_eq!(fs::read(&legacy).unwrap(), b"legacy private");
+}
+
+#[test]
 fn cached_plan_revalidation_still_checks_new_transaction_guards_first() {
     for relative in [".runtime/bridgeforge-codex/develop-transaction.json",".runtime/bridgeforge-codex/release-preparation/commit-guard.json"] {
         let fixture=Fixture::new("new-guard");let root=&fixture.0;

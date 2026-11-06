@@ -38,42 +38,22 @@ fn archive_reminder_uses_the_same_candidates_and_propagates_invalid_todo() {
 }
 
 #[test]
-fn skill_sync_accepts_utf8_bom_without_hiding_invalid_ledgers_or_drift() {
+fn skill_sync_checks_project_workflows_independently_of_the_user_ledger() {
     let fixture = Fixture::new();
-    let platform = fixture.root.join("fake-home/.codex");
-    let skill = platform.join("skills/bridgeforge-codex");
-    fs::create_dir_all(&skill).unwrap();
-    fs::write(skill.join("SKILL.md"), b"# Fixture\n").unwrap();
-    let ledger = platform.join("bridgeforge-codex-managed.json");
-    let valid = serde_json::to_vec(&serde_json::json!({
-        "schema_version": 1,
-        "platform": "codex",
-        "records": {"bridgeforge-codex": {"content_hash": post::source_tree_hash(&skill)}}
-    }))
-    .unwrap();
-    for prefix in [b"".as_slice(), b"\xef\xbb\xbf".as_slice()] {
-        let bytes = [prefix, valid.as_slice()].concat();
-        fs::write(&ledger, &bytes).unwrap();
-        let result = session::skill_sync();
-        assert!(result.stdout.is_empty(), "{}", result.stdout);
-        assert_eq!(fs::read(&ledger).unwrap(), bytes);
+    let ledger = fixture.root.join("fake-home/.codex/bridgeforge-codex-managed.json");
+    fs::create_dir_all(ledger.parent().unwrap()).unwrap();
+    fs::write(&ledger, b"unrelated ledger bytes").unwrap();
+    assert!(session::skill_sync().stdout.contains(".agents/skills/develop/SKILL.md"));
+    for asset in bridgeforge_core::template_standard::assets() {
+        if asset.rule.get("previous_sha256").is_none() { continue; }
+        let path = fixture.root.join(asset.rule["target"].as_str().unwrap());
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, asset.payload).unwrap();
     }
-    for bytes in [
-        b"\xef\xbb\xbf{".as_slice(),
-        b"\xff".as_slice(),
-        b"{}".as_slice(),
-    ] {
-        fs::write(&ledger, bytes).unwrap();
-        assert!(session::skill_sync().stdout.contains("[skill-sync]"));
-        assert_eq!(fs::read(&ledger).unwrap(), bytes);
-    }
-    fs::write(
-        &ledger,
-        [b"\xef\xbb\xbf".as_slice(), valid.as_slice()].concat(),
-    )
-    .unwrap();
-    fs::write(skill.join("SKILL.md"), b"# Changed\n").unwrap();
-    assert!(session::skill_sync().stdout.contains("内容漂移"));
+    assert!(session::skill_sync().stdout.is_empty());
+    fs::write(fixture.root.join(".agents/skills/develop/SKILL.md"), b"local edit").unwrap();
+    assert!(session::skill_sync().stdout.contains(".agents/skills/develop/SKILL.md"));
+    assert_eq!(fs::read(ledger).unwrap(), b"unrelated ledger bytes");
 }
 
 #[test]

@@ -11,7 +11,7 @@ pub fn read(path: impl AsRef<Path>) -> io::Result<Vec<u8>> {
 
 pub fn read_shared(path: impl AsRef<Path>) -> io::Result<Vec<u8>> {
     let value: Value = serde_json::from_slice(&fs::read(path)?).map_err(io::Error::other)?;
-    serde_json::to_vec_pretty(&value["shared_skills"]).map_err(io::Error::other)
+    serde_json::to_vec_pretty(&value.get("shared_skills").cloned().unwrap_or_else(|| json!({"platforms":{}}))).map_err(io::Error::other)
 }
 
 pub fn read_to_string(path: impl AsRef<Path>) -> io::Result<String> {

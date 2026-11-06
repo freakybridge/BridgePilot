@@ -340,6 +340,7 @@ pub fn validate_contract(value: &Value) -> Result<(), String> {
         "target",
         "strategy",
         "current_sha256",
+        "previous_sha256",
         "render",
         "agents_zones",
         "managed_blocks",
@@ -422,6 +423,19 @@ pub fn validate_contract(value: &Value) -> Result<(), String> {
             if asset["current_sha256"].as_str() != Some(sha(bytes).as_str()) {
                 return Err(format!("inline asset content hash drifted: {id}"));
             }
+        }
+        if id.starts_with("codex.project-workflow.") {
+            let history = asset["previous_sha256"].as_array()
+                .ok_or("project workflow requires an explicit hash history")?;
+            if asset["strategy"] != "whole"
+                || !(target.starts_with(".agents/skills/") || target.starts_with(".codex/maintenance/bridgeforge-codex/"))
+                || history.iter().any(|hash| !hash_string(hash))
+                || history.iter().map(Value::as_str).collect::<BTreeSet<_>>().len() != history.len()
+            {
+                return Err(format!("invalid project workflow ownership: {id}"));
+            }
+        } else if asset.get("previous_sha256").is_some() {
+            return Err(format!("unexpected project workflow history: {id}"));
         }
         if let Some(managed) = asset.get("managed_blocks") {
             if !managed.is_object()

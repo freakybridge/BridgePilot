@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "user_instructions": {
     "schema_version": 1,
     "asset_id": "codex.user-agents",
@@ -7,343 +7,6 @@
     "target": "~/.codex/AGENTS.md",
     "ownership_strategy": "backup_then_replace",
     "sha256": "sha256:73381a3744d898c3b6c66678d0b250e7e64c94541ac45c60403f07da496aa57a"
-  },
-  "shared_skills": {
-    "schema_version": 1,
-    "canonical_remote": "https://github.com/freakybridge/BridgePilot.git",
-    "branch": "main",
-    "platforms": {
-      "codex": {
-        "target": "~/.codex/skills",
-        "skills": [
-          {
-            "name": "cleanup",
-            "files": [
-              {
-                "source": "source/forge/templates/skills/cleanup/SKILL.md",
-                "target": "SKILL.md",
-                "sha256": "sha256:cbf06d481b5b42883fcd2825bc9a311f6de25ecf5401a7a3989e502615716d97"
-              }
-            ]
-          },
-          {
-            "name": "bridgeforge-codex",
-            "files": [
-              {
-                "source": "scripts/bridgeforge_codex_shared_update.ps1",
-                "target": "scripts/bridgeforge_codex_shared_update.ps1",
-                "sha256": "sha256:7e77e803660911e669f5b8534d612300cfd935b404d45058c4897391d54f75db"
-              },
-              {
-                "source": "source/forge/templates/maintenance/bridgeforge-codex/MAINTENANCE.md",
-                "target": "MAINTENANCE.md",
-                "sha256": "sha256:7e6116e397eed70b4d3413ab87f5868c75c9dc0b295e9e58f0f45aafd5e74ae9"
-              },
-              {
-                "source": "source/forge/templates/maintenance/bridgeforge-codex/references/adopt.md",
-                "target": "references/adopt.md",
-                "sha256": "sha256:ecb5c93339e22c5a7044ddf5814a07b19d5d4ccf1a7ac68e02fd67ad50103ccb"
-              },
-              {
-                "source": "source/forge/templates/maintenance/bridgeforge-codex/references/init.md",
-                "target": "references/init.md",
-                "sha256": "sha256:5b647510c76c93745ff27979b69fb104c849296efc85a759cf08c2117a3ae093"
-              },
-              {
-                "source": "source/forge/templates/maintenance/bridgeforge-codex/references/native-memory.md",
-                "target": "references/native-memory.md",
-                "sha256": "sha256:faa192e78a4643bdf4582c2ba4eb40fceb2a500013cf2dd8c4d339f9f55d909b"
-              },
-              {
-                "source": "source/forge/templates/maintenance/bridgeforge-codex/references/runtime-preflight.md",
-                "target": "references/runtime-preflight.md",
-                "sha256": "sha256:88ccca475f83b95823c2d368f89d9e6d192f45d054a91fef204ee7a776270b0c"
-              },
-              {
-                "source": "source/forge/templates/maintenance/bridgeforge-codex/references/project-hook-independence.md",
-                "target": "references/project-hook-independence.md",
-                "sha256": "sha256:13551f933b59242a262baa503e8c4ff253a1edd43cbc7dbadac63fb161037f34"
-              },
-              {
-                "source": "source/forge/templates/maintenance/bridgeforge-codex/references/technical-receipts.md",
-                "target": "references/technical-receipts.md",
-                "sha256": "sha256:6855394a3319ef7bccbadda4cee95d47250d6e85379a31c3304f1e18bd9e803f"
-              },
-              {
-                "source": "source/forge/templates/maintenance/bridgeforge-codex/references/transaction.md",
-                "target": "references/transaction.md",
-                "sha256": "sha256:64475e25ea2dfe277966d91d64f0b83b9c47ea61daf328bf584c3df1239b4e24"
-              },
-              {
-                "source": "source/forge/templates/maintenance/bridgeforge-codex/references/update.md",
-                "target": "references/update.md",
-                "sha256": "sha256:d50516728d61bdfbe768c6256fab49ca95d5bcf8c7e1c14e3220c227aa493087"
-              },
-              {
-                "source": "source/forge/templates/maintenance/bridgeforge-codex/references/user-skill-maintenance.md",
-                "target": "references/user-skill-maintenance.md",
-                "sha256": "sha256:1cbb944098049f5b5df689fd6ae3fa811cd321c1aea2da236e12f7d387652e7b"
-              }
-            ]
-          },
-          {
-            "name": "archive-scan",
-            "files": [
-              {
-                "source": "source/forge/templates/skills/archive-scan/SKILL.md",
-                "target": "SKILL.md",
-                "sha256": "sha256:e2ab974e9fc13fb65fd2c28419e1c97c0d0e34c5443a5fa666789558ccf09542"
-              }
-            ]
-          },
-          {
-            "name": "autopilot",
-            "files": [
-              {
-                "source": "source/forge/templates/skills/autopilot/SKILL.md",
-                "target": "SKILL.md",
-                "sha256": "sha256:b4f59bd47d7d0cd9cbe470b77159fafe3440f5c86ba7393160395e44ff550dcf"
-              },
-              {
-                "source": "source/forge/templates/skills/autopilot/references/runtime.md",
-                "target": "references/runtime.md",
-                "sha256": "sha256:c3e8ec00a4778e2792908a194fdeaca640f465c7ba9d18a6e6e55d37d423ceac"
-              }
-            ]
-          },
-          {
-            "name": "collab",
-            "files": [
-              {
-                "source": "source/forge/templates/skills/collab/SKILL.md",
-                "target": "SKILL.md",
-                "sha256": "sha256:bbcd5cbf6a0b119615427815a55e614c55b4d4af1f1bf46676e37bea0751b253"
-              }
-            ]
-          },
-          {
-            "name": "confirm",
-            "files": [
-              {
-                "source": "source/forge/templates/skills/confirm/SKILL.md",
-                "target": "SKILL.md",
-                "sha256": "sha256:850fe88cd78f4598e2fa33ea126d36fcea4b5a07065226c40588d16c1a69bfb7"
-              },
-              {
-                "source": "source/forge/templates/skills/confirm/references/weekly-quota.md",
-                "target": "references/weekly-quota.md",
-                "sha256": "sha256:4dc91f611b1b594e8a5b33a6e16cce2bc049a7751be77ce918da5a28c61652ed"
-              }
-            ]
-          },
-          {
-            "name": "create-worktree",
-            "files": [
-              {
-                "source": "source/forge/templates/skills/create-worktree/SKILL.md",
-                "target": "SKILL.md",
-                "sha256": "sha256:d0e58c1b0bbdf5213336bbaf8c8951c2415ef5b86dba9be1735efc460fd8000c"
-              },
-              {
-                "source": "source/forge/templates/skills/create-worktree/agents/openai.yaml",
-                "target": "agents/openai.yaml",
-                "sha256": "sha256:f40c1215a001cb5e43495b151107b9d7fee34c4f00ee35bfc4136d7cf5a9dbe8"
-              },
-              {
-                "source": "source/forge/templates/skills/create-worktree/scripts/create_worktree.ps1",
-                "target": "scripts/create_worktree.ps1",
-                "sha256": "sha256:3574d9e0c8a1500049aaa5130551306af8e53a5f064a603dc8e62395dd0e8351"
-              }
-            ]
-          },
-          {
-            "name": "debate",
-            "files": [
-              {
-                "source": "source/forge/templates/skills/debate/SKILL.md",
-                "target": "SKILL.md",
-                "sha256": "sha256:cf41d29f58b7c9acc599bbc61e4e8d124fabb36da7f768152da967a23004fdbe"
-              }
-            ]
-          },
-          {
-            "name": "develop",
-            "files": [
-              {
-                "source": "source/forge/templates/skills/develop/references/agent-execution.md",
-                "target": "references/agent-execution.md",
-                "sha256": "sha256:117194ba9d75b7e7117719d960755c5efe781bccc13311006b251185b826e8b3"
-              },
-              {
-                "source": "source/forge/templates/skills/develop/references/ml-delivery.md",
-                "target": "references/ml-delivery.md",
-                "sha256": "sha256:2ccdcdcb7a9e1db4f551fd5fc8bfbfab10dd9254094be4588094cd6a3dda4055"
-              },
-              {
-                "source": "source/forge/templates/skills/develop/references/completion-release.md",
-                "target": "references/completion-release.md",
-                "sha256": "sha256:a56d784bb4afa213d06ee2eb97a60137a178fef4bdb268c2914c0a6f2f2cce91"
-              },
-              {
-                "source": "source/forge/templates/skills/develop/SKILL.md",
-                "target": "SKILL.md",
-                "sha256": "sha256:12eed5cc7ede6870a33fd36727eebee279aceda827f9fdd18ce152de7cfd9e67"
-              }
-            ]
-          },
-          {
-            "name": "escalate",
-            "files": [
-              {
-                "source": "source/forge/templates/skills/escalate/SKILL.md",
-                "target": "SKILL.md",
-                "sha256": "sha256:f0647f3c0a70176b384a0764a61121fa2502ca6aa20214438fd35b8b00fae236"
-              }
-            ]
-          },
-          {
-            "name": "explain",
-            "files": [
-              {
-                "source": "source/forge/templates/skills/explain/SKILL.md",
-                "target": "SKILL.md",
-                "sha256": "sha256:ee9e6bac1a8ff26150755b53c34eab0c53e9ed6969e94f4abfce84c4a9aaf40e"
-              }
-            ]
-          },
-          {
-            "name": "find-doc",
-            "files": [
-              {
-                "source": "source/forge/templates/skills/find-doc/SKILL.md",
-                "target": "SKILL.md",
-                "sha256": "sha256:74a692b66f96c29e03883c75c077fc10fd6ba026624c56ce27f92512eff2d25e"
-              }
-            ]
-          },
-          {
-            "name": "focus",
-            "files": [
-              {
-                "source": "source/forge/templates/skills/focus/SKILL.md",
-                "target": "SKILL.md",
-                "sha256": "sha256:d6eb386a5bf73e532d204f3c74885f236a0d571df8b85c1780733954ca8db3d4"
-              }
-            ]
-          },
-          {
-            "name": "git-sync",
-            "files": [
-              {
-                "source": "source/forge/templates/skills/git-sync/SKILL.md",
-                "target": "SKILL.md",
-                "sha256": "sha256:cc88742d4e1e71082815365040c27067eda3b77ef6b4b549f4c3dfc1d977048a"
-              },
-              {
-                "source": "source/forge/templates/skills/git-sync/references/first-use.md",
-                "target": "references/first-use.md",
-                "sha256": "sha256:26234a62b1f08417c8a47af33669ade7d7576030c535e07fbc8e3463e1ad7606"
-              },
-              {
-                "source": "source/forge/templates/skills/git-sync/references/schema4.md",
-                "target": "references/schema4.md",
-                "sha256": "sha256:da5622d93ab2d7bd02024c91277b459f6cde1e572dee440ce9395a198e592a2a"
-              },
-              {
-                "source": "source/forge/templates/skills/git-sync/references/runtime-context.md",
-                "target": "references/runtime-context.md",
-                "sha256": "sha256:843ee21bccce0d61b04585a163390a05838ab42583feb9a6c60fd6a41b16ab6a"
-              }
-            ]
-          },
-          {
-            "name": "plan",
-            "files": [
-              {
-                "source": "source/forge/templates/skills/plan/SKILL.md",
-                "target": "SKILL.md",
-                "sha256": "sha256:65d595a899749b588a03cbdf49e625839a741d803b030679c94b5b6eb9e7bb95"
-              }
-            ]
-          },
-          {
-            "name": "spinoff",
-            "files": [
-              {
-                "source": "source/forge/templates/skills/spinoff/SKILL.md",
-                "target": "SKILL.md",
-                "sha256": "sha256:09c0b4d514e192ae1ead8c40c861371c31185b426b9bfb6d8a19769c7a06a4a4"
-              }
-            ]
-          },
-          {
-            "name": "summary",
-            "files": [
-              {
-                "source": "source/forge/templates/skills/summary/references/acceptance-mode.md",
-                "target": "references/acceptance-mode.md",
-                "sha256": "sha256:a965228a36022ce61c650eaa6cd2f056de814b9fc4ccfe482f8c1573e5eb0a9a"
-              },
-              {
-                "source": "source/forge/templates/skills/summary/references/ordinary-mode.md",
-                "target": "references/ordinary-mode.md",
-                "sha256": "sha256:cec6a41bf61be4166ed057f50132d51f7b07bf4e0697a41e2b8eddd18948a657"
-              },
-              {
-                "source": "source/forge/templates/skills/summary/SKILL.md",
-                "target": "SKILL.md",
-                "sha256": "sha256:157d6ce0c8bbc2537de4ac70c5f3a5bbf5450fc7382a8dae4143ed119f34368a"
-              },
-              {
-                "source": "source/forge/templates/skills/summary/references/switch-mode.md",
-                "target": "references/switch-mode.md",
-                "sha256": "sha256:4b8b2724c385df1ee0d2d5b65939c2e99cfc048e3dadc94424c5fd25f2457d1a"
-              }
-            ]
-          },
-          {
-            "name": "refactor-scan",
-            "files": [
-              {
-                "source": "source/forge/templates/skills/refactor-scan/SKILL.md",
-                "target": "SKILL.md",
-                "sha256": "sha256:fb1a948d719fbf3da5857d73b9c80343775a9b51c05af4d644f0441d84bc5069"
-              },
-              {
-                "source": "source/forge/templates/skills/refactor-scan/references/report-contract.md",
-                "target": "references/report-contract.md",
-                "sha256": "sha256:4e5740a0b8b50d2cc2bc19c2631b0806ceb55fb0f2b0b960ff4ab01bbe63ca3c"
-              }
-            ]
-          },
-          {
-            "name": "sync-docs",
-            "files": [
-              {
-                "source": "source/forge/templates/skills/sync-docs/SKILL.md",
-                "target": "SKILL.md",
-                "sha256": "sha256:84e8278811707f2bfa8651f8c71eee5708f02d4889ee9b14d711016104c9b61d"
-              }
-            ]
-          },
-          {
-            "name": "todo",
-            "files": [
-              {
-                "source": "source/forge/templates/skills/todo/references/contract.md",
-                "target": "references/contract.md",
-                "sha256": "sha256:cd9ae1e62989caf72de5f83624b9fd59c36cd6c8ccf07d1fc7f1d78cb72ad90f"
-              },
-              {
-                "source": "source/forge/templates/skills/todo/SKILL.md",
-                "target": "SKILL.md",
-                "sha256": "sha256:43128595e71c8ffb3dbef80994a4cd945bd5f142b76ec1d76464773af9151dea"
-              }
-            ]
-          }
-        ]
-      }
-    }
   },
   "project_skeleton": {
     "schema_version": 4,
@@ -3391,12 +3054,382 @@
         }
       ]
     },
-    "release_version": "18.0.0",
+    "release_version": "19.0.0",
     "release_model": "product-packages",
     "host": "codex",
     "stamp": ".codex/.bridgeforge_codex_version",
     "contract_target": ".codex/managed-skeleton.json",
     "assets": [
+      {
+        "id": "codex.project-workflow.bridgeforge-codex.scripts.prepare-project.ps1",
+        "source": "source/forge/templates/maintenance/bridgeforge-codex/scripts/prepare-project.ps1",
+        "target": ".codex/maintenance/bridgeforge-codex/scripts/prepare-project.ps1",
+        "strategy": "whole",
+        "current_sha256": "sha256:ccda4999cd1cb6eddc319fa15401fd18c5e849276c1f16a2654dbe2616d42043",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.cleanup.skill.md",
+        "source": "source/forge/templates/skills/cleanup/SKILL.md",
+        "target": ".agents/skills/cleanup/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:cbf06d481b5b42883fcd2825bc9a311f6de25ecf5401a7a3989e502615716d97",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.bridgeforge-codex.maintenance.md",
+        "source": "source/forge/templates/maintenance/bridgeforge-codex/MAINTENANCE.md",
+        "target": ".codex/maintenance/bridgeforge-codex/MAINTENANCE.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:35c47bbec618ea0dbd04be5c663ae94d9737e02d886d975cb6a8a967244dfc3c",
+        "previous_sha256": [
+          "sha256:7e6116e397eed70b4d3413ab87f5868c75c9dc0b295e9e58f0f45aafd5e74ae9"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.bridgeforge-codex.references.adopt.md",
+        "source": "source/forge/templates/maintenance/bridgeforge-codex/references/adopt.md",
+        "target": ".codex/maintenance/bridgeforge-codex/references/adopt.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:ecb5c93339e22c5a7044ddf5814a07b19d5d4ccf1a7ac68e02fd67ad50103ccb",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.bridgeforge-codex.references.init.md",
+        "source": "source/forge/templates/maintenance/bridgeforge-codex/references/init.md",
+        "target": ".codex/maintenance/bridgeforge-codex/references/init.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:5b647510c76c93745ff27979b69fb104c849296efc85a759cf08c2117a3ae093",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.bridgeforge-codex.references.native-memory.md",
+        "source": "source/forge/templates/maintenance/bridgeforge-codex/references/native-memory.md",
+        "target": ".codex/maintenance/bridgeforge-codex/references/native-memory.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:de59c67f123cae46a81c0b428ee1c84d99c8177814ae9d2432f9060252f2c349",
+        "previous_sha256": [
+          "sha256:faa192e78a4643bdf4582c2ba4eb40fceb2a500013cf2dd8c4d339f9f55d909b"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.bridgeforge-codex.references.runtime-preflight.md",
+        "source": "source/forge/templates/maintenance/bridgeforge-codex/references/runtime-preflight.md",
+        "target": ".codex/maintenance/bridgeforge-codex/references/runtime-preflight.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:0aa944a10274583726f10b21cd142ed1f54fa19bf6abad187e690b474034af2a",
+        "previous_sha256": [
+          "sha256:88ccca475f83b95823c2d368f89d9e6d192f45d054a91fef204ee7a776270b0c"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.bridgeforge-codex.references.project-hook-independence.md",
+        "source": "source/forge/templates/maintenance/bridgeforge-codex/references/project-hook-independence.md",
+        "target": ".codex/maintenance/bridgeforge-codex/references/project-hook-independence.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:13551f933b59242a262baa503e8c4ff253a1edd43cbc7dbadac63fb161037f34",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.bridgeforge-codex.references.technical-receipts.md",
+        "source": "source/forge/templates/maintenance/bridgeforge-codex/references/technical-receipts.md",
+        "target": ".codex/maintenance/bridgeforge-codex/references/technical-receipts.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:e117cecefe52bbe4785c5c3770980608e527e74f202efa9fc31c7d7c4bf624ae",
+        "previous_sha256": [
+          "sha256:6855394a3319ef7bccbadda4cee95d47250d6e85379a31c3304f1e18bd9e803f"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.bridgeforge-codex.references.transaction.md",
+        "source": "source/forge/templates/maintenance/bridgeforge-codex/references/transaction.md",
+        "target": ".codex/maintenance/bridgeforge-codex/references/transaction.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:64475e25ea2dfe277966d91d64f0b83b9c47ea61daf328bf584c3df1239b4e24",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.bridgeforge-codex.references.update.md",
+        "source": "source/forge/templates/maintenance/bridgeforge-codex/references/update.md",
+        "target": ".codex/maintenance/bridgeforge-codex/references/update.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:d50516728d61bdfbe768c6256fab49ca95d5bcf8c7e1c14e3220c227aa493087",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.bridgeforge-codex.references.user-skill-maintenance.md",
+        "source": "source/forge/templates/maintenance/bridgeforge-codex/references/user-skill-maintenance.md",
+        "target": ".codex/maintenance/bridgeforge-codex/references/user-skill-maintenance.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:2d2882e6be27c3f44c7542d0f980da112143a0be4c699ef4fdbf667c8b28367d",
+        "previous_sha256": [
+          "sha256:1cbb944098049f5b5df689fd6ae3fa811cd321c1aea2da236e12f7d387652e7b"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.archive-scan.skill.md",
+        "source": "source/forge/templates/skills/archive-scan/SKILL.md",
+        "target": ".agents/skills/archive-scan/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:e2ab974e9fc13fb65fd2c28419e1c97c0d0e34c5443a5fa666789558ccf09542",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.autopilot.skill.md",
+        "source": "source/forge/templates/skills/autopilot/SKILL.md",
+        "target": ".agents/skills/autopilot/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:b4f59bd47d7d0cd9cbe470b77159fafe3440f5c86ba7393160395e44ff550dcf",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.autopilot.references.runtime.md",
+        "source": "source/forge/templates/skills/autopilot/references/runtime.md",
+        "target": ".agents/skills/autopilot/references/runtime.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:c3e8ec00a4778e2792908a194fdeaca640f465c7ba9d18a6e6e55d37d423ceac",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.collab.skill.md",
+        "source": "source/forge/templates/skills/collab/SKILL.md",
+        "target": ".agents/skills/collab/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:bbcd5cbf6a0b119615427815a55e614c55b4d4af1f1bf46676e37bea0751b253",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.confirm.skill.md",
+        "source": "source/forge/templates/skills/confirm/SKILL.md",
+        "target": ".agents/skills/confirm/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:850fe88cd78f4598e2fa33ea126d36fcea4b5a07065226c40588d16c1a69bfb7",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.confirm.references.weekly-quota.md",
+        "source": "source/forge/templates/skills/confirm/references/weekly-quota.md",
+        "target": ".agents/skills/confirm/references/weekly-quota.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:4dc91f611b1b594e8a5b33a6e16cce2bc049a7751be77ce918da5a28c61652ed",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.create-worktree.skill.md",
+        "source": "source/forge/templates/skills/create-worktree/SKILL.md",
+        "target": ".agents/skills/create-worktree/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:d0e58c1b0bbdf5213336bbaf8c8951c2415ef5b86dba9be1735efc460fd8000c",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.create-worktree.agents.openai.yaml",
+        "source": "source/forge/templates/skills/create-worktree/agents/openai.yaml",
+        "target": ".agents/skills/create-worktree/agents/openai.yaml",
+        "strategy": "whole",
+        "current_sha256": "sha256:f40c1215a001cb5e43495b151107b9d7fee34c4f00ee35bfc4136d7cf5a9dbe8",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.create-worktree.scripts.create_worktree.ps1",
+        "source": "source/forge/templates/skills/create-worktree/scripts/create_worktree.ps1",
+        "target": ".agents/skills/create-worktree/scripts/create_worktree.ps1",
+        "strategy": "whole",
+        "current_sha256": "sha256:3574d9e0c8a1500049aaa5130551306af8e53a5f064a603dc8e62395dd0e8351",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.debate.skill.md",
+        "source": "source/forge/templates/skills/debate/SKILL.md",
+        "target": ".agents/skills/debate/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:cf41d29f58b7c9acc599bbc61e4e8d124fabb36da7f768152da967a23004fdbe",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.develop.references.agent-execution.md",
+        "source": "source/forge/templates/skills/develop/references/agent-execution.md",
+        "target": ".agents/skills/develop/references/agent-execution.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:117194ba9d75b7e7117719d960755c5efe781bccc13311006b251185b826e8b3",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.develop.references.ml-delivery.md",
+        "source": "source/forge/templates/skills/develop/references/ml-delivery.md",
+        "target": ".agents/skills/develop/references/ml-delivery.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:2ccdcdcb7a9e1db4f551fd5fc8bfbfab10dd9254094be4588094cd6a3dda4055",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.develop.references.completion-release.md",
+        "source": "source/forge/templates/skills/develop/references/completion-release.md",
+        "target": ".agents/skills/develop/references/completion-release.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:a56d784bb4afa213d06ee2eb97a60137a178fef4bdb268c2914c0a6f2f2cce91",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.develop.skill.md",
+        "source": "source/forge/templates/skills/develop/SKILL.md",
+        "target": ".agents/skills/develop/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:12eed5cc7ede6870a33fd36727eebee279aceda827f9fdd18ce152de7cfd9e67",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.escalate.skill.md",
+        "source": "source/forge/templates/skills/escalate/SKILL.md",
+        "target": ".agents/skills/escalate/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:f0647f3c0a70176b384a0764a61121fa2502ca6aa20214438fd35b8b00fae236",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.explain.skill.md",
+        "source": "source/forge/templates/skills/explain/SKILL.md",
+        "target": ".agents/skills/explain/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:ee9e6bac1a8ff26150755b53c34eab0c53e9ed6969e94f4abfce84c4a9aaf40e",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.find-doc.skill.md",
+        "source": "source/forge/templates/skills/find-doc/SKILL.md",
+        "target": ".agents/skills/find-doc/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:74a692b66f96c29e03883c75c077fc10fd6ba026624c56ce27f92512eff2d25e",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.focus.skill.md",
+        "source": "source/forge/templates/skills/focus/SKILL.md",
+        "target": ".agents/skills/focus/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:d6eb386a5bf73e532d204f3c74885f236a0d571df8b85c1780733954ca8db3d4",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.git-sync.skill.md",
+        "source": "source/forge/templates/skills/git-sync/SKILL.md",
+        "target": ".agents/skills/git-sync/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:cc88742d4e1e71082815365040c27067eda3b77ef6b4b549f4c3dfc1d977048a",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.git-sync.references.first-use.md",
+        "source": "source/forge/templates/skills/git-sync/references/first-use.md",
+        "target": ".agents/skills/git-sync/references/first-use.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:26234a62b1f08417c8a47af33669ade7d7576030c535e07fbc8e3463e1ad7606",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.git-sync.references.schema4.md",
+        "source": "source/forge/templates/skills/git-sync/references/schema4.md",
+        "target": ".agents/skills/git-sync/references/schema4.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:da5622d93ab2d7bd02024c91277b459f6cde1e572dee440ce9395a198e592a2a",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.git-sync.references.runtime-context.md",
+        "source": "source/forge/templates/skills/git-sync/references/runtime-context.md",
+        "target": ".agents/skills/git-sync/references/runtime-context.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:843ee21bccce0d61b04585a163390a05838ab42583feb9a6c60fd6a41b16ab6a",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.plan.skill.md",
+        "source": "source/forge/templates/skills/plan/SKILL.md",
+        "target": ".agents/skills/plan/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:65d595a899749b588a03cbdf49e625839a741d803b030679c94b5b6eb9e7bb95",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.spinoff.skill.md",
+        "source": "source/forge/templates/skills/spinoff/SKILL.md",
+        "target": ".agents/skills/spinoff/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:09c0b4d514e192ae1ead8c40c861371c31185b426b9bfb6d8a19769c7a06a4a4",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.summary.references.acceptance-mode.md",
+        "source": "source/forge/templates/skills/summary/references/acceptance-mode.md",
+        "target": ".agents/skills/summary/references/acceptance-mode.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:a965228a36022ce61c650eaa6cd2f056de814b9fc4ccfe482f8c1573e5eb0a9a",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.summary.references.ordinary-mode.md",
+        "source": "source/forge/templates/skills/summary/references/ordinary-mode.md",
+        "target": ".agents/skills/summary/references/ordinary-mode.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:cec6a41bf61be4166ed057f50132d51f7b07bf4e0697a41e2b8eddd18948a657",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.summary.skill.md",
+        "source": "source/forge/templates/skills/summary/SKILL.md",
+        "target": ".agents/skills/summary/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:157d6ce0c8bbc2537de4ac70c5f3a5bbf5450fc7382a8dae4143ed119f34368a",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.summary.references.switch-mode.md",
+        "source": "source/forge/templates/skills/summary/references/switch-mode.md",
+        "target": ".agents/skills/summary/references/switch-mode.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:4b8b2724c385df1ee0d2d5b65939c2e99cfc048e3dadc94424c5fd25f2457d1a",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.refactor-scan.skill.md",
+        "source": "source/forge/templates/skills/refactor-scan/SKILL.md",
+        "target": ".agents/skills/refactor-scan/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:fb1a948d719fbf3da5857d73b9c80343775a9b51c05af4d644f0441d84bc5069",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.refactor-scan.references.report-contract.md",
+        "source": "source/forge/templates/skills/refactor-scan/references/report-contract.md",
+        "target": ".agents/skills/refactor-scan/references/report-contract.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:4e5740a0b8b50d2cc2bc19c2631b0806ceb55fb0f2b0b960ff4ab01bbe63ca3c",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.sync-docs.skill.md",
+        "source": "source/forge/templates/skills/sync-docs/SKILL.md",
+        "target": ".agents/skills/sync-docs/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:84e8278811707f2bfa8651f8c71eee5708f02d4889ee9b14d711016104c9b61d",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.todo.references.contract.md",
+        "source": "source/forge/templates/skills/todo/references/contract.md",
+        "target": ".agents/skills/todo/references/contract.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:cd9ae1e62989caf72de5f83624b9fd59c36cd6c8ccf07d1fc7f1d78cb72ad90f",
+        "previous_sha256": []
+      },
+      {
+        "id": "codex.project-workflow.todo.skill.md",
+        "source": "source/forge/templates/skills/todo/SKILL.md",
+        "target": ".agents/skills/todo/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:43128595e71c8ffb3dbef80994a4cd945bd5f142b76ec1d76464773af9151dea",
+        "previous_sha256": []
+      },
       {
         "id": "codex.doc.project-rust-hooks",
         "source": "source/forge/templates/doc/3_reference/project-rust-hooks.md",
@@ -3666,7 +3699,7 @@
         "source": "Cargo.lock",
         "target": ".codex/hooks/Cargo.lock",
         "strategy": "whole",
-        "current_sha256": "sha256:440010a37ed600ff07947053711ce4223f948026662d4693e91be24e77f39c1a",
+        "current_sha256": "sha256:d85a2959b67120af945225904cbbae871042e090e03335a5ff4ff90e9336756a",
         "render": "public-runtime-lock"
       },
       {
@@ -3759,14 +3792,14 @@
         "source": "source/forge/cli/Cargo.toml",
         "target": ".codex/hooks/source/cli/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:286a6652f966db088b9f00308370264efff96d347d801702b3ea1bcd63973f67"
+        "current_sha256": "sha256:87e8ed40486f561af72c4284242122e302631a3c5c18e678517f4927750c3582"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-cli-src-main-rs",
         "source": "source/forge/cli/src/lib.rs",
         "target": ".codex/hooks/source/cli/src/lib.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:aa698ccadc437745166391c6122f30f79bfd2e65f40e927f3fe35e355e06b3b2"
+        "current_sha256": "sha256:1a71c15f21e88e93ee93b3fda70fd5a93f40b981fab43f61402e59c0b0c4c368"
       },
       {
         "id": "codex.hooks.source-cli-src-main-rs",
@@ -3780,14 +3813,21 @@
         "source": "source/forge/cli/src/memory_commands.rs",
         "target": ".codex/hooks/source/cli/src/memory_commands.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:0f938e5529b65430adf25b1ef5a015abde39ee5c84e4272166bce289193c90c0"
+        "current_sha256": "sha256:0bca9b714fc7b706558a8ac59875648e0c65cc6cfabb9656288b4c553d37ed71"
+      },
+      {
+        "id": "codex.hooks.source-cli-src-memory-hook-main-rs",
+        "source": "source/forge/cli/src/memory_hook_main.rs",
+        "target": ".codex/hooks/source/cli/src/memory_hook_main.rs",
+        "strategy": "whole",
+        "current_sha256": "sha256:8f4e69e7ed9dd130955b5aeada4ac83d6c3ee2b5e161b8983ea3f81ebd95a38f"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-core-cargo-toml",
         "source": "source/forge/core/Cargo.toml",
         "target": ".codex/hooks/source/core/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:f88bce0c402985111625575d2173d09123860f9ba37956f5821e241b3801eea6"
+        "current_sha256": "sha256:35c8ede4d210267b34c129a7b29d8b99e197cc09436de8a6f1cd17717237bbb6"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-core-src-artifact-cache-rs",
@@ -3969,7 +4009,7 @@
         "source": "source/forge/core/src/product_manifest.rs",
         "target": ".codex/hooks/source/core/src/product_manifest.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:affe985897839ac30133bdbb5ec4eb4c735b622e671a89706644fe6c4c489593"
+        "current_sha256": "sha256:ccac757c45e17e432406aa9fc946b52a07b2858ad37e817c966541bd94015fe0"
       },
       {
         "id": "codex.hooks.source-core-src-product-version-rs",
@@ -4025,7 +4065,7 @@
         "source": "source/forge/core/src/template_assets.rs",
         "target": ".codex/hooks/source/core/src/template_assets.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:8006e6ca3a897863e237ecca2130284812665199df8422e7233fc3cfe813b47b"
+        "current_sha256": "sha256:b86539504f17bdc3eb1368816f201857d4cc4ced91b403d7856248d229179405"
       },
       {
         "id": "codex.hooks.source-core-src-template-standard-rs",
@@ -4046,7 +4086,7 @@
         "source": "source/forge/hook/Cargo.toml",
         "target": ".codex/hooks/source/hook/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:48c9f358c4fe5acbdeb6161101039661b556a8552ee9229bec7046c1604cdc67"
+        "current_sha256": "sha256:cf1097ace0261452b5504b6722fc6fa72a9246643e8a08b320e56f6c17cb8b2a"
       },
       {
         "id": "codex.hooks.source-hook-build-rs",
@@ -4081,7 +4121,7 @@
         "source": "source/forge/hook/src/post.rs",
         "target": ".codex/hooks/source/hook/src/post.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:df67bbb071df38a0bb2a1e6033fd602604387f4ae8e0d3ceaa4a406069aac8fe"
+        "current_sha256": "sha256:b20f3040240f701b08e905c0be3f9b16a990b19d8b294df3b1ed792251c56f19"
       },
       {
         "id": "codex.hooks.src-project-map-rs",
@@ -4095,7 +4135,7 @@
         "source": "source/forge/hook/src/session.rs",
         "target": ".codex/hooks/source/hook/src/session.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:11032e2e36d6d9c33f489cc653b35b00eb821b2fa246b6068febddd29497d09b"
+        "current_sha256": "sha256:750f935c10e7e758eef52d0b2358064bc6720c18b954feae6e59bef125ec4ffb"
       },
       {
         "id": "codex.hooks.src-shell-rs",
@@ -4340,7 +4380,7 @@
         "source": "source/forge/memory/Cargo.toml",
         "target": ".codex/hooks/source/memory/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:44cca7191a5265d27fc58e2b0ee8708d88460aeb57d027e7fb82027a28cd8e35"
+        "current_sha256": "sha256:9ab9dbd8564de9bc244ecbde5bde3911aa7ad22b1e06790d1aab5af5ac9d7765"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-core-src-memory-background-rs",
@@ -4382,7 +4422,7 @@
         "source": "source/forge/memory/src/user_config.rs",
         "target": ".codex/hooks/source/memory/src/user_config.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:514d4247ad583ae4ac28f32ac7be84281f0cd42f4ebb28af2d2c52d4b37e0527"
+        "current_sha256": "sha256:b8b3ce3ea55ad77ef745592e84dc7a008a0563125730b5e561d5b159b195fb55"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-core-src-memory-worker-rs",
@@ -4396,7 +4436,7 @@
         "source": "source/forge/skeleton/Cargo.toml",
         "target": ".codex/hooks/source/skeleton/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:fa67e675895c3ac9fde8a601be08d1f360cdbf2c3f91b923e0fa89a8a1f0eaec"
+        "current_sha256": "sha256:27e53442f61340a7dc8be50c32589e3aa6226833791d4c3767c53c52a8289e30"
       },
       {
         "id": "codex.hooks.source-skeleton-src-attributes-rs",
@@ -4410,7 +4450,7 @@
         "source": "source/forge/skeleton/src/baseline.rs",
         "target": ".codex/hooks/source/skeleton/src/baseline.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:7fa2eef48959214209c47c1c31fbfe9805e4c131e4ace5de6603badfbc05f316"
+        "current_sha256": "sha256:fb619bf741a94758aaf3c09d71329898c08b013dc1161770fcd42edd64ea6d36"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-core-src-project-sync-content-rs",
@@ -4445,7 +4485,7 @@
         "source": "source/forge/workflow/Cargo.toml",
         "target": ".codex/hooks/source/workflow/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:1ea2e263b176297340c6b1a1172867d1c1de5a9db48bb318b7f29c494fbe3efd"
+        "current_sha256": "sha256:b28074ea104d99f365057116137a1c175264b1bcc15d39447622d1fc1a71e2c8"
       },
       {
         "id": "codex.hooks.source-workflow-src-artifact-cleanup-rs",
@@ -4571,7 +4611,7 @@
         "source": "source/forge/workflow/src/public_artifacts.rs",
         "target": ".codex/hooks/source/workflow/src/public_artifacts.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:0ab83922a170dc12b09869767774f64b48bee096d404f78f2f08af6503dab626"
+        "current_sha256": "sha256:8d2c8f67cc63a71df622eafe73ce0b5250250160695eec6295db6d3c7be1ab85"
       },
       {
         "id": "codex.hooks.source-workflow-src-source-retirement-rs",
@@ -4585,7 +4625,7 @@
         "source": "source/forge/workflow/src/template_sync.rs",
         "target": ".codex/hooks/source/workflow/src/template_sync.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:45c201cca0deb8bd355fc13b89423f92ca50cc018136b4be43f80fbbae8a2349"
+        "current_sha256": "sha256:e90bb1234e9d2132d614a9599ae0010d9c43e2e5c54644e6c47e18aee9e22e21"
       }
     ],
     "baseline_model": "current-only",
@@ -4632,15 +4672,15 @@
             "status": "ok",
             "build_identity": {
               "protocol": 1,
-              "source_tree_sha256": "sha256:1ae37815862f25c42794003810dda956802334b9f63d116e41513396d6e3164a",
-              "lockfile_sha256": "sha256:440010a37ed600ff07947053711ce4223f948026662d4693e91be24e77f39c1a"
+              "source_tree_sha256": "sha256:e9eb96f59907e31686c68eda671cebea78f55e93659f08c53679f44b2247be0d",
+              "lockfile_sha256": "sha256:d85a2959b67120af945225904cbbae871042e090e03335a5ff4ff90e9336756a"
             }
           }
         },
-        "source_tree_sha256": "sha256:1ae37815862f25c42794003810dda956802334b9f63d116e41513396d6e3164a",
-        "lockfile_sha256": "sha256:440010a37ed600ff07947053711ce4223f948026662d4693e91be24e77f39c1a",
+        "source_tree_sha256": "sha256:e9eb96f59907e31686c68eda671cebea78f55e93659f08c53679f44b2247be0d",
+        "lockfile_sha256": "sha256:d85a2959b67120af945225904cbbae871042e090e03335a5ff4ff90e9336756a",
         "build_recipe_sha256": "sha256:38f32bc9a727a88db971e8bcf9c71d1f9e3dc0cd9a68a6f560bcd48bda07c444",
-        "self_test_sha256": "sha256:70f84db286ccf54a57006eacc3d9f46cd54f5c8beddd6599a3b7561fd8bef32c",
+        "self_test_sha256": "sha256:a3474c0f5fd8727ac2da87f1caca87056458cf5ebb72751cb66f8cee1484638f",
         "source_projection": "public-runtime-v1"
       },
       {
@@ -4684,15 +4724,15 @@
             "status": "ok",
             "build_identity": {
               "protocol": 1,
-              "source_tree_sha256": "sha256:1ae37815862f25c42794003810dda956802334b9f63d116e41513396d6e3164a",
-              "lockfile_sha256": "sha256:440010a37ed600ff07947053711ce4223f948026662d4693e91be24e77f39c1a"
+              "source_tree_sha256": "sha256:e9eb96f59907e31686c68eda671cebea78f55e93659f08c53679f44b2247be0d",
+              "lockfile_sha256": "sha256:d85a2959b67120af945225904cbbae871042e090e03335a5ff4ff90e9336756a"
             }
           }
         },
-        "source_tree_sha256": "sha256:1ae37815862f25c42794003810dda956802334b9f63d116e41513396d6e3164a",
-        "lockfile_sha256": "sha256:440010a37ed600ff07947053711ce4223f948026662d4693e91be24e77f39c1a",
+        "source_tree_sha256": "sha256:e9eb96f59907e31686c68eda671cebea78f55e93659f08c53679f44b2247be0d",
+        "lockfile_sha256": "sha256:d85a2959b67120af945225904cbbae871042e090e03335a5ff4ff90e9336756a",
         "build_recipe_sha256": "sha256:cf5fb262a1e28cd8e05979b29b633143e52ae3cd1b62eeea56d9f55da70d1e5e",
-        "self_test_sha256": "sha256:8dcc37380996a4fedc5ef3ad5e1f241e0da982ba8084d976348067031febf52a",
+        "self_test_sha256": "sha256:6086218b50a911c1e4d7fdbd156ff2d01ca571e7b025e8ab91f0b8c42e1aa396",
         "source_projection": "public-runtime-v1"
       }
     ],

@@ -313,11 +313,9 @@ fn template_project_sync(args: &[String]) -> CommandOutcome {
             Some(path)=>Some(serde_json::from_value::<bridgeforge_workflow::project_release::Recipe>(bridgeforge_core::json::parse_unique_json(&std::fs::read(path).map_err(|e|e.to_string())?,"release installation recipe")?).map_err(|e|e.to_string())?),
             None=>None,
         };
-        let contract = bridgeforge_core::product_manifest::project(&product)?;
         let prepared = match value(args, "--public-artifacts") {
             Some(path) => PathBuf::from(path),
-            None => bridgeforge_workflow::public_artifacts::prepared_for_product(&product,
-                &bridgeforge_workflow::public_artifacts::codex_home()?, &contract)?,
+            None => bridgeforge_workflow::public_artifacts::prepared_for_product(&product)?,
         };
         let plan = bridgeforge_workflow::template_sync::plan_with_artifacts(&path_value(args, "--project-root")?, &product,specification.as_ref(),Some(&prepared))?;
         if !has(args, "--apply") { return Ok(plan.report); }
@@ -496,5 +494,18 @@ pub fn main() {
             || json!({"status":if outcome.code == 0 {"ok"} else {"blocked"}}),
         )["profile"] = metrics;
     }
+    std::process::exit(emit(outcome));
+}
+
+pub fn memory_hook_main() {
+    let args = std::env::args().skip(1).collect::<Vec<_>>();
+    let outcome = match args.first().map(String::as_str) {
+        Some("self-test") => CommandOutcome::with_receipt(json!({
+            "schema":1, "name":"bridgeforge-memory-hook", "status":"ok",
+            "version":env!("CARGO_PKG_VERSION"), "build_identity":bridgeforge_core::build_identity::identity()
+        })),
+        Some("memory-sync") => memory_commands::memory_sync(&args[1..]),
+        _ => blocked("bridgeforge-memory-hook", "expected self-test or memory-sync"),
+    };
     std::process::exit(emit(outcome));
 }

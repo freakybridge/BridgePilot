@@ -51,7 +51,8 @@ fn unified_manifest_emits_one_nested_source_without_retired_sidecars() {
     let combined = bridgeforge_core::product_manifest::parse(bytes).unwrap();
     assert_eq!(combined["project_skeleton"], serde_json::from_slice::<Value>(&render_managed_contract(root).unwrap()).unwrap());
     assert_eq!(combined["user_instructions"], serde_json::from_slice::<Value>(&crate::user_agents::render_manifest(root).unwrap()).unwrap());
-    assert_eq!(combined["shared_skills"], serde_json::from_slice::<Value>(&render_distribution_manifest(root).unwrap()).unwrap());
+    assert_eq!(combined["schema_version"], 2);
+    assert!(combined.get("shared_skills").is_none());
     assert_eq!(fs::read(root.join(bridgeforge_core::product_manifest::FILE)).unwrap(), before);
 }
 
@@ -145,40 +146,22 @@ fn canonical_hash_ignores_object_insertion_order() {
 }
 
 #[test]
-fn factory_skill_mirrors_are_explicit_private_and_readonly() {
+fn factory_and_consumer_workflows_share_explicit_assets() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().find(|p| p.join("source/forge/bridgeforge-manifest.json").is_file()).expect("factory repository");
-    let contract: Value =
-        serde_json::from_slice(include_bytes!("../../../source/forge/factory/src/dogfood.json")).unwrap();
-    let before = contract["assets"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|asset| {
-            let target = asset["target"].as_str().unwrap().to_owned();
-            let bytes = fs::read(root.join(&target)).unwrap();
-            (target, bytes)
-        })
-        .collect::<BTreeMap<_, _>>();
-    let outputs = crate::dogfood::render(root).unwrap();
-    assert_eq!(outputs.len(), contract["assets"].as_array().unwrap().len());
     let public: Value = serde_json::from_slice(&render_managed_contract(root).unwrap()).unwrap();
-    assert!(!outputs.keys().any(|p| p.starts_with(".codex/skills/git-sync/")), "git-sync belongs to the BF user-level distribution, not a BP project mirror");
-    let distribution: Value = serde_json::from_slice(&render_distribution_manifest(root).unwrap()).unwrap();
-    assert!(distribution["platforms"]["codex"]["skills"].as_array().unwrap()
-        .iter().any(|skill| skill["name"] == "git-sync"), "the BF shared git-sync entry must remain available");
-    for asset in contract["assets"].as_array().unwrap() {
-        let source = asset["source"].as_str().unwrap();
+    let outputs = factory_entrypoints(root).unwrap();
+    let mut count = 0;
+    for asset in public["assets"].as_array().unwrap() {
         let target = asset["target"].as_str().unwrap();
+        if !target.starts_with(".agents/skills/") && !target.starts_with(".codex/maintenance/") { continue; }
+        if target.ends_with("/SKILL.md") { count += 1; }
+        let source = asset["source"].as_str().unwrap();
         assert_eq!(outputs[target], fs::read(root.join(source)).unwrap());
-        assert!(
-            public["assets"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .all(|a| a["target"] != target)
-        );
-        assert_eq!(fs::read(root.join(target)).unwrap(), before[target]);
+        assert_eq!(outputs[target], fs::read(root.join(target)).unwrap());
     }
+    assert_eq!(count, 19);
+    assert!(outputs.contains_key(".agents/skills/git-sync/SKILL.md"));
+    assert!(outputs.contains_key(".codex/maintenance/bridgeforge-codex/scripts/prepare-project.ps1"));
 }
 
 #[test]

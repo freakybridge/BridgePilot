@@ -354,34 +354,7 @@ mod tests {
         assert!(!contract.contains(".py\""));
         assert!(contract.contains("codex.bridgeforge-cli"));
         assert!(contract.contains("codex.hooks"));
-        let distribution: serde_json::Value = serde_json::from_slice(
-            &fixture_product::read_shared(
-                repository.join("source/forge/bridgeforge-manifest.json"),
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        for platform in distribution["platforms"].as_object().unwrap().values() {
-            let skill = platform["skills"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|s| s["name"] == "git-sync")
-                .unwrap();
-            assert!(
-                skill["files"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .any(|f| f["source"]
-                        == bridgeforge_core::source_projection::template_relative(
-                            &repository,
-                            "templates/skills/git-sync/references/first-use.md"
-                        )
-                        && f["target"] == "references/first-use.md"),
-                "first-use reference must be shipped with git-sync"
-            );
-        }
+        assert!(contract.contains(".agents/skills/git-sync/references/first-use.md"));
     }
 
     #[test]

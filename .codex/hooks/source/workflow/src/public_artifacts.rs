@@ -26,10 +26,10 @@ struct FactoryPrepared {
     files:BTreeMap<String,String>,
 }
 
-pub fn prepared_for_product(product:&Path,codex:&Path,contract:&Value)->Result<PathBuf,String> {
+pub fn prepared_for_product(product:&Path)->Result<PathBuf,String> {
     let factory=product.join(FACTORY_READY);
     if product.join("source/forge/factory/Cargo.toml").is_file() && factory.exists() {Ok(factory)}
-    else {prepared_path(codex,contract)}
+    else {Err("prepared Forge artifacts are missing; prepare the fixed product source or pass its verified receipt".into())}
 }
 
 /// Factory preparation supplies already verified native outputs in its existing

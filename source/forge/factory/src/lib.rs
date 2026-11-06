@@ -11,7 +11,6 @@ pub use bridgeforge_lifecycle::release;
 pub use bridgeforge_skeleton::{baseline, project_hooks};
 pub use bridgeforge_workflow::{git_sync, project_sync};
 pub mod commands;
-mod dogfood;
 pub mod factory_runtime;
 pub mod factory_version;
 pub mod git_sync_plan;

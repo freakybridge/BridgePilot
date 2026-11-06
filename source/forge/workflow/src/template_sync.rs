@@ -30,6 +30,39 @@ fn state(root: &Path, relative: &str) -> Result<Option<Vec<u8>>, String> {
     crate::project_sync::transaction_file_state(&managed_paths::safe_join(root, relative, "template transaction")?)
 }
 
+fn verify_workflow_root(root: &Path, relative: &str) -> Result<(), String> {
+    let skill = relative.strip_prefix(".agents/skills/")
+        .and_then(|path| path.strip_suffix("/SKILL.md"))
+        .filter(|name| !name.contains('/'));
+    if let Some(name) = skill {
+        let legacy = format!(".codex/skills/{name}/SKILL.md");
+        if state(root, &legacy)?.is_some() {
+            return Err(format!("same-name project Skill is preserved: {legacy}"));
+        }
+    } else if relative != ".codex/maintenance/bridgeforge-codex/MAINTENANCE.md" {
+        return Ok(());
+    }
+
+    if state(root, relative)?.is_none() {
+        let entry = managed_paths::safe_join(root, relative, "project workflow entry")?;
+        let directory = entry.parent().ok_or("project workflow entry has no parent")?;
+        if directory.exists() && fs::read_dir(directory).map_err(|error| error.to_string())?.next().is_some() {
+            return Err(format!("unowned nonempty project workflow is preserved: {relative}"));
+        }
+    }
+    Ok(())
+}
+
+fn verify_workflow_asset(relative: &str, rule: &Value, current: Option<&[u8]>) -> Result<(), String> {
+    if let (Some(history), Some(current)) = (rule["previous_sha256"].as_array(), current) {
+        let digest = Value::String(build_manifest::normalized_hash(current));
+        if digest != rule["current_sha256"] && !history.contains(&digest) {
+            return Err(format!("unowned or modified project workflow is preserved: {relative}"));
+        }
+    }
+    Ok(())
+}
+
 fn public_source(product: &Path) -> Result<(BTreeMap<String, Vec<u8>>,String), String> {
     let (source,inputs) = bridgeforge_core::source_projection::render_with_fingerprint(product, true)?;
     let identity = build_identity::require()?;
@@ -110,6 +143,10 @@ fn revalidate(plan:&Plan)->Result<(),String> {
     if state(&plan.root,".runtime/bridgeforge-codex/release-preparation/commit-guard.json")?.is_some() {
         return Err("unfinished Git commit guard; preserve and resolve it before template retirement".into());
     }
+    for asset in template_standard::assets() {
+        let target = asset.rule["target"].as_str().ok_or("template target missing")?;
+        verify_workflow_root(&plan.root, target)?;
+    }
     let product=managed_paths::read_metadata(&plan.product.join(product_manifest::FILE),32*1024*1024)?.ok_or("product manifest disappeared")?;
     let contract=product_manifest::parse(&product)?;
     let mut runtime=crate::public_artifacts::read(&plan.prepared,&contract["project_skeleton"])?;
@@ -179,7 +216,9 @@ pub fn plan_with_artifacts(root: &Path, product: &Path, requested:Option<&crate:
     let mut changed = Vec::new();
     for asset in template_standard::assets() {
         let relative = asset.rule["target"].as_str().ok_or("template target missing")?;
+        verify_workflow_root(&root, relative)?;
         let current = state(&root, relative)?;
+        verify_workflow_asset(relative, &asset.rule, current.as_deref())?;
         let payload = bridgeforge_skeleton::content::render(
             asset.rule["id"].as_str().ok_or("template id missing")?, &asset.payload,
             current.as_deref(), &asset.rule, &root, true)?;
@@ -220,7 +259,7 @@ pub fn plan_with_artifacts(root: &Path, product: &Path, requested:Option<&crate:
         changed.push(path.strip_prefix(&root).map_err(|e|e.to_string())?.to_string_lossy().replace('\\',"/"));
         writes.insert(path,bytes);
     }
-    let prepared=match prepared {Some(path)=>path.to_path_buf(),None=>crate::public_artifacts::prepared_for_product(&product,&crate::public_artifacts::codex_home()?,contract)?};
+    let prepared=match prepared {Some(path)=>path.to_path_buf(),None=>crate::public_artifacts::prepared_for_product(&product)?};
     let mut runtime=crate::public_artifacts::read(&prepared,contract)?;
     if let Some(recipe)=&installation.recipe {
         let cli=runtime.get(&format!("{}/bridgeforge{}",bridgeforge_core::artifact_paths::PROJECT_BIN,std::env::consts::EXE_SUFFIX)).ok_or("prepared CLI missing")?;
