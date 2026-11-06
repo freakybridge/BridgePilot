@@ -63,3 +63,11 @@ GitHub 真实旧入口升级、真实用户安装、真实下游与当前会话�
 用户同时显式调用 `$git-sync`，授权提交、推送本轮实现与验收记录；该授权取代实施阶段的暂不提交限制，不授权真实用户安装或下游维护。提交、版本及推送结果以随后受管 git-sync 收据为准。
 
 已检索并阅读 BridgeForge 受管同步历史，现有 Skill 已覆盖入口、冲突和同步收据要求，本次不新增 Rule、Hook 或 AGENTS 条款。当前 topic 为归档候选，未执行归档；如需归档，另行调用 `$archive-scan`。
+
+## 回复表格编号增量验收（2026-11-06）
+
+一张监控影响对照表缺少编号列。核对后确认，旧条款只要求给多步操作编号，表格行编号需要单独表述。用户要求在现有条款原行修改，并通过 `$summary accept` 验收本次交付。[用户级 AGENTS 模板](../../../source/forge/templates/user/AGENTS.md#回复方式)
+
+第 3 条现在要求回复中的表格以「编号」为首列，数据行从 1 开始顺序编号。分发清单的用户指令哈希已同步。`git diff --check` 通过，受管 `manifest --root . --check` 返回 `status=ok`、`changed=false`，`check factory-version --root .` 返回 `healthy=true`。
+
+本次验收覆盖模板及分发清单。本机用户级副本尚未更新，新会话的实际输出未验证。用户另行调用 `$git-sync release` 授权正式发布，发布结果以受管 CLI 收据为准。

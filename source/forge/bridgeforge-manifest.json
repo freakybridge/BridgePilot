@@ -6,7 +6,7 @@
     "source": "source/forge/templates/user/AGENTS.md",
     "target": "~/.codex/AGENTS.md",
     "ownership_strategy": "backup_then_replace",
-    "sha256": "sha256:68d8869c603cfcb3823d50b2c45c6ac1607bb990f6d7074e31e016820e233ac6"
+    "sha256": "sha256:73381a3744d898c3b6c66678d0b250e7e64c94541ac45c60403f07da496aa57a"
   },
   "shared_skills": {
     "schema_version": 1,
