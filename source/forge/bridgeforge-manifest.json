@@ -3271,12 +3271,22 @@
         "previous_sha256": []
       },
       {
+        "id": "codex.project-workflow.avoid-overdefensive-programming.skill.md",
+        "source": "source/forge/templates/skills/avoid-overdefensive-programming/SKILL.md",
+        "target": ".agents/skills/avoid-overdefensive-programming/SKILL.md",
+        "strategy": "whole",
+        "current_sha256": "sha256:13ee87ae37dc1e46c0681962519adef071b6024cf014b5ca07f5c47edda6523a",
+        "previous_sha256": []
+      },
+      {
         "id": "codex.project-workflow.develop.skill.md",
         "source": "source/forge/templates/skills/develop/SKILL.md",
         "target": ".agents/skills/develop/SKILL.md",
         "strategy": "whole",
-        "current_sha256": "sha256:12eed5cc7ede6870a33fd36727eebee279aceda827f9fdd18ce152de7cfd9e67",
-        "previous_sha256": []
+        "current_sha256": "sha256:fc953f08ba7ae316f14e61376d8e74d084a5eab155d47aa547a1050d4f3787ba",
+        "previous_sha256": [
+          "sha256:12eed5cc7ede6870a33fd36727eebee279aceda827f9fdd18ce152de7cfd9e67"
+        ]
       },
       {
         "id": "codex.project-workflow.escalate.skill.md",
@@ -4065,7 +4075,7 @@
         "source": "source/forge/core/src/template_assets.rs",
         "target": ".codex/hooks/source/core/src/template_assets.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:b86539504f17bdc3eb1368816f201857d4cc4ced91b403d7856248d229179405"
+        "current_sha256": "sha256:c2364a873355c8d4b02396b722d133a0a0489ee10cff3a7cbf34fe287932e560"
       },
       {
         "id": "codex.hooks.source-core-src-template-standard-rs",
@@ -4672,15 +4682,15 @@
             "status": "ok",
             "build_identity": {
               "protocol": 1,
-              "source_tree_sha256": "sha256:e9eb96f59907e31686c68eda671cebea78f55e93659f08c53679f44b2247be0d",
+              "source_tree_sha256": "sha256:0b93dd6e8f213f74dd4c5e7ed8139c0d44d931db7366158d38ed2185588da2d0",
               "lockfile_sha256": "sha256:d85a2959b67120af945225904cbbae871042e090e03335a5ff4ff90e9336756a"
             }
           }
         },
-        "source_tree_sha256": "sha256:e9eb96f59907e31686c68eda671cebea78f55e93659f08c53679f44b2247be0d",
+        "source_tree_sha256": "sha256:0b93dd6e8f213f74dd4c5e7ed8139c0d44d931db7366158d38ed2185588da2d0",
         "lockfile_sha256": "sha256:d85a2959b67120af945225904cbbae871042e090e03335a5ff4ff90e9336756a",
         "build_recipe_sha256": "sha256:38f32bc9a727a88db971e8bcf9c71d1f9e3dc0cd9a68a6f560bcd48bda07c444",
-        "self_test_sha256": "sha256:a3474c0f5fd8727ac2da87f1caca87056458cf5ebb72751cb66f8cee1484638f",
+        "self_test_sha256": "sha256:b218cbd9313ab2d790a7c08d2991515b8f347f874bd19810f2f9e1766a0423df",
         "source_projection": "public-runtime-v1"
       },
       {
@@ -4724,15 +4734,15 @@
             "status": "ok",
             "build_identity": {
               "protocol": 1,
-              "source_tree_sha256": "sha256:e9eb96f59907e31686c68eda671cebea78f55e93659f08c53679f44b2247be0d",
+              "source_tree_sha256": "sha256:0b93dd6e8f213f74dd4c5e7ed8139c0d44d931db7366158d38ed2185588da2d0",
               "lockfile_sha256": "sha256:d85a2959b67120af945225904cbbae871042e090e03335a5ff4ff90e9336756a"
             }
           }
         },
-        "source_tree_sha256": "sha256:e9eb96f59907e31686c68eda671cebea78f55e93659f08c53679f44b2247be0d",
+        "source_tree_sha256": "sha256:0b93dd6e8f213f74dd4c5e7ed8139c0d44d931db7366158d38ed2185588da2d0",
         "lockfile_sha256": "sha256:d85a2959b67120af945225904cbbae871042e090e03335a5ff4ff90e9336756a",
         "build_recipe_sha256": "sha256:cf5fb262a1e28cd8e05979b29b633143e52ae3cd1b62eeea56d9f55da70d1e5e",
-        "self_test_sha256": "sha256:6086218b50a911c1e4d7fdbd156ff2d01ca571e7b025e8ab91f0b8c42e1aa396",
+        "self_test_sha256": "sha256:33bc2707074d080ce0a3b7b63f463ed258cf65a36d30172cd6e993da13243af0",
         "source_projection": "public-runtime-v1"
       }
     ],

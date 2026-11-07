@@ -1,5 +1,9 @@
 # Changelog
 
+## [BP 2.5.0]
+
+- feat: 为 D3 工程清理接入过度防御清理 Skill
+
 ## [BP 2.4.0]
 
 - feat: 随项目分发 Forge 工作流并迁移用户级运行时
@@ -7,6 +11,7 @@
 ## [19.0.0]
 
 - [product] 通用 Forge Skill、引用和维护入口随项目骨架安装。项目准备和升级以固定官方来源和公共产物收据为准。
+- [product] develop 的工程清理调用公共 Skill `avoid-overdefensive-programming`，按本次代码改动核对防御分支及其失败语义。
 - [product] 用户级统一指令和原生 Memory Hook 独立维护。专用 Memory 执行器接管已知注册，确认项目安装后按旧归属记录退役通用用户级 Forge。
 - [repo] core 11.4.0、factory 0.13.0、hook 17.2.0、memory 0.2.0、skeleton 0.8.0、workflow 0.15.0 纳入本次候选。
 
