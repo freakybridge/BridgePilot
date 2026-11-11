@@ -1,6 +1,12 @@
 use super::*;
 use std::collections::BTreeMap;
 
+#[path = "core_cleanup_short_paths.rs"]
+mod short_paths;
+#[cfg(windows)]
+#[path = "core_cleanup_junctions.rs"]
+mod junctions;
+
 struct Fixture(PathBuf);
 impl Fixture {
     fn new() -> Self {
@@ -415,7 +421,7 @@ fn cleanup_readonly_interruption_preserves_remaining_attributes_and_counts_progr
     let report = Plan::capture(&f.0)
         .unwrap()
         .execute_observed(&mut || Err("injected interruption".into()));
-    assert_eq!(report.status, "partial");
+    assert_eq!(report.status, "partial", "{:?}", report.failures);
     assert_eq!(report.deleted_files, 1);
     assert_eq!(report.remaining_entries, Some(1));
     assert_eq!(
@@ -513,7 +519,7 @@ fn cleanup_project_executor_survives_while_runtime_and_caches_are_removed() {
 
 #[cfg(windows)]
 #[test]
-fn cleanup_rejects_junction_before_any_deletion() {
+fn cleanup_junction_is_removed_without_entering_its_target() {
     use std::os::windows::process::CommandExt;
     let f = Fixture::new();
     f.put(".runtime/remove.txt", b"remove");
@@ -528,9 +534,12 @@ fn cleanup_rejects_junction_before_any_deletion() {
         .output()
         .unwrap();
     assert!(output.status.success());
-    assert!(Plan::capture(&f.0).is_err());
-    assert!(f.0.join(".runtime/remove.txt").exists());
-    fs::remove_dir(link).unwrap();
+    let report = Plan::capture(&f.0).unwrap().execute();
+    assert_eq!(report.status, "completed", "{:?}", report.failures);
+    assert_eq!(report.deleted_junctions, 1);
+    assert!(!f.0.join(".runtime/remove.txt").exists());
+    assert_eq!(fs::read(f.0.join("external/keep.txt")).unwrap(), b"keep");
+    assert!(fs::symlink_metadata(link).is_err());
 }
 
 #[cfg(windows)]
@@ -668,9 +677,9 @@ fn cleanup_literal_brackets_do_not_bypass_link_or_ancestor_checks() {
     let child_result = validate_cleanup_target(&f.0, &link.join("[draft].md"));
     let plan_result = Plan::capture(&f.0);
     fs::remove_dir(&link).unwrap();
-    assert!(leaf_result.is_err());
+    assert!(leaf_result.is_ok());
     assert!(child_result.is_err());
-    assert!(plan_result.is_err());
+    assert_eq!(plan_result.unwrap().preview().planned_junctions, 1);
     assert_eq!(fs::read(f.0.join("outside/[draft].md")).unwrap(), b"keep");
     assert_eq!(
         fs::read(f.0.join(".runtime/remove.txt")).unwrap(),

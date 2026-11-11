@@ -239,7 +239,7 @@ fn cleanup_factory_routing_requires_the_private_tool_before_deleting_anything() 
     ]);
     assert_eq!(result.code, EXIT_BLOCKED);
     assert!(
-        result.stderr.contains("retired"),
+        result.stderr.contains("factory runtime") || result.stderr.contains("manifest"),
         "{}",
         result.stderr
     );

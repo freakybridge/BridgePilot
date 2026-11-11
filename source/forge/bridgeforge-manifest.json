@@ -3054,7 +3054,7 @@
         }
       ]
     },
-    "release_version": "19.0.0",
+    "release_version": "19.0.1",
     "release_model": "product-packages",
     "host": "codex",
     "stamp": ".codex/.bridgeforge_codex_version",
@@ -3073,8 +3073,13 @@
         "source": "source/forge/templates/skills/cleanup/SKILL.md",
         "target": ".agents/skills/cleanup/SKILL.md",
         "strategy": "whole",
-        "current_sha256": "sha256:cbf06d481b5b42883fcd2825bc9a311f6de25ecf5401a7a3989e502615716d97",
-        "previous_sha256": []
+        "current_sha256": "sha256:a6a993c86ef55402a9b09f0030ce80bd54b4231393ab3cdf715ff5fab58c37af",
+        "previous_sha256": [
+          "sha256:cbf06d481b5b42883fcd2825bc9a311f6de25ecf5401a7a3989e502615716d97",
+          "sha256:c61860b618f2b6a4cfcf99faec633252f7aa98595871a2cab9a9272dac97cc0d",
+          "sha256:7ad000f9e0a9b985b09c2d17d1ef596ca2e855da0b53f788b1d0aa8e8cf50eec",
+          "sha256:f79eba5e90577dcd5b5cf364515f5ce98cd2c5790d2313bdb98eb1864c92d493"
+        ]
       },
       {
         "id": "codex.project-workflow.bridgeforge-codex.maintenance.md",
@@ -3478,7 +3483,7 @@
           "public": {
             "begin": "<!-- BRIDGEFORGE:PUBLIC:BEGIN -->",
             "end": "<!-- BRIDGEFORGE:PUBLIC:END -->",
-            "current_sha256": "sha256:f6d11d89574cae1a84a68becb9fef35e06c181963c80244a917496b7c2006291"
+            "current_sha256": "sha256:44aa1651cc74eaa30333ef63000f205ec1bc33ba50e8fe0333bf31af066d6083"
           },
           "project": {
             "begin": "<!-- BRIDGEFORGE:PROJECT:BEGIN -->",
@@ -3498,7 +3503,7 @@
             ]
           }
         },
-        "current_sha256": "sha256:fa1026da2a0511015dbd155627734c493f4e79c4a1f5bbf39e2d496cb473a5c5",
+        "current_sha256": "sha256:6991b581b1b5ab5e00215bcab14bf09026f55c7fcdc9b5331592ef756eb84049",
         "render": "project-name"
       },
       {
@@ -3709,7 +3714,7 @@
         "source": "Cargo.lock",
         "target": ".codex/hooks/Cargo.lock",
         "strategy": "whole",
-        "current_sha256": "sha256:d85a2959b67120af945225904cbbae871042e090e03335a5ff4ff90e9336756a",
+        "current_sha256": "sha256:ec1896dcf18acc4e7fb85064bff76b9e67b907b673215de9339a9a91af23056a",
         "render": "public-runtime-lock"
       },
       {
@@ -3802,14 +3807,14 @@
         "source": "source/forge/cli/Cargo.toml",
         "target": ".codex/hooks/source/cli/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:87e8ed40486f561af72c4284242122e302631a3c5c18e678517f4927750c3582"
+        "current_sha256": "sha256:88716ee014901688440227e1c909deadb8f1a7e0615eb849beff3b3e58e390a9"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-cli-src-main-rs",
         "source": "source/forge/cli/src/lib.rs",
         "target": ".codex/hooks/source/cli/src/lib.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:1a71c15f21e88e93ee93b3fda70fd5a93f40b981fab43f61402e59c0b0c4c368"
+        "current_sha256": "sha256:6cdd90634f35dad7b89c06f5d3ee1696ce20f5aa2a5907ee7ff9f38619da9225"
       },
       {
         "id": "codex.hooks.source-cli-src-main-rs",
@@ -3837,7 +3842,7 @@
         "source": "source/forge/core/Cargo.toml",
         "target": ".codex/hooks/source/core/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:35c8ede4d210267b34c129a7b29d8b99e197cc09436de8a6f1cd17717237bbb6"
+        "current_sha256": "sha256:fd269867d1cc3ed1efcf2998f132a2b58028d9492e73a741802f943bcf13eaf5"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-core-src-artifact-cache-rs",
@@ -3851,7 +3856,7 @@
         "source": "source/forge/core/src/artifact_cleanup.rs",
         "target": ".codex/hooks/source/core/src/artifact_cleanup.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:e28f2277064852403ea09a15217b02296f95dd69be50a18f7f7ac3f603748652"
+        "current_sha256": "sha256:5da710d1e1bd43a0db20dcd21ae819b7e77d9d0f1e31fd67025b9481e461d17d"
       },
       {
         "id": "codex.hooks.source-core-src-artifact-migration-rs",
@@ -4075,7 +4080,7 @@
         "source": "source/forge/core/src/template_assets.rs",
         "target": ".codex/hooks/source/core/src/template_assets.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:c2364a873355c8d4b02396b722d133a0a0489ee10cff3a7cbf34fe287932e560"
+        "current_sha256": "sha256:420117e54d3a13f4a0d89d629928f03adf9ce79a7a771fe8a7439b9df9735951"
       },
       {
         "id": "codex.hooks.source-core-src-template-standard-rs",
@@ -4495,14 +4500,14 @@
         "source": "source/forge/workflow/Cargo.toml",
         "target": ".codex/hooks/source/workflow/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:b28074ea104d99f365057116137a1c175264b1bcc15d39447622d1fc1a71e2c8"
+        "current_sha256": "sha256:14d92789f03bd9e2d5364ced87c896a5311321b509e3d3a1c45b1f463bbbc112"
       },
       {
         "id": "codex.hooks.source-workflow-src-artifact-cleanup-rs",
         "source": "source/forge/workflow/src/artifact_cleanup.rs",
         "target": ".codex/hooks/source/workflow/src/artifact_cleanup.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:c7d3d3331b6070df7dd5bfdbdfccfdba6a6812a1b205dbe88bb71e9a9534870a"
+        "current_sha256": "sha256:f112e47f1c892607d088c705c93103d195aaf10942ba73afa1b6084ceacb5227"
       },
       {
         "id": "codex.hooks.source-workflow-src-config-retirement-rs",
@@ -4682,15 +4687,15 @@
             "status": "ok",
             "build_identity": {
               "protocol": 1,
-              "source_tree_sha256": "sha256:0b93dd6e8f213f74dd4c5e7ed8139c0d44d931db7366158d38ed2185588da2d0",
-              "lockfile_sha256": "sha256:d85a2959b67120af945225904cbbae871042e090e03335a5ff4ff90e9336756a"
+              "source_tree_sha256": "sha256:2ae74ab62ff54cb10b2fb0491d7cc0339c6e314afe5695c19e276b8dd77d98f8",
+              "lockfile_sha256": "sha256:ec1896dcf18acc4e7fb85064bff76b9e67b907b673215de9339a9a91af23056a"
             }
           }
         },
-        "source_tree_sha256": "sha256:0b93dd6e8f213f74dd4c5e7ed8139c0d44d931db7366158d38ed2185588da2d0",
-        "lockfile_sha256": "sha256:d85a2959b67120af945225904cbbae871042e090e03335a5ff4ff90e9336756a",
+        "source_tree_sha256": "sha256:2ae74ab62ff54cb10b2fb0491d7cc0339c6e314afe5695c19e276b8dd77d98f8",
+        "lockfile_sha256": "sha256:ec1896dcf18acc4e7fb85064bff76b9e67b907b673215de9339a9a91af23056a",
         "build_recipe_sha256": "sha256:38f32bc9a727a88db971e8bcf9c71d1f9e3dc0cd9a68a6f560bcd48bda07c444",
-        "self_test_sha256": "sha256:b218cbd9313ab2d790a7c08d2991515b8f347f874bd19810f2f9e1766a0423df",
+        "self_test_sha256": "sha256:e3757ff5d8cf6303d02f50d71305247d30f064021a382441b6fe312f4f572bb6",
         "source_projection": "public-runtime-v1"
       },
       {
@@ -4734,15 +4739,15 @@
             "status": "ok",
             "build_identity": {
               "protocol": 1,
-              "source_tree_sha256": "sha256:0b93dd6e8f213f74dd4c5e7ed8139c0d44d931db7366158d38ed2185588da2d0",
-              "lockfile_sha256": "sha256:d85a2959b67120af945225904cbbae871042e090e03335a5ff4ff90e9336756a"
+              "source_tree_sha256": "sha256:2ae74ab62ff54cb10b2fb0491d7cc0339c6e314afe5695c19e276b8dd77d98f8",
+              "lockfile_sha256": "sha256:ec1896dcf18acc4e7fb85064bff76b9e67b907b673215de9339a9a91af23056a"
             }
           }
         },
-        "source_tree_sha256": "sha256:0b93dd6e8f213f74dd4c5e7ed8139c0d44d931db7366158d38ed2185588da2d0",
-        "lockfile_sha256": "sha256:d85a2959b67120af945225904cbbae871042e090e03335a5ff4ff90e9336756a",
+        "source_tree_sha256": "sha256:2ae74ab62ff54cb10b2fb0491d7cc0339c6e314afe5695c19e276b8dd77d98f8",
+        "lockfile_sha256": "sha256:ec1896dcf18acc4e7fb85064bff76b9e67b907b673215de9339a9a91af23056a",
         "build_recipe_sha256": "sha256:cf5fb262a1e28cd8e05979b29b633143e52ae3cd1b62eeea56d9f55da70d1e5e",
-        "self_test_sha256": "sha256:33bc2707074d080ce0a3b7b63f463ed258cf65a36d30172cd6e993da13243af0",
+        "self_test_sha256": "sha256:0b7e988be7697b932b2edb593e4ef0d53d749619d401fdec1f4024c85add6053",
         "source_projection": "public-runtime-v1"
       }
     ],

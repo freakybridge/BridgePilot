@@ -176,7 +176,7 @@ fn self_test() -> CommandOutcome {
         "name": "bridgeforge",
         "status": "ok",
         "version": env!("CARGO_PKG_VERSION"),
-        "capabilities": ["template-only-v1", "compiled-build-provenance-v1", "user-cli-reuse-v1", "git-sync-preflight-v1", "public-artifacts-v1", "native-release-v1", "native-release-gitlab-v1", "project-release-install-v1"],
+        "capabilities": ["template-only-v1", "compiled-build-provenance-v1", "user-cli-reuse-v1", "git-sync-preflight-v1", "public-artifacts-v1", "native-release-v1", "native-release-gitlab-v1", "project-release-install-v1", "explicit-cleanup-v1", "junction-cleanup-v1", "permission-skip-v1"],
         "build_identity": bridgeforge_core::build_identity::identity()
     }))
 }
@@ -351,8 +351,8 @@ pub fn run(args: &[String]) -> CommandOutcome {
     }
     // Retired commands must stop before factory forwarding, support-floor reads
     // or legacy initialization can recreate project sidecars.
-    if args.first().is_some_and(|c| c == "develop" || c == "cleanup") {
-        return blocked("retired-command", "configuration-based development ledger and cleanup are retired; use native project build/test/version tools; no files changed");
+    if args.first().is_some_and(|c| c == "develop") {
+        return blocked("retired-command", "configuration-based development ledger is retired; use native project build/test/version tools; no files changed");
     }
     if args.first().is_some_and(|c| c == "build-assets") && !has(args, "--factory") {
         return blocked("build-assets", "project-local compilation is retired; use prepared public artifacts through project-sync");

@@ -13,6 +13,39 @@ fn blocked(label: &str, error: impl std::fmt::Display) -> CommandOutcome {
 
 #[cfg(test)]
 mod task_package_tests {
+    #[cfg(windows)]
+    #[test]
+    fn cleanup_factory_retains_all_six_current_products_and_removes_old_sibling() {
+        use std::{fs, time::{SystemTime, UNIX_EPOCH}};
+        struct Git;
+        impl super::ProcessRunner for Git {
+            fn run(&self, request: &bridgeforge_core::ProcessRequest) -> std::io::Result<bridgeforge_core::ProcessOutput> {
+                assert_eq!(request.program, "git");
+                Ok(bridgeforge_core::ProcessOutput { code: 0,
+                    stdout: if request.args.iter().any(|arg| arg == "rev-parse") { request.cwd.to_string_lossy().as_bytes().to_vec() } else { vec![] },
+                    stderr: vec![], timed_out: false })
+            }
+        }
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../.runtime/tests/cleanup-factory")
+            .join(format!("{}-{}", std::process::id(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
+        fs::create_dir_all(root.join(".build/bridgeforge/bin")).unwrap();
+        fs::write(root.join("Cargo.toml"), b"[workspace]\nmembers=[]\n").unwrap();
+        let mut products = Vec::new();
+        for (binary, receipt) in [("bridgeforge", "cli"), ("bridgeforge-hook", "hook"), ("bridgeforge-factory", "factory")] {
+            products.push(format!(".build/bridgeforge/bin/{binary}.exe"));
+            products.push(format!(".build/bridgeforge/bin/build-receipt-{receipt}.json"));
+        }
+        for product in &products { fs::write(root.join(product), b"current").unwrap(); }
+        fs::write(root.join(".build/bridgeforge/bin/old.exe"), b"old").unwrap();
+        let result = super::run_with_runner(&["cleanup".into(), "--root".into(), root.to_string_lossy().into_owned(),
+            "--products-reviewed".into(), "--evidence".into(), "Cargo.toml".into()], &Git);
+        assert_eq!(result.code, 0, "{:?}", result.receipt);
+        assert_eq!(result.receipt.unwrap()["deleted_files"], 1);
+        for product in products { assert_eq!(fs::read(root.join(product)).unwrap(), b"current"); }
+        assert!(!root.join(".build/bridgeforge/bin/old.exe").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn task_development_factory_rejects_malformed_selection_before_context() {
         for flags in [
@@ -64,7 +97,7 @@ pub fn self_test() -> CommandOutcome {
         Ok(product) => CommandOutcome::with_receipt(json!({
             "schema":1,"name":"bridgeforge-factory","status":"ok",
             "version":env!("CARGO_PKG_VERSION"),"product_version":product,
-            "capabilities":["template-only-v1","compiled-build-provenance-v1","factory-runtime-prepare-v1","factory-source-projection-v1","git-sync-preflight-v1","native-release-v1"],
+            "capabilities":["template-only-v1","compiled-build-provenance-v1","factory-runtime-prepare-v1","factory-source-projection-v1","git-sync-preflight-v1","native-release-v1","explicit-cleanup-v1","junction-cleanup-v1","permission-skip-v1"],
             "build_identity":bridgeforge_core::build_identity::identity()
         })),
         Err(error) => blocked("factory-self-test", error),
@@ -76,8 +109,8 @@ pub fn run(args: &[String]) -> CommandOutcome {
 }
 
 pub fn run_with_runner(args: &[String], inner: &dyn ProcessRunner) -> CommandOutcome {
-    if args.first().is_some_and(|c| c == "develop" || c == "cleanup") {
-        return blocked("retired-command", "configuration-based development ledger and cleanup are retired; use native build/test/version tools; no files changed");
+    if args.first().is_some_and(|c| c == "develop") {
+        return blocked("retired-command", "configuration-based development ledger is retired; use native build/test/version tools; no files changed");
     }
     if args.first().is_some_and(|c| c == "template-standard") {
         return match context(args).and_then(|c| {
@@ -94,11 +127,14 @@ pub fn run_with_runner(args: &[String], inner: &dyn ProcessRunner) -> CommandOut
         return blocked("factory", "a command is required");
     };
     match command {
-        "cleanup" => bridgeforge_workflow::artifact_cleanup::command_with_contract(
-            args,
-            &runner,
-            &manifest::runtime_contract,
-        ),
+        "cleanup" => {
+            let mut products = Vec::new();
+            for (binary, receipt) in [("bridgeforge", "cli"), ("bridgeforge-hook", "hook"), ("bridgeforge-factory", "factory")] {
+                products.push(format!(".build/bridgeforge/bin/{binary}{}", std::env::consts::EXE_SUFFIX));
+                products.push(format!(".build/bridgeforge/bin/build-receipt-{receipt}.json"));
+            }
+            bridgeforge_workflow::artifact_cleanup::command_with_products(args, &runner, &products)
+        },
         "self-test" if has(args, "--json") => self_test(),
         "manifest" => match context(args) {
             Ok(context) => match manifest::rebuild(

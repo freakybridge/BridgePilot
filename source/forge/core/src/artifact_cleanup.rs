@@ -16,13 +16,26 @@ struct Entry {
     bytes: u64,
     modified: Option<SystemTime>,
     created: Option<SystemTime>,
+    junction: Option<Junction>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct Junction {
+    path: PathBuf,
+    target: PathBuf,
+    identity: (u32, u64),
+    reparse_data: Vec<u8>,
 }
 
 fn inspect(path: &Path) -> Result<Entry, String> {
     let metadata = fs::symlink_metadata(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    if crate::persistence::is_link_or_reparse(path).map_err(|e| e.to_string())?
-        || (!metadata.is_file() && !metadata.is_dir())
-    {
+    let junction = if crate::persistence::is_link_or_reparse(path).map_err(|e| e.to_string())? {
+        #[cfg(windows)]
+        { Some(windows::junction(path)?) }
+        #[cfg(not(windows))]
+        { return Err(format!("unsupported cleanup link: {}", path.display())); }
+    } else { None };
+    if junction.is_none() && !metadata.is_file() && !metadata.is_dir() {
         return Err(format!(
             "linked or unsupported cleanup entry: {}",
             path.display()
@@ -30,15 +43,38 @@ fn inspect(path: &Path) -> Result<Entry, String> {
     }
     Ok(Entry {
         path: path.into(),
-        directory: metadata.is_dir(),
-        bytes: if metadata.is_file() {
+        directory: metadata.is_dir() || junction.is_some(),
+        bytes: if metadata.is_file() && junction.is_none() {
             metadata.len()
         } else {
             0
         },
         modified: metadata.modified().ok(),
         created: metadata.created().ok(),
+        junction,
     })
+}
+
+/// Only the final component may be a recognized Junction. Parents remain
+/// subject to the managed no-reparse policy, and no target is ever resolved.
+fn product_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
+    if relative.is_empty() || relative.contains(['\\', '*', '?', '['])
+        || Path::new(relative).components().any(|c| !matches!(c, std::path::Component::Normal(_))) {
+        return Err(format!("unsafe cleanup product path: {relative}"));
+    }
+    let path = root.join(relative);
+    let parent = Path::new(relative).parent().filter(|p| !p.as_os_str().is_empty());
+    if let Some(parent) = parent {
+        crate::managed_paths::safe_join(root, &parent.to_string_lossy(), "cleanup product parent")?;
+    } else {
+        crate::managed_paths::safe_join(root, RUNTIME, "cleanup product root")?;
+    }
+    match fs::symlink_metadata(&path) {
+        Ok(_) => { inspect(&path)?; }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => (),
+        Err(error) => return Err(error.to_string()),
+    }
+    Ok(path)
 }
 
 /// The deletion set contains literal filesystem paths, not manifest patterns.
@@ -65,8 +101,10 @@ fn validate_cleanup_target(root: &Path, path: &Path) -> Result<(), String> {
     }
     // Recheck every ancestor, including the project root, without resolving or
     // following links. Existing deletion handles still bind the actual objects.
-    for ancestor in path.ancestors() {
-        inspect(ancestor)?;
+    for (index, ancestor) in path.ancestors().enumerate() {
+        if inspect(ancestor)?.junction.is_some() && index != 0 {
+            return Err(format!("cleanup ancestor is a Junction: {}", ancestor.display()));
+        }
     }
     Ok(())
 }
@@ -96,12 +134,14 @@ pub struct BuildPolicy {
 impl BuildPolicy {
     fn validate(&self, root: &Path) -> Result<(), String> {
         for relative in self.remove.iter().chain(&self.keep) {
-            if !crate::artifact_paths::within(relative, BUILD)
-                || crate::artifact_paths::normalized(relative).trim_end_matches('/') == BUILD
+            let normalized = crate::artifact_paths::normalized(relative);
+            if !(crate::artifact_paths::within(relative, BUILD)
+                || crate::artifact_paths::within(relative, RUNTIME))
+                || [BUILD, RUNTIME].contains(&normalized.trim_end_matches('/'))
             {
-                return Err("cleanup build role must name an exact path below .build".into());
+                return Err("cleanup keep role must name an exact path below .build or .runtime".into());
             }
-            crate::managed_paths::safe_join(root, relative, "cleanup build role")?;
+            product_path(root, relative)?;
         }
         for (relative, expected) in &self.witnesses {
             let path = crate::managed_paths::safe_join(root, relative, "cleanup policy")?;
@@ -110,15 +150,13 @@ impl BuildPolicy {
             }
         }
         for (relative, directory) in &self.directories {
-            let path = crate::managed_paths::safe_join(root, relative, "cleanup output type")?;
+            let path = product_path(root, relative)?;
             match fs::symlink_metadata(&path) {
-                Ok(metadata)
-                    if metadata.is_dir() == *directory
-                        && (metadata.is_file() || metadata.is_dir()) =>
-                {
-                    ()
+                Ok(_) => {
+                    if inspect(&path)?.directory != *directory {
+                        return Err(format!("cleanup output type changed: {relative}"));
+                    }
                 }
-                Ok(_) => return Err(format!("cleanup output type changed: {relative}")),
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => (),
                 Err(error) => return Err(format!("{}: {error}", path.display())),
             }
@@ -152,6 +190,9 @@ impl Selection {
         for item in walkdir::WalkDir::new(&path).follow_links(false) {
             let item = item.map_err(|e| e.to_string())?;
             let entry = inspect(item.path())?;
+            if entry.junction.is_some() {
+                return Err("cleanup ownership selection contains a Junction".into());
+            }
             let name = item
                 .path()
                 .strip_prefix(&path)
@@ -214,11 +255,11 @@ fn collect_build(
         targets.push(relative.clone());
         entries.push(entry.clone());
     }
-    if entry.directory {
-        for child in fs::read_dir(path).map_err(|e| e.to_string())? {
+    if entry.directory && entry.junction.is_none() {
+        for child in fs::read_dir(path).map_err(|e| format!("cannot enumerate cleanup directory {}: {e}", path.display()))? {
             collect_build(
                 root,
-                &child.map_err(|e| e.to_string())?.path(),
+                &child.map_err(|e| format!("cannot read cleanup entry under {}: {e}", path.display()))?.path(),
                 policy,
                 entries,
                 targets,
@@ -227,6 +268,13 @@ fn collect_build(
         }
     }
     Ok(())
+}
+
+#[derive(Serialize)]
+pub struct JunctionReport {
+    pub path: String,
+    pub target: String,
+    pub action: &'static str,
 }
 
 #[derive(Serialize)]
@@ -239,8 +287,11 @@ pub struct Report {
     pub preserved: Vec<String>,
     pub planned_files: usize,
     pub planned_directories: usize,
+    pub planned_junctions: usize,
+    pub junctions: Vec<JunctionReport>,
     pub deleted_files: usize,
     pub deleted_directories: usize,
+    pub deleted_junctions: usize,
     pub logical_bytes_removed: u64,
     pub remaining_entries: Option<usize>,
     pub failures: Vec<String>,
@@ -257,10 +308,58 @@ impl Plan {
         crate::managed_paths::safe_join(root, RUNTIME, "cleanup root")?;
         let root = root.canonicalize().map_err(|e| e.to_string())?;
         let mut build = build;
+        // Match the same filesystem path spelling during selection and deletion.
+        // In particular, a trailing '/.' must not turn a kept directory into
+        // an unmatched string prefix and expose its children to deletion.
+        for relative in build.keep.iter_mut().chain(build.remove.iter_mut()) {
+            let raw = relative.replace('\\', "/");
+            let mut parts = Vec::new();
+            for component in Path::new(&raw).components() {
+                match component {
+                    std::path::Component::Normal(part) => {
+                        let part = part.to_string_lossy();
+                        if cfg!(windows) && (part.ends_with(['.', ' ']) || part.contains(':')) {
+                            return Err(format!("ambiguous Windows cleanup product path: {relative}"));
+                        }
+                        parts.push(part.into_owned());
+                    }
+                    std::path::Component::CurDir => (),
+                    _ => return Err(format!("unsafe cleanup product path: {relative}")),
+                }
+            }
+            *relative = parts.join("/");
+            let target = product_path(&root, relative)?;
+            match fs::symlink_metadata(&target) {
+                Ok(_) => {
+                    // Resolve existing 8.3 aliases to the same long path names
+                    // returned by directory enumeration. Never follow links:
+                    // safe_join checks ancestors first, validate checks again.
+                    let actual = match inspect(&target)?.junction {
+                        Some(junction) => junction.path,
+                        None => match target.canonicalize() {
+                            Ok(path) => path,
+                            #[cfg(windows)]
+                            Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => windows::metadata_product_path(&target)?,
+                            Err(error) => return Err(format!("cannot identify cleanup product {}: {error}", target.display())),
+                        },
+                    };
+                    *relative = actual
+                        .strip_prefix(&root).map_err(|_| "cleanup product escapes project root")?
+                        .to_string_lossy().replace('\\', "/");
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => (),
+                Err(error) => return Err(error.to_string()),
+            }
+        }
+        for relative in [CONFIG, DOWNLOAD] {
+            build.keep.push(relative.into());
+            build.directories.insert(relative.into(), true);
+        }
         if let Ok(image) = std::env::current_exe().and_then(|p| p.canonicalize()) {
             if let Ok(relative) = image.strip_prefix(&root) {
                 let relative = relative.to_string_lossy().replace('\\', "/");
-                if crate::artifact_paths::within(&relative, BUILD) {
+                if crate::artifact_paths::within(&relative, BUILD)
+                    || crate::artifact_paths::within(&relative, RUNTIME) {
                     build.keep.push(relative);
                 }
             }
@@ -277,7 +376,7 @@ impl Plan {
         build.validate(&root)?;
         // A missing declared product does not justify retaining empty parents.
         // Recapture still detects newly appearing entries before deletion.
-        build.keep.retain(|relative| root.join(relative).exists());
+        build.keep.retain(|relative| fs::symlink_metadata(root.join(relative)).is_ok());
         for relative in [RUNTIME, BUILD, DEPS] {
             let path = crate::managed_paths::safe_join(&root, relative, "cleanup boundary")?;
             match fs::symlink_metadata(&path) {
@@ -296,47 +395,15 @@ impl Plan {
                 continue;
             }
             roots.push(entry);
-            if relative == BUILD {
-                for child in fs::read_dir(&path).map_err(|e| e.to_string())? {
-                    collect_build(
-                        &root,
-                        &child.map_err(|e| e.to_string())?.path(),
-                        &build,
-                        &mut entries,
-                        &mut targets,
-                        &mut skipped,
-                    )?;
-                }
-                continue;
-            }
-            for child in fs::read_dir(path).map_err(|e| e.to_string())? {
-                let child = child.map_err(|e| e.to_string())?;
-                let path = child.path();
-                let relative = path
-                    .strip_prefix(&root)
-                    .map_err(|e| e.to_string())?
-                    .to_string_lossy()
-                    .replace('\\', "/");
-                let entry = inspect(&path)?;
-                if [CONFIG, DOWNLOAD]
-                    .iter()
-                    .any(|p| crate::artifact_paths::normalized(&relative) == *p)
-                {
-                    if !entry.directory {
-                        return Err(format!(
-                            "protected runtime path is not a directory: {relative}"
-                        ));
-                    }
-                    continue;
-                }
-                targets.push(relative);
-                if entry.directory {
-                    for item in walkdir::WalkDir::new(&path).follow_links(false) {
-                        entries.push(inspect(item.map_err(|e| e.to_string())?.path())?);
-                    }
-                } else {
-                    entries.push(entry);
-                }
+            for child in fs::read_dir(&path).map_err(|e| format!("cannot enumerate cleanup directory {}: {e}", path.display()))? {
+                collect_build(
+                    &root,
+                    &child.map_err(|e| format!("cannot read cleanup entry under {}: {e}", path.display()))?.path(),
+                    &build,
+                    &mut entries,
+                    &mut targets,
+                    &mut skipped,
+                )?;
             }
         }
         #[cfg(windows)]
@@ -344,7 +411,7 @@ impl Plan {
             let own = windows::path_identity(&std::env::current_exe().map_err(|e| e.to_string())?)?;
             for entry in entries
                 .iter()
-                .filter(|e| !e.directory && e.path.starts_with(root.join(BUILD)))
+                .filter(|e| !e.directory)
             {
                 if windows::path_identity(&entry.path)? == own {
                     build.keep.push(
@@ -417,13 +484,20 @@ impl Plan {
                     format!("{DOWNLOAD}/"),
                     format!("{DEPS}/"),
                 ],
-                self.build.keep.clone(),
+                self.build.keep.iter().filter(|p| ![CONFIG, DOWNLOAD].contains(&p.as_str())).cloned().collect(),
             ]
             .concat(),
             planned_files: self.entries.iter().filter(|e| !e.directory).count(),
-            planned_directories: self.entries.iter().filter(|e| e.directory).count(),
+            planned_directories: self.entries.iter().filter(|e| e.directory && e.junction.is_none()).count(),
+            planned_junctions: self.entries.iter().filter(|e| e.junction.is_some()).count(),
+            junctions: self.entries.iter().filter_map(|entry| entry.junction.as_ref().map(|junction| JunctionReport {
+                path: entry.path.strip_prefix(&self.root).unwrap().to_string_lossy().replace('\\', "/"),
+                target: junction.target.to_string_lossy().into_owned(),
+                action: "remove_link_only",
+            })).collect(),
             deleted_files: 0,
             deleted_directories: 0,
+            deleted_junctions: 0,
             logical_bytes_removed: 0,
             remaining_entries: Some(self.entries.len()),
             failures: Vec::new(),
@@ -472,7 +546,7 @@ impl Plan {
         }
         report.status = if report.failures.is_empty() {
             "completed"
-        } else if report.deleted_files + report.deleted_directories == 0 {
+        } else if report.deleted_files + report.deleted_directories + report.deleted_junctions == 0 {
             "blocked"
         } else {
             "partial"
@@ -615,7 +689,10 @@ impl Plan {
         directories.sort_by_key(|e| std::cmp::Reverse(e.path.components().count()));
         for entry in directories {
             validate_cleanup_target(&self.root, &entry.path)?;
-            if fs::read_dir(&entry.path)
+            if entry.junction.is_some() && inspect(&entry.path)? != *entry {
+                return Err(format!("cleanup directory or Junction drifted: {}", entry.path.display()));
+            }
+            if entry.junction.is_none() && fs::read_dir(&entry.path)
                 .map_err(|e| e.to_string())?
                 .next()
                 .is_some()
@@ -629,7 +706,8 @@ impl Plan {
                 .remove(&entry.path)
                 .ok_or("cleanup directory handle missing")?
                 .remove()?;
-            report.deleted_directories += 1;
+            if entry.junction.is_some() { report.deleted_junctions += 1; }
+            else { report.deleted_directories += 1; }
             after_delete()?;
             require_absent(&entry.path)?;
         }
@@ -665,12 +743,34 @@ mod windows {
     use std::{
         fs::{File, OpenOptions},
         mem::{size_of, zeroed},
-        os::windows::{fs::OpenOptionsExt, io::AsRawHandle},
+        os::windows::{ffi::{OsStrExt, OsStringExt}, fs::OpenOptionsExt, io::AsRawHandle},
     };
-    use windows_sys::Win32::{Storage::FileSystem::*, System::IO::OVERLAPPED};
+    use windows_sys::Win32::{Storage::FileSystem::*, System::{IO::{DeviceIoControl, OVERLAPPED}, Ioctl::FSCTL_GET_REPARSE_POINT, SystemServices::IO_REPARSE_TAG_MOUNT_POINT}};
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
     pub(super) struct Identity(u32, u64);
+
+    /// Resolve an explicitly kept, unreadable leaf by querying its readable
+    /// parent. This handles 8.3 names without opening the protected leaf.
+    pub(super) fn metadata_product_path(path: &Path) -> Result<PathBuf, String> {
+        let input = path.as_os_str().encode_wide().chain(Some(0)).collect::<Vec<_>>();
+        let mut data: WIN32_FIND_DATAW = unsafe { zeroed() };
+        let handle = unsafe { FindFirstFileW(input.as_ptr(), &mut data) };
+        if handle == windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE {
+            return Err(format!("cannot identify kept path {}: {}", path.display(), std::io::Error::last_os_error()));
+        }
+        unsafe { FindClose(handle); }
+        if data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+            return Err(format!("kept path changed to a reparse point: {}", path.display()));
+        }
+        let length = data.cFileName.iter().position(|c| *c == 0).ok_or("invalid kept leaf name")?;
+        let name = std::ffi::OsString::from_wide(&data.cFileName[..length]);
+        if Path::new(&name).components().count() != 1 || !matches!(Path::new(&name).components().next(), Some(std::path::Component::Normal(_))) {
+            return Err("invalid kept leaf component".into());
+        }
+        let parent = path.parent().ok_or("kept path has no parent")?;
+        Ok(parent.canonicalize().map_err(|e| format!("cannot identify kept parent {}: {e}", parent.display()))?.join(name))
+    }
 
     fn identity(file: &File) -> Result<Identity, String> {
         let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { zeroed() };
@@ -681,6 +781,68 @@ mod windows {
             info.dwVolumeSerialNumber,
             (u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow),
         ))
+    }
+
+    fn junction_from_handle(file: &File) -> Result<Junction, String> {
+        let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { zeroed() };
+        if unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut info) } == 0 {
+            return Err(std::io::Error::last_os_error().to_string());
+        }
+        let required = FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT;
+        if info.dwFileAttributes & required != required {
+            return Err("cleanup Junction must be a directory reparse point".into());
+        }
+        let mut data = vec![0u8; 16 * 1024];
+        let mut length = 0;
+        if unsafe { DeviceIoControl(file.as_raw_handle(), FSCTL_GET_REPARSE_POINT,
+            std::ptr::null(), 0, data.as_mut_ptr().cast(), data.len() as u32,
+            &mut length, std::ptr::null_mut()) } == 0 {
+            return Err(format!("cannot inspect Junction: {}", std::io::Error::last_os_error()));
+        }
+        data.truncate(length as usize);
+        let target = junction_target(&data)?;
+        let mut path = vec![0u16; 32768];
+        let count = unsafe { GetFinalPathNameByHandleW(file.as_raw_handle(), path.as_mut_ptr(), path.len() as u32, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS) };
+        if count == 0 || count as usize >= path.len() {
+            return Err(format!("cannot identify Junction path: {}", std::io::Error::last_os_error()));
+        }
+        let path = PathBuf::from(std::ffi::OsString::from_wide(&path[..count as usize]));
+        let id = (info.dwVolumeSerialNumber, (u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow));
+        Ok(Junction { path, target, identity: id, reparse_data: data })
+    }
+
+    pub(super) fn junction_target(data: &[u8]) -> Result<PathBuf, String> {
+        if data.len() < 16 || u32::from_le_bytes(data[..4].try_into().unwrap()) != IO_REPARSE_TAG_MOUNT_POINT {
+            return Err("unsupported cleanup reparse point; only directory Junctions are supported".into());
+        }
+        let payload_length = u16::from_le_bytes(data[4..6].try_into().unwrap()) as usize;
+        let offset = u16::from_le_bytes(data[8..10].try_into().unwrap()) as usize;
+        let target_length = u16::from_le_bytes(data[10..12].try_into().unwrap()) as usize;
+        let start = 16 + offset;
+        let end = start + target_length;
+        if payload_length + 8 != data.len() || offset % 2 != 0 || target_length % 2 != 0 || end > data.len() {
+            return Err("invalid Junction reparse payload".into());
+        }
+        let units = data[start..end].chunks_exact(2)
+            .map(|pair| u16::from_le_bytes([pair[0], pair[1]])).collect::<Vec<_>>();
+        // MOUNT_POINT also identifies volume mounts. Only drive-qualified
+        // directory Junctions (\??\C:\...) belong to this cleanup operation.
+        if units.len() < 7 || !units.starts_with(&[92, 63, 63, 92])
+            || !matches!(units[4], 65..=90 | 97..=122) || units[5] != 58 || units[6] != 92 {
+            return Err("volume mounts and non-local Junction targets are not cleanup entries".into());
+        }
+        let mut target = vec![92, 92, 63, 92];
+        target.extend_from_slice(&units[4..]);
+        Ok(PathBuf::from(std::ffi::OsString::from_wide(&target)))
+    }
+
+    pub(super) fn junction(path: &Path) -> Result<Junction, String> {
+        // Read only the reparse object. No file in its target is opened.
+        let file = OpenOptions::new().read(true).access_mode(FILE_READ_ATTRIBUTES)
+            .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
+            .open(path).map_err(|e| format!("cannot open Junction {}: {e}", path.display()))?;
+        junction_from_handle(&file).map_err(|e| format!("{}: {e}", path.display()))
     }
 
     pub(super) fn path_identity(path: &Path) -> Result<Identity, String> {
@@ -728,6 +890,11 @@ mod windows {
                     entry.path.display()
                 )
             })?;
+            if let Some(expected) = &entry.junction {
+                if junction_from_handle(&file)? != *expected {
+                    return Err(format!("cleanup Junction identity, type or target changed: {}", entry.path.display()));
+                }
+            }
             Ok(Self {
                 file,
                 path: entry.path.clone(),

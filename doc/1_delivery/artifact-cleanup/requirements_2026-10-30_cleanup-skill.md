@@ -5,7 +5,39 @@ validation_status: verified
 
 # 清理 Skill：需求与实施计划
 
-用户于 2026-10-30 显式调用 `$summary accept` 验收 TODO-049 的当时清理范围及工程交付，并授权受管 release。统一验收依据及未验证边界见[整包用户验收](../artifact-layout/requirements_2026-10-30_three-directories.md#用户验收2026-10-30)。该验收及下文实施记录属于历史；当前范围以紧接的最新修正为准。
+## 用户验收：恢复清理与权限项处理（2026-11-11）
+
+用户本轮明确要求恢复可用的 cleanup、对 CausisRiskSuite 执行 dry-run，随后要求补齐 Junction 处理，以及无权限项跳过后在结尾一次性提示手动删除。2026-11-11 用户显式调用 `$summary accept` 验收本次实际交付，并调用 `$git-sync release` 授权本仓库本轮指定改动的真实发布。本节为 TODO-049 的最新增量验收，替代下文依赖旧项目 JSON 的在线方案；历史要求、验收和失败记录保留。发布授权不等于发布成功，最终版本、提交、标签和资产以受管 CLI 的 `released` 且 `publication_verified=true` 收据为准。
+
+### 当前行为与经验
+
+- 原 cleanup 曾正常执行；2026-11-03 上游提交 `640e6b0` 在 Template-only 退役中一并退出旧清理入口，之后同步到下游。旧实现依赖 managed-skeleton、artifact-layout 和 project-hooks JSON。移除这些载体需要适配成品识别，不能据此将清理能力永久取消，也不能把提交或交付记录当作用户单独要求取消 cleanup 的直接依据。
+- 通用范围固定在 Skill：保留配置、下载、依赖及当前成品，项目差异从当前原生构建、启动、发布文件识别；以 `--products-reviewed`、重复 `--evidence` 和精确 `--keep` 调用既有 Rust 清理后端。原生依据固定字节以检查漂移，不恢复旧 JSON 或在线账本。工厂保护自身三工具及收据，通用入口保护原生发布驱动及收据。
+- CRS 的 `.deps/venv/pyvenv.cfg` 实际指向 `.runtime/python/`，本次明确保留该依赖。仅凭目录类别照搬旧清空规则会破坏当前环境；清理不顺便迁移依赖。
+- 已识别目录 Junction 是叶子条目：只读预览列出链接、目标和 `remove_link_only`；实际操作通过不跟随链接的句柄只删除链接，复核类型、目标和文件身份，不枚举目标。保留范围中的链接和 dangling Junction 保留；项目根、产物根、扫描祖先链接、未知 reparse、目录 symlink 和卷挂载点继续阻断。
+- 路径保护覆盖 `/.`、重复分隔符、Windows 尾随点或空格、8.3 别名。保留 Junction 不解析为其目标。普通目录删除子项会改变 mtime，不能将该正常变化误报为目录漂移；Junction 自身仍做完整复核。
+- 权限项先只读确认准确路径，只对原定待删范围临时追加本次 `--keep`，继续其余内容，结尾一次性提示用户手动删除；不逐项询问、不改 ACL 或所有权，不写入长期保留规则。有跳过项时整体为 partial／不完整预览，不能把底层其余范围的 completed／preview 表述为全部完成。普通保留项 canonicalize 因权限失败时，以父目录元数据查询取得真实长叶名，拒绝 reparse，继续核对父路径和项目边界，不打开受限叶子。
+
+### 验证与实际范围
+
+| 证据类别 | 本次实际结果 |
+|---|---|
+| 源码 | core／workflow／公共及工厂 CLI 恢复入口，公共 Skill 与规则同步；未恢复旧配置设施 |
+| 产品传播 | 通用 Template、分发清单、内置规则和公共源码投影已生成；正式远端发布另由本次受管 CLI 执行 |
+| dogfood | 本仓库三工具 prepared；之后 manifest changed=false、factory-version healthy、build-assets --check 为 current/reused=3/built=0，Skill 源与镜像哈希一致 |
+| fixture | Junction 阶段四包定向 33 项通过；权限路径补齐后 core 定向 23 项通过。属于增量复验，不相加为 56 个不同场景。隔离实际删除验证外部目标字节不变、普通项可删、保留／dangling／替换保护成立；独立只读复核无剩余阻断 |
+| 真实下游 | CRS 仅只读预览，native_status=preview，整体 preview_partial；拟处理文件 122,332、普通目录 80,028、Junction 15；32 个权限目录临时保留。实际文件／目录／Junction 删除均为 0；12 个保护文件哈希不变。CRS 原安装未升级 |
+| runtime | 当前新候选真实执行了 CRS 只读流程；真实 CRS 删除、自然 `$cleanup` 客户端调用、业务 GUI、其他下游及用户级安装未验证，不由 fixture 或本次验收替代 |
+
+本地证据根为 `.runtime/tests/cleanup-restoration/evidence/`：`crs-cleanup-summary.json`、`crs-dry-run-permission-skips.json`、`crs-permission-skips.json`、`crs-permission-candidate.json`、保护文件 before/after 和实际参数。完整权限名单共 32 项，实际读取/删除权限未修改。额外的调试版外部全量只读 probe 因耗时被主动取消，不作为测试通过；最终结果来自正式新候选的真实 dry-run。
+
+构建曾因 D 盘空间不足（os error 112）失败；核对绝对边界和创建时间后，仅移除本轮新增的 BP 测试编译缓存 9,055 文件、逻辑字节 5,669,843,928，保留源码、当前工具及用户资料，再由同一受管准备入口成功续建。该缓存整理不算 CRS 实际清理，也不把逻辑字节等同磁盘实际释放量。大规模只读扫描耗时较长，本轮未实施或宣称性能优化。
+
+验收时的本地候选：BF 19.0.0 → 19.0.1；core 11.4.0 → 11.4.1、workflow 0.15.0 → 0.15.1、factory 0.13.0 → 0.13.1。BP 根 VERSION 当时为 2.5.0，orchestrator 为 0.18.0；本轮完整发布的最终主版本由原生适配器核对正式发布历史后决定，不手工推断或重复升版。
+
+### 历史记录边界
+
+用户于 2026-10-30 显式调用 `$summary accept` 验收 TODO-049 的当时清理范围及工程交付，并授权受管 release。统一验收依据及未验证边界见[整包用户验收](../artifact-layout/requirements_2026-10-30_three-directories.md#用户验收2026-10-30)。该验收及下文实施记录属于历史；当前范围以本页 2026-11-11 验收段为准。
 
 ### 最新范围修正：仅保留当前成品
 

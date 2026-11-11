@@ -4,6 +4,8 @@ delivery_layout: flat
 
 # BridgePilot Documents
 
+- 已验收：[cleanup 恢复、Junction 与权限项处理](1_delivery/artifact-cleanup/requirements_2026-10-30_cleanup-skill.md#用户验收恢复清理与权限项处理2026-11-11)（TODO-049 增量；固定规则、原生依据与精确保留路径恢复清理，Junction 仅删链接，权限项结尾统一提示手动删除。CRS 部分只读预览完成，跳过 32 目录，实际删除 0；未升级 CRS 原安装，正式发布以受管 CLI 收据为准）。
+
 - 已验收：[Forge 项目级工作流分发迁移](1_delivery/forge-simplification/plan_2026-11-06_project-workflows.md#用户验收2026-11-06)（Forge 19.0.0 候选，工厂核验、隔离项目安装和用户级端到端迁移通过，已授权正式发布）。
 
 - 已验收：[D3 专用清理 Skill](1_delivery/forge-simplification/acceptance_2026-11-06_develop-engineering-cleanup.md#专用清理-skill-验收2026-11-07)（2026-11-07，公共 Skill 与 D3 调用、分发及本仓库镜像完成。CausisRiskSuite 隔离历史重放验证实际加载，两组各 27 项回归通过，专用 Skill 清除两处无依据兜底并保留解包和旧状态迁移。已授权正式发布，结果以受管 CLI 收据为准）。

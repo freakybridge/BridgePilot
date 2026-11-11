@@ -68,7 +68,7 @@
 - **安装与恢复统一从 INSTALL.md 进入。** 每个项目必须在根目录维护 `INSTALL.md`，作为安装、换机恢复、重装和环境迁移的唯一说明入口。`README.md`、`AGENTS.md` 中的安装与恢复相关内容只做导航或保留必要的快速命令，不重复维护完整安装流程。
 - **保护项目资料，不自动归档。** 项目知识资料归项目所有，骨架升级不得覆盖或删除正文。不因日期或完成状态自动归档；需要归档已完成事项时，使用 archive-scan。
 - **测试和工具放在规定位置。** 独立测试、基准及其专用辅助文件放在 `scripts/tests/**`；语言原生的内联单元测试可以留在被测模块中。独立工具放在 `scripts/`，生产运行不得依赖测试集。
-- **产物严格按三目录存放。** 本机运行产物进入 `.runtime/`，依赖环境和安装工具进入 `.deps/`，编译、打包及缓存进入 `.build/`；根目录及源码目录不散落 target、dist、.venv、node_modules，也不以链接绕过。本机配置在 `.runtime/config/`，下载在 `.runtime/download/`，测试产物在 `.runtime/tests/<任务>/`。源码、原生 manifest、依赖锁和用户资料保留原职责。根 `.gitignore` 完整忽略三根及内容，忽略不等于删除授权。旧 artifact-layout 旁文件与依赖它的自动清理已退役，不凭默认值删除当前业务成品。迁移同步读写与调用链，归属不明或目标冲突时停止。
+- **产物严格按三目录存放。** 本机运行产物进入 `.runtime/`，依赖环境和安装工具进入 `.deps/`，编译、打包及缓存进入 `.build/`；根目录及源码目录不散落 target、dist、.venv、node_modules，也不以链接绕过。本机配置在 `.runtime/config/`，下载在 `.runtime/download/`，测试产物在 `.runtime/tests/<任务>/`。源码、原生 manifest、依赖锁和用户资料保留原职责。根 `.gitignore` 完整忽略三根及内容，忽略不等于删除授权。旧 artifact-layout 旁文件已退役；cleanup 按固定规则及当前原生依据识别的精确保留清单执行，不凭默认值删除当前业务成品或运行依赖。迁移同步读写与调用链，归属不明或目标冲突时停止。
 - **正式开发仓库与产物分离。** 本项目持续维护的源码和开发仓库必须位于正式源码工作区，不得放入 `.runtime/`、`.deps/` 或 `.build/`。临时下载的源码和测试仓库可分别放入 `.runtime/download/`、`.runtime/tests/`，但不得作为正式项目开发根、项目登记路径或持续维护的源码事实源；转为正式开发前必须迁出。开始修改前核对真实 Git 根与用户指定的项目目录，不一致时先说明并处理，不在产物目录中另建开发仓库继续工作。受控第三方依赖源码及冻结的迁移恢复副本仍按各自用途存放，不作为本项目开发入口。
 
 ### 7. 版本与发布
@@ -141,7 +141,7 @@ BP 组织单项目或多项目骨架升级时，读取私有 [bridgepilot-update
 
 用户完整发布仍只调用 `git-sync release`；实际受管命令为 `.build/bridgeforge/bin/bridgeforge-factory.exe git-sync release`。CLI 通过原生 Cargo metadata 登记的 BP 适配器完成必要构建、打包、源码提交推送、正式 GitHub Release 和远端核验。只有 `status=released` 且 `publication_verified=true` 才是发布成功；普通 synced 不代替发布。最短路径、四类暂停与接续规则只维护在共享 git-sync Skill；原生入口和包边界见 INSTALL。Forge 不依赖 BP 包，不重建旧版本账本。
 
-旧 cleanup 依赖的项目产物覆盖与 Hook 登记旁文件已退役。未建立可靠的原生成品保护前，该入口明确阻断；不恢复旧 JSON，不默认清空 `.build`，不删除当前成品或本次恢复证据。
+cleanup 使用固定范围、当前原生依据及精确保留路径，不读取或恢复旧项目产物覆盖、Hook 登记与分发 JSON。工厂入口自动保护自身工具和收据；项目成品、运行依赖及仍需保留的恢复证据按当前调用链显式核对并传入，不默认清空 `.build`。preview 零写入，实际删除仍须有对应范围授权。
 
 工厂显式工具刷新及开发必要构建的受管准备入口为下列第一条命令，不再作为日常 Git 同步前置。它通过锁定 Cargo 启动当前源码工厂工具，按需准备 CLI、Hook 和工厂工具；准备失败停止，不对工厂执行下游 adopt/apply。只读检查直接使用已具备 `factory-runtime-prepare-v1` 的工厂工具的 `build-assets --factory --project-root . --check`；没有该能力时报告工具不可用，不用 Cargo 引导冒充零写入检查。完整说明见 INSTALL.md。
 

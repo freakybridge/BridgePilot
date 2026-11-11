@@ -94,16 +94,16 @@ fn cached_plan_rejects_new_factory_identity_and_rolls_back_same_repository_targe
 }
 
 #[test]
-fn retired_cleanup_does_not_consult_config_or_execute_any_process() {
+fn cleanup_without_product_review_stops_before_any_process() {
     struct Never;
     impl bridgeforge_core::ProcessRunner for Never {
         fn run(&self, _: &bridgeforge_core::ProcessRequest) -> std::io::Result<bridgeforge_core::ProcessOutput> {
-            panic!("retired cleanup must not run processes");
+            panic!("unreviewed cleanup must not run processes");
         }
     }
-    let out = crate::artifact_cleanup::command_with_contract(&["cleanup".into(),"--root".into(),"missing".into()], &Never,
-        &|_,_| panic!("retired cleanup must not read old config"));
-    assert_eq!(out.code, 2); assert!(out.stderr.contains("retired"));
+    let out = crate::artifact_cleanup::command(&["cleanup".into(),"--root".into(),"missing".into()], &Never);
+    assert_eq!(out.code, 2);
+    assert!(out.receipt.unwrap()["failures"][0].as_str().unwrap().contains("products-reviewed"));
 }
 
 #[test]
