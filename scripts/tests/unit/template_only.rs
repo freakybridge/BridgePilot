@@ -69,16 +69,25 @@ fn cached_plan_revalidation_still_checks_new_transaction_guards_first() {
         let fixture=Fixture::new("new-guard");let root=&fixture.0;
         let path=root.join(relative);fs::create_dir_all(path.parent().unwrap()).unwrap();fs::write(&path,b"{}").unwrap();
         let plan=Plan{root:root.clone(),product:root.join("missing-product"),product_bytes:vec![],before:BTreeMap::new(),writes:BTreeMap::new(),retirements:BTreeMap::new(),
-            fingerprint:String::new(),report:json!({}),release_recipe:None,prepared:root.join("missing-ready"),binaries:BTreeSet::new(),source_inputs:String::new()};
+            fingerprint:String::new(),report:json!({}),release_recipe:None,prepared:root.join("missing-ready"),binaries:BTreeSet::new(),source_inputs:String::new(),identity_recovery:None};
         assert!(revalidate(&plan).unwrap_err().contains("unfinished"));assert_eq!(fs::read(path).unwrap(),b"{}");
     }
+}
+
+#[test]
+fn identity_recovery_installation_serializes_with_native_release() {
+    let fixture=Fixture::new("identity-release-lock"); let root=&fixture.0;
+    let _lock=bridgeforge_core::file_lock::FileLock::acquire(&root.join(".runtime/bridgeforge-codex/native-release/operation.lock")).unwrap();
+    let plan=Plan{root:root.clone(),product:root.join("missing-product"),product_bytes:vec![],before:BTreeMap::new(),writes:BTreeMap::new(),retirements:BTreeMap::new(),
+        fingerprint:"reviewed".into(),report:json!({"gaps":[],"risk":[]}),release_recipe:None,prepared:root.join("missing-ready"),binaries:BTreeSet::new(),source_inputs:String::new(),identity_recovery:Some(json!({}))};
+    assert!(apply(plan,"reviewed",false,&root.join("missing-ready")).unwrap_err().contains("lock"));
 }
 
 #[test]
 fn cached_plan_rejects_new_factory_identity_and_rolls_back_same_repository_target_drift() {
     let fixture=Fixture::new("factory-and-target-drift");let root=&fixture.0;
     let mut plan=Plan{root:root.clone(),product:root.join("missing-product"),product_bytes:vec![],before:BTreeMap::new(),writes:BTreeMap::new(),retirements:BTreeMap::new(),
-        fingerprint:String::new(),report:json!({}),release_recipe:None,prepared:root.join("missing-ready"),binaries:BTreeSet::new(),source_inputs:String::new()};
+        fingerprint:String::new(),report:json!({}),release_recipe:None,prepared:root.join("missing-ready"),binaries:BTreeSet::new(),source_inputs:String::new(),identity_recovery:None};
     fs::create_dir_all(root.join("source/forge/factory")).unwrap();fs::write(root.join("source/forge/factory/Cargo.toml"),b"marker").unwrap();
     assert!(revalidate(&plan).unwrap_err().contains("factory dogfood"));
     let target=json!({"url":"https://github.com/fixture/project.git","branch":"refs/heads/main","push_ref":"refs/remotes/origin/main","head":"old","config_sha256":"old"});

@@ -317,7 +317,7 @@ fn template_project_sync(args: &[String]) -> CommandOutcome {
             Some(path) => PathBuf::from(path),
             None => bridgeforge_workflow::public_artifacts::prepared_for_product(&product)?,
         };
-        let plan = bridgeforge_workflow::template_sync::plan_with_artifacts(&path_value(args, "--project-root")?, &product,specification.as_ref(),Some(&prepared))?;
+        let plan = bridgeforge_workflow::template_sync::plan_with_identity_recovery(&path_value(args, "--project-root")?, &product,specification.as_ref(),Some(&prepared),has(args,"--recover-author-identity"))?;
         if !has(args, "--apply") { return Ok(plan.report); }
         bridgeforge_workflow::template_sync::apply(plan,
             &value(args, "--plan-fingerprint").ok_or("--apply requires --plan-fingerprint")?,

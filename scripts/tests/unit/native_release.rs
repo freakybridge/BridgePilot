@@ -1274,3 +1274,57 @@ fn identity_recovery_rejects_unsafe_or_missing_evidence_without_state_writes() {
         assert_eq!(runner.count("commit"), 1);
     }
 }
+
+#[test]
+fn identity_recovery_tool_update_checkpoint_preserves_records_and_detects_drift() {
+    let f = Fixture::current_project();
+    let cargo = fs::read_to_string(f.root.join("Cargo.toml")).unwrap();
+    fs::write(f.root.join("Cargo.toml"), format!("{cargo}source-args=[\"source\"]\n")).unwrap();
+    process(&f.root, &["add", "."]);
+    process(&f.root, &["commit", "-m", "chore: source adapter"]);
+    process(&f.root, &["push"]);
+    let mut runner = Runner::new(f.plan.clone());
+    runner.source_version = Some("1.0.1".into());
+    fs::write(f.root.join("tool.rs"), b"original tool").unwrap();
+    runner.fail_commit.set(true);
+    assert_ne!(run(&f.root, &runner, Default::default()).code, 0);
+    let state_bytes = fs::read(f.state_path()).unwrap();
+    let records: Vec<_> = [".runtime/bridgeforge-codex/native-release/current.json", ".runtime/bridgeforge-codex/native-release/source.json", ".runtime/bridgeforge-codex/release-preparation/commit-guard.json"]
+        .into_iter().map(|p|(f.root.join(p),fs::read(f.root.join(p)).unwrap())).collect();
+    assert!(recovery::installation_checkpoint(&f.root, &runner, &BTreeSet::new(), true).is_err()); // No positive drift proof.
+    append_recovery_identity(&f);
+    let excluded = BTreeSet::from(["tool.rs".into()]);
+    let proof = recovery::installation_checkpoint(&f.root, &runner, &excluded, true).unwrap();
+    for protected in ["VERSION", "Cargo.toml", ".runtime/bridgeforge-codex/native-release/current.json"] {
+        assert!(recovery::installation_checkpoint(&f.root, &runner, &BTreeSet::from([protected.into()]), true).is_err());
+    }
+    fs::write(f.root.join("tool.rs"), b"updated tool").unwrap();
+    assert!(recovery::installation_checkpoint(&f.root, &runner, &excluded, true).is_err());
+    assert_eq!(recovery::installation_checkpoint(&f.root, &runner, &excluded, false).unwrap(), proof);
+    for (path, bytes) in &records {
+        let mut changed = bytes.clone(); changed.push(b'\n'); fs::write(path, changed).unwrap();
+        assert_ne!(recovery::installation_checkpoint(&f.root, &runner, &excluded, false).unwrap(), proof);
+        fs::write(path, bytes).unwrap();
+    }
+    fs::write(f.root.join("external.rs"), b"external change").unwrap();
+    assert_ne!(recovery::installation_checkpoint(&f.root, &runner, &excluded, false).unwrap(), proof);
+    fs::remove_file(f.root.join("external.rs")).unwrap();
+    process(&f.root, &["add", "tool.rs"]);
+    assert!(recovery::installation_checkpoint(&f.root, &runner, &excluded, false).is_err());
+    process(&f.root, &["reset", "--", "tool.rs"]);
+    fs::write(f.root.join("tool.rs"), b"original tool").unwrap();
+    let target = f.root.join("tool.rs");
+    let writes = std::collections::BTreeMap::from([(target.clone(), b"updated tool".to_vec())]);
+    let before = std::collections::BTreeMap::from([(target.clone(), Some(b"original tool".to_vec()))]);
+    let result = crate::project_sync::install_template_transaction(&f.root, &writes, &before, &BTreeSet::new(), &Default::default(), || {
+        fs::write(f.root.join("external.rs"), b"external change").unwrap();
+        if recovery::installation_checkpoint(&f.root, &runner, &excluded, false).map_err(|e|e.message)? != proof {
+            return Err("recovery proof drifted".into());
+        }
+        Ok(())
+    });
+    assert!(result.unwrap_err().contains("rolled back"));
+    assert_eq!(fs::read(target).unwrap(), b"original tool");
+    for (path, bytes) in &records { assert_eq!(fs::read(path).unwrap(), *bytes); }
+    assert_eq!(fs::read(f.state_path()).unwrap(), state_bytes);
+}

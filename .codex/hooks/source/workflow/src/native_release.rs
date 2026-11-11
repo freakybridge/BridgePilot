@@ -235,6 +235,10 @@ pub fn installation_target(root:&Path, repository:&str, gitlab_origin:Option<&st
     serde_json::to_value(target).map_err(|e|e.to_string())
 }
 
+pub(crate) fn identity_recovery_installation(root: &Path, excluded: &BTreeSet<String>, exact: bool) -> Result<Value, String> {
+    recovery::installation_checkpoint(root, &crate::SystemProcessRunner, excluded, exact).map_err(|e|e.message)
+}
+
 fn request(
     root: &Path,
     runner: &dyn ProcessRunner,

@@ -70,7 +70,35 @@ pub(super) fn recover(
     let Some(prior) = old.as_ref() else { return Err(conflict("identity recovery requires an existing release continuation")); };
     let before = prior.anchor.as_ref().ok_or_else(|| conflict("identity recovery requires a recorded Git anchor"))?;
     if before.config_sha256 == current.config_sha256 { return Ok(()); }
-    if prior.commit.is_some() || prior.result.is_some() || prior.status != "blocked-before-commit" {
+    let (guard, removed) = verify(root, runner, prior, current)?;
+    let input = fingerprint(root, runner)?;
+    let bytes = expected.as_deref().ok_or_else(|| conflict("identity recovery state missing"))?;
+    let archived = archive_attempt(root, bytes, Some(&guard))?;
+    let mut recovered = prior.clone();
+    recovered.identity_recovery = Some(Evidence {
+        previous_attempt: archived.clone(),
+        before_config_sha256: before.config_sha256.clone(),
+        after_config_sha256: current.config_sha256.clone(),
+        removed_keys_to_reconstruct_before: removed,
+        source_fingerprint: input.clone(),
+    });
+    recovered.previous_attempt = Some(archived);
+    recovered.anchor = Some(current.clone());
+    // Archive-first, CAS-save-last: interruption leaves the old attempt usable.
+    if anchor(root, runner)? != *current || fingerprint(root, runner)? != input
+        || git_sync::inspect_commit_guard(root, runner).map_err(conflict)?.is_none_or(|g| g.bytes != guard.bytes) {
+        return Err(conflict("identity recovery checkpoint changed concurrently; original attempt preserved"));
+    }
+    git(root, runner, &["diff", "--cached", "--quiet", "HEAD", "--"])
+        .map_err(|_| conflict("staging area changed during identity recovery"))?;
+    save(path, &recovered, expected)?;
+    *old = Some(recovered);
+    Ok(())
+}
+
+fn verify(root: &Path, runner: &dyn ProcessRunner, prior: &State, current: &Anchor) -> Result<(git_sync::CommitGuard, Vec<String>), Stop> {
+    let before = prior.anchor.as_ref().ok_or_else(|| conflict("identity recovery requires a recorded Git anchor"))?;
+    if prior.schema != 1 || prior.commit.is_some() || prior.result.is_some() || prior.status != "blocked-before-commit" {
         return Err(conflict("identity recovery requires a verified blocked-before-commit attempt; fixed or uncertain progress preserved"));
     }
     let mut target = before.clone();
@@ -97,28 +125,34 @@ pub(super) fn recover(
         return Err(conflict("Git configuration changed during identity recovery"));
     }
     let removed = reconstruct(&config, &before.config_sha256, &prior.plan)?;
-    let input = fingerprint(root, runner)?;
-    let bytes = expected.as_deref().ok_or_else(|| conflict("identity recovery state missing"))?;
-    let archived = archive_attempt(root, bytes, Some(&guard))?;
-    let mut recovered = prior.clone();
-    recovered.identity_recovery = Some(Evidence {
-        previous_attempt: archived.clone(),
-        before_config_sha256: before.config_sha256.clone(),
-        after_config_sha256: current.config_sha256.clone(),
-        removed_keys_to_reconstruct_before: removed,
-        source_fingerprint: input.clone(),
-    });
-    recovered.previous_attempt = Some(archived);
-    recovered.anchor = Some(current.clone());
-    // Archive-first, CAS-save-last: interruption leaves the old attempt usable. A changed
-    // source still goes through the existing reprepare/adapter candidate-selection path.
-    if anchor(root, runner)? != *current || fingerprint(root, runner)? != input
-        || git_sync::inspect_commit_guard(root, runner).map_err(conflict)?.is_none_or(|g| g.bytes != guard.bytes) {
-        return Err(conflict("identity recovery checkpoint changed concurrently; original attempt preserved"));
+    Ok((guard, removed))
+}
+
+pub(super) fn installation_checkpoint(root: &Path, runner: &dyn ProcessRunner, excluded: &BTreeSet<String>, exact: bool) -> Result<Value, Stop> {
+    require_idle_git(root, runner)?;
+    let path = root.join(".runtime/bridgeforge-codex/native-release/current.json");
+    let bytes = state_bytes(&path)?.ok_or_else(|| conflict("identity tool update requires a release continuation"))?;
+    let prior: State = serde_json::from_slice(&bytes).map_err(|e| conflict(e.to_string()))?;
+    let current = anchor(root, runner)?;
+    // Unlike idempotent release resume, installation always needs positive drift proof.
+    let (guard, removed) = verify(root, runner, &prior, &current)?;
+    if prior.driver.source_args.is_empty() {
+        return Err(conflict("identity tool update requires an existing source adapter"));
     }
-    git(root, runner, &["diff", "--cached", "--quiet", "HEAD", "--"])
-        .map_err(|_| conflict("staging area changed during identity recovery"))?;
-    save(path, &recovered, expected)?;
-    *old = Some(recovered);
-    Ok(())
+    let (protected, source_bytes) = source::recovery_installation_paths(root)?;
+    if excluded.iter().any(|p| protected.contains(p) || p == "Cargo.toml" || p.starts_with(".runtime/")) {
+        return Err(conflict("identity tool update cannot change native version ownership, recipe or release records"));
+    }
+    if exact && fingerprint(root, runner)? != prior.fingerprint {
+        return Err(conflict("identity tool update source differs from the retained release candidate"));
+    }
+    let outside = fingerprint_without(root, runner, excluded)?;
+    if state_bytes(&path)?.as_deref() != Some(&bytes) || anchor(root, runner)? != current
+        || source::recovery_installation_paths(root)?.1 != source_bytes
+        || git_sync::inspect_commit_guard(root, runner).map_err(conflict)?.is_none_or(|g|g.bytes != guard.bytes)
+        || fingerprint_without(root, runner, excluded)? != outside {
+        return Err(conflict("identity tool update checkpoint changed during inspection"));
+    }
+    Ok(json!({"state_sha256":raw_sha(&bytes),"guard_sha256":raw_sha(&guard.bytes),"source_transaction_sha256":raw_sha(&source_bytes),
+        "target":current,"outside_source_fingerprint":outside,"excluded":excluded,"reconstructed_keys":removed}))
 }

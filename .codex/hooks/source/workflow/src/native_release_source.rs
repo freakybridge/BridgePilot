@@ -24,6 +24,14 @@ pub(super) fn require_finished_recovery(root: &Path) -> Result<(), Stop> {
     Ok(())
 }
 
+pub(super) fn recovery_installation_paths(root: &Path) -> Result<(BTreeSet<String>, Vec<u8>), Stop> {
+    let bytes = state_bytes(&path(root))?.ok_or_else(|| conflict("identity tool update requires a completed source transaction"))?;
+    let tx: Transaction = serde_json::from_slice(&bytes).map_err(|e| conflict(e.to_string()))?;
+    if tx.schema != 1 || !tx.finished { return Err(conflict("identity tool update source transaction is unfinished")); }
+    paths(&tx.plan)?;
+    Ok((tx.plan.identity.paths.into_iter().collect(), bytes))
+}
+
 fn paths(plan: &SourcePlan) -> Result<BTreeSet<String>, Stop> {
     let allowed: BTreeSet<_> = plan.identity.paths.iter().cloned().collect();
     if plan.schema != 1 || allowed.len() != plan.identity.paths.len() {

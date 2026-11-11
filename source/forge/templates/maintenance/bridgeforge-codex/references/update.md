@@ -13,3 +13,5 @@
 GitLab 身份必须来自已核实实例，不能把所有非 GitHub 远端猜为 GitLab。发布 API 认证使用同主机的 `GITLAB_ORIGIN` / `GITLAB_TOKEN`，或项目忽略目录 `.runtime/config/bridgeforge-gitlab-auth.json` 的 `origin` / `token`；不在命令参数、源码或收据中写令牌。凭据设置与发布结果不能由安装静态就绪代替。
 
 Apply 返回根入口并使用 transaction.md。终态 `.codex` 递归 JSON 集合严格为 hooks.json；不写骨架版本戳。
+
+缺作者身份造成提交前失败、且旧工具无法接续时，已有修复授权可在 plan 和 apply 同时传 `--recover-author-identity`。该模式要求精确证明身份配置追加、旧候选源码未变、完整 before-commit guard 和已完成版本事务；拒绝 retirement、配方请求、根 Cargo.toml 与全部原生版本归属路径的写入。恢复证据、记录原字节摘要和写集外源码进入计划指纹；apply 同时持有项目锁与原生发布锁，完成后原 state/source/guard 保持。工具更新后再由项目实装 CLI 的同名 release 参数归档与恢复，不删除或手改记录。普通更新仍拒绝 pending guard。

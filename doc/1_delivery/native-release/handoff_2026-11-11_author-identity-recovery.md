@@ -7,6 +7,12 @@ validation_status: in_progress
 
 ## 本轮修复进展（2026-11-11）
 
+**追加的真实链路发现：** BP 2.5.4 已正式发布（`bp-v2.5.4`，`1f4f7ab791d5bd2ea0490001a4b81ae7a20222e2`，16 项资产核验，publication_verified=true），并通过官方 main fetch 核对后完成本机 BP／四 Skills 更新。随后 Holdem 的普通 project-sync 计划在零写入阶段拒绝 active commit guard（`holdem-update-plan-stderr.txt`）；不能安装恢复工具，故真实 Holdem 发布仍未接续。此前验证覆盖原生 release 恢复，遗漏了安装入口对同一 guard 的无条件阻断。
+
+已补显式 `project-sync --recover-author-identity`：复用正向恢复证明，初始要求源码指纹等于旧候选；计划和双锁 apply 绑定 state/source/guard 原字节摘要及写集外源码，拒绝 retirement、配方请求、根 Cargo.toml 和全部 SourceIdentity.paths 写入。事务末尾复核且保留记录，由更新后的实装 CLI 真正执行 release 恢复。追加候选为 BF 19.0.4／workflow 0.15.4／core 11.4.4；独立复核未发现新增安全问题，受管构建和针对性验证进行中。下一次正式发布前先用候选公共 CLI 对真实旧 Holdem 场景生成零写入计划；该计划不是已安装或正式发布证据。
+
+**追加验证已通过：** 19.0.4 已受管准备三工具并写入 20 项 dogfood，manifest 无漂移、factory-version healthy=true；`template_sync` 13 项通过，受影响 `identity_recovery` 6 项通过（361.49 秒）。真实 Holdem 候选零写入计划 `holdem-candidate-recovery-plan.json` 成功：1 safe＋19 risk，retired/gaps/blockers 均为空；全部 11 个原生版本归属路径和根 Cargo 不在写集中。证明精确重建的追加项恰为 Causis 专属 generic provider、user.name、user.email。独立复核核对了三个记录摘要与现场字节，以及 20 项写集和 excluded 的一致性，无遗留问题。正在发布补齐版本；正式 apply 和实装 CLI 接续仍待后续收据。
+
 已在 Forge 维护源实现 `git-sync release --recover-author-identity`。旧 schema 1 记录不要求补写配置快照：在内存中从当前有效配置移除受限追加项，精确重建原 `config_sha256`，其余配置原字节顺序、重复项与摘要保护保持。允许项仅为非空 `user.name/user.email` 追加，以及不同服务主机的精确 HTTP(S) origin 下 `credential.provider=generic` 追加；不接受旧值替换／删除、通配或路径 origin、同主机、其他 provider/helper、Hook、签名、remote 等无法证明的变化。
 
 恢复仅接纳 `blocked-before-commit`、无固定 commit/result、有原 anchor、HEAD／分支／实际 push 目标相同、driver 相同、产物摘要有效、版本事务已完成、有 before-commit guard 且 index 对 HEAD 为空的现场。工具归档原 state 和 guard，复核并发变化后原子保存新 anchor 与恢复证据；源码变化仍走既有 reprepare／版本适配器，不直接复用失效产物或删除记录。

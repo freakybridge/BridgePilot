@@ -124,15 +124,29 @@ pub struct Plan {
     prepared: PathBuf,
     binaries: BTreeSet<PathBuf>,
     source_inputs: String,
+    identity_recovery: Option<Value>,
 }
 
 fn aggregate(root:&Path,product:&Path,product_bytes:&[u8],before:&BTreeMap<PathBuf,Option<Vec<u8>>>,writes:&BTreeMap<PathBuf,Vec<u8>>,
-    json_paths:&[String],recipe:Option<&crate::project_release::Recipe>,release_target:&Value,source_inputs:&str)->Result<String,String> {
+    json_paths:&[String],recipe:Option<&crate::project_release::Recipe>,release_target:&Value,source_inputs:&str,identity_recovery:&Option<Value>)->Result<String,String> {
     let records=before.iter().map(|(p,b)|json!({"path":p.strip_prefix(root).unwrap().to_string_lossy().replace('\\',"/"),"sha256":b.as_ref().map(|b|hash(b))})).collect::<Vec<_>>();
     let desired=writes.iter().map(|(p,b)|json!({"path":p.strip_prefix(root).unwrap().to_string_lossy().replace('\\',"/"),"sha256":hash(b)})).collect::<Vec<_>>();
     build_manifest::canonical_sha(&json!({"schema":1,"model":"template-only-v1","root":root,"product":product,"product_sha256":hash(product_bytes),
         "identity":build_identity::require()?,"json_paths":json_paths,"inputs":records,"desired":desired,"release_recipe":recipe,
-        "release_target":release_target,"source_inputs":source_inputs}))
+        "release_target":release_target,"source_inputs":source_inputs,"identity_recovery":identity_recovery}))
+}
+
+fn recovery_exclusions(plan: &Plan) -> BTreeSet<String> {
+    plan.writes.keys().map(|p|p.strip_prefix(&plan.root).unwrap().to_string_lossy().replace('\\', "/")).collect()
+}
+
+fn verify_recovery(plan: &Plan, exact: bool) -> Result<(), String> {
+    if let Some(expected) = &plan.identity_recovery {
+        if !plan.retirements.is_empty() { return Err("identity recovery tool update cannot retire assets".into()); }
+        let current = crate::native_release::identity_recovery_installation(&plan.root, &recovery_exclusions(plan), exact)?;
+        if &current != expected { return Err("identity recovery tool update checkpoint drifted".into()); }
+    }
+    Ok(())
 }
 
 fn revalidate(plan:&Plan)->Result<(),String> {
@@ -140,7 +154,8 @@ fn revalidate(plan:&Plan)->Result<(),String> {
         return Err("factory dogfood cannot use downstream project-sync".into());
     }
     require_no_pending_development(&plan.root)?;
-    if state(&plan.root,".runtime/bridgeforge-codex/release-preparation/commit-guard.json")?.is_some() {
+    if plan.identity_recovery.is_some() { verify_recovery(plan, true)?; }
+    else if state(&plan.root,".runtime/bridgeforge-codex/release-preparation/commit-guard.json")?.is_some() {
         return Err("unfinished Git commit guard; preserve and resolve it before template retirement".into());
     }
     for asset in template_standard::assets() {
@@ -163,7 +178,7 @@ fn revalidate(plan:&Plan)->Result<(),String> {
     let before=plan.before.keys().map(|path|Ok((path.clone(),crate::project_sync::transaction_file_state(path)?))).collect::<Result<BTreeMap<_,_>,String>>()?;
     let json_paths=bridgeforge_skeleton::template::json_paths(&plan.root)?;
     let target=plan.release_recipe.as_ref().map(|r|crate::native_release::installation_target(&plan.root,&r.repository,r.gitlab_origin.as_deref())).transpose()?.unwrap_or(Value::Null);
-    if aggregate(&plan.root,&plan.product,&product,&before,&plan.writes,&json_paths,plan.release_recipe.as_ref(),&target,&source)?!=plan.fingerprint {
+    if aggregate(&plan.root,&plan.product,&product,&before,&plan.writes,&json_paths,plan.release_recipe.as_ref(),&target,&source,&plan.identity_recovery)?!=plan.fingerprint {
         return Err("project or product drifted; regenerate plan".into());
     }
     Ok(())
@@ -183,13 +198,19 @@ pub fn plan_with_release(root: &Path, product: &Path, requested:Option<&crate::p
 }
 
 pub fn plan_with_artifacts(root: &Path, product: &Path, requested:Option<&crate::project_release::Recipe>, prepared:Option<&Path>) -> Result<Plan, String> {
+    plan_with_identity_recovery(root, product, requested, prepared, false)
+}
+
+pub fn plan_with_identity_recovery(root: &Path, product: &Path, requested:Option<&crate::project_release::Recipe>, prepared:Option<&Path>, recover_identity: bool) -> Result<Plan, String> {
     let root = root.canonicalize().map_err(|e| e.to_string())?;
     let product = product.canonicalize().map_err(|e| e.to_string())?;
     if root == product || root.join("source/forge/factory/Cargo.toml").is_file() {
         return Err("factory dogfood cannot use downstream project-sync".into());
     }
     require_no_pending_development(&root)?;
-    if state(&root, ".runtime/bridgeforge-codex/release-preparation/commit-guard.json")?.is_some() {
+    if recover_identity {
+        crate::native_release::identity_recovery_installation(&root, &BTreeSet::new(), true)?;
+    } else if state(&root, ".runtime/bridgeforge-codex/release-preparation/commit-guard.json")?.is_some() {
         return Err("unfinished Git commit guard; preserve and resolve it before template retirement".into());
     }
     let product_bytes = managed_paths::read_metadata(&product.join(product_manifest::FILE), 32 * 1024 * 1024)?
@@ -272,15 +293,22 @@ pub fn plan_with_artifacts(root: &Path, product: &Path, requested:Option<&crate:
         if relative.ends_with(std::env::consts::EXE_SUFFIX) && !relative.ends_with(".json") {binaries.insert(path.clone());}
         if old.as_deref()!=Some(bytes.as_slice()) {changed.push(relative);writes.insert(path,bytes);}
     }
-    let fingerprint=aggregate(&root,&product,&product_bytes,&before,&writes,&json_paths,installation.recipe.as_ref(),&installation.report["target"],&source_inputs)?;
+    let identity_recovery = if recover_identity {
+        if !retirements.is_empty() || requested.is_some() || installation.recipe.is_none() {
+            return Err("identity recovery tool update requires an existing recipe and no retirement or recipe request".into());
+        }
+        let excluded = writes.keys().map(|p|p.strip_prefix(&root).unwrap().to_string_lossy().replace('\\', "/")).collect();
+        Some(crate::native_release::identity_recovery_installation(&root, &excluded, true)?)
+    } else { None };
+    let fingerprint=aggregate(&root,&product,&product_bytes,&before,&writes,&json_paths,installation.recipe.as_ref(),&installation.report["target"],&source_inputs,&identity_recovery)?;
     let retired = retirements.keys().map(|p| p.strip_prefix(&root).unwrap().to_string_lossy().replace('\\', "/")).collect::<Vec<_>>();
     let risk = changed.iter().filter(|p| before[&root.join(p)].is_some()).cloned().chain(retired.iter().cloned()).collect::<Vec<_>>();
     let safe = changed.iter().filter(|p| before[&root.join(p)].is_none()).cloned().collect::<Vec<_>>();
     let report = json!({"schema":1,"status":"planned","model":"template-only-v1",
         "aggregate_fingerprint":fingerprint,"safe":safe,"risk":risk,"retired":retired,"gaps":installation.gaps,"blockers":[],"release_installation":installation.report,
         "target_json_paths":["hooks.json"],"version":contract["release_version"],
-        "public_installation":"receipt-bound; current tool bytes are included in aggregate_fingerprint"});
-    Ok(Plan {root, product, product_bytes, before, writes, retirements, fingerprint, report,release_recipe:installation.recipe,prepared,binaries,source_inputs})
+        "identity_recovery":identity_recovery,"public_installation":"receipt-bound; current tool bytes are included in aggregate_fingerprint"});
+    Ok(Plan {root, product, product_bytes, before, writes, retirements, fingerprint, report,release_recipe:installation.recipe,prepared,binaries,source_inputs,identity_recovery})
 }
 
 fn backup(plan: &Plan, snapshots: &BTreeMap<PathBuf, Option<Vec<u8>>>) -> Result<PathBuf, String> {
@@ -302,6 +330,9 @@ pub fn apply(plan: Plan, fingerprint: &str, confirmed_risk: bool, prepared: &Pat
     if plan.report["gaps"].as_array().is_some_and(|v|!v.is_empty()) {return Err("installation incomplete: resolve native release recipe gaps before apply".into());}
     if fingerprint != plan.fingerprint { return Err("aggregate fingerprint mismatch".into()); }
     if plan.report["risk"].as_array().is_some_and(|r| !r.is_empty()) && !confirmed_risk { return Err("replacement/retirement requires --confirmed-risk".into()); }
+    let _release_lock = if plan.identity_recovery.is_some() {
+        Some(bridgeforge_core::file_lock::FileLock::acquire(&plan.root.join(".runtime/bridgeforge-codex/native-release/operation.lock"))?)
+    } else { None };
     let _lock = ProjectLock::acquire(&plan.root)?;
     if prepared.canonicalize().map_err(|e|e.to_string())? != plan.prepared.canonicalize().map_err(|e|e.to_string())? {return Err("public artifact receipt differs from reviewed plan".into());}
     revalidate(&plan)?;
@@ -315,6 +346,7 @@ pub fn apply(plan: Plan, fingerprint: &str, confirmed_risk: bool, prepared: &Pat
     let recovery = backup(&plan, snapshots)?;
     crate::project_sync::install_template_transaction(&plan.root, writes, snapshots,
         &plan.binaries, &plan.retirements, || {
+            verify_recovery(&plan, false)?;
             if fs::read(plan.product.join(product_manifest::FILE)).map_err(|e| e.to_string())? != plan.product_bytes {
                 return Err("product changed during installation".into());
             }
