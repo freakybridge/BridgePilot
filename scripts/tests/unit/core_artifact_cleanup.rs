@@ -6,6 +6,9 @@ mod short_paths;
 #[cfg(windows)]
 #[path = "core_cleanup_junctions.rs"]
 mod junctions;
+#[cfg(windows)]
+#[path = "core_cleanup_performance.rs"]
+mod performance;
 
 struct Fixture(PathBuf);
 impl Fixture {
@@ -178,6 +181,78 @@ fn cleanup_active_lock_blocks_all_deletion_and_partial_failure_is_reported() {
     assert_eq!(report.status, "partial");
     assert_eq!(report.deleted_files, 1);
     assert!(report.remaining_entries.unwrap() > 0);
+}
+
+#[cfg(windows)]
+#[test]
+fn cleanup_hardlink_anchor_denies_writers_between_delete_handles() {
+    use std::os::windows::fs::OpenOptionsExt;
+    use windows_sys::Win32::Storage::FileSystem::*;
+    let f = Fixture::new();
+    f.put(".runtime/original", b"original");
+    let original = f.0.join(".runtime/original");
+    let alias = f.0.join(".runtime/alias");
+    fs::hard_link(&original, &alias).unwrap();
+    let anchor = windows::read_anchor(&original, windows::path_identity(&original).unwrap()).unwrap();
+    let writer = || fs::OpenOptions::new().write(true)
+        .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE).open(&alias);
+    assert_eq!(writer().unwrap_err().raw_os_error(), Some(32));
+    drop(anchor);
+    assert!(writer().is_ok());
+    assert_eq!(fs::read(original).unwrap(), b"original");
+}
+
+#[cfg(windows)]
+#[test]
+fn cleanup_new_entries_before_execution_block_before_first_deletion() {
+    let f = Fixture::new();
+    f.put(".runtime/original", b"original");
+    let plan = Plan::capture(&f.0).unwrap();
+    f.put(".runtime/new", b"appeared after planning");
+    let before = f.tree();
+    let report = plan.execute();
+    assert_eq!(report.status, "blocked", "{:?}", report.failures);
+    assert_eq!(report.deleted_files, 0);
+    assert!(report.failures.iter().any(|e| e.contains("changed during preflight")));
+    assert_eq!(f.tree(), before);
+}
+
+#[cfg(windows)]
+#[test]
+fn cleanup_parallel_preflight_failure_deletes_nothing_and_releases_acquired_handles() {
+    use std::os::windows::fs::OpenOptionsExt;
+    use windows_sys::Win32::Storage::FileSystem::*;
+    let f = Fixture::new();
+    for index in 0..512 { f.put(&format!(".runtime/{index:03}.bin"), b"payload"); }
+    let held = fs::OpenOptions::new().read(true).share_mode(FILE_SHARE_READ)
+        .open(f.0.join(".runtime/511.bin")).unwrap();
+    let before = f.tree();
+    let report = Plan::capture(&f.0).unwrap().execute();
+    assert_eq!(report.status, "blocked", "{:?}", report.failures);
+    assert_eq!(report.deleted_files, 0);
+    assert_eq!(f.tree(), before);
+    // Failed preflight cannot leave another worker's DELETE handle behind.
+    let writer = fs::OpenOptions::new().write(true)
+        .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
+        .open(f.0.join(".runtime/000.bin")).unwrap();
+    drop(writer);
+    drop(held);
+    let report = Plan::capture(&f.0).unwrap().execute();
+    assert_eq!(report.status, "completed", "{:?}", report.failures);
+    assert_eq!(report.deleted_files, 512);
+}
+
+#[cfg(windows)]
+#[test]
+fn cleanup_parallel_preflight_deduplicates_hardlinks_across_chunks() {
+    let f = Fixture::new();
+    for index in 0..512 { f.put(&format!(".runtime/{index:03}.bin"), b"payload"); }
+    f.put(".runtime/000-hardlink.bin", b"shared payload");
+    fs::hard_link(f.0.join(".runtime/000-hardlink.bin"), f.0.join(".runtime/z-hardlink.bin")).unwrap();
+    let report = Plan::capture(&f.0).unwrap().execute();
+    assert_eq!(report.status, "completed", "{:?}", report.failures);
+    assert_eq!(report.deleted_files, 514);
+    assert_eq!(report.remaining_entries, Some(0));
 }
 
 #[cfg(windows)]

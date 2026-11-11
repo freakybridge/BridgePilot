@@ -29,7 +29,13 @@ struct Junction {
 
 fn inspect(path: &Path) -> Result<Entry, String> {
     let metadata = fs::symlink_metadata(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let junction = if crate::persistence::is_link_or_reparse(path).map_err(|e| e.to_string())? {
+    let linked = metadata.file_type().is_symlink();
+    #[cfg(windows)]
+    let linked = {
+        use std::os::windows::fs::MetadataExt;
+        linked || metadata.file_attributes() & 0x400 != 0
+    };
+    let junction = if linked {
         #[cfg(windows)]
         { Some(windows::junction(path)?) }
         #[cfg(not(windows))]
@@ -229,7 +235,7 @@ impl Selection {
 fn collect_build(
     root: &Path,
     path: &Path,
-    policy: &BuildPolicy,
+    keeps: &[String],
     entries: &mut Vec<Entry>,
     targets: &mut Vec<String>,
     skipped: &mut Vec<String>,
@@ -240,17 +246,16 @@ fn collect_build(
         .map_err(|e| e.to_string())?
         .to_string_lossy()
         .replace('\\', "/");
-    if policy
-        .keep
+    let key = crate::artifact_paths::normalized(&relative);
+    if keeps
         .iter()
-        .any(|keep| crate::artifact_paths::within(&relative, keep))
+        .any(|keep| within_normalized(&key, keep))
     {
         return Ok(());
     }
-    let protects_descendant = policy
-        .keep
+    let protects_descendant = keeps
         .iter()
-        .any(|keep| crate::artifact_paths::within(keep, &relative));
+        .any(|keep| within_normalized(keep, &key));
     if !protects_descendant {
         targets.push(relative.clone());
         entries.push(entry.clone());
@@ -260,7 +265,7 @@ fn collect_build(
             collect_build(
                 root,
                 &child.map_err(|e| format!("cannot read cleanup entry under {}: {e}", path.display()))?.path(),
-                policy,
+                keeps,
                 entries,
                 targets,
                 skipped,
@@ -268,6 +273,10 @@ fn collect_build(
         }
     }
     Ok(())
+}
+
+fn within_normalized(path: &str, root: &str) -> bool {
+    path == root || path.strip_prefix(root).is_some_and(|tail| tail.starts_with('/'))
 }
 
 #[derive(Serialize)]
@@ -377,6 +386,7 @@ impl Plan {
         // A missing declared product does not justify retaining empty parents.
         // Recapture still detects newly appearing entries before deletion.
         build.keep.retain(|relative| fs::symlink_metadata(root.join(relative)).is_ok());
+        let keeps = build.keep.iter().map(|keep| crate::artifact_paths::normalized(keep)).collect::<Vec<_>>();
         for relative in [RUNTIME, BUILD, DEPS] {
             let path = crate::managed_paths::safe_join(&root, relative, "cleanup boundary")?;
             match fs::symlink_metadata(&path) {
@@ -399,7 +409,7 @@ impl Plan {
                 collect_build(
                     &root,
                     &child.map_err(|e| format!("cannot read cleanup entry under {}: {e}", path.display()))?.path(),
-                    &build,
+                    &keeps,
                     &mut entries,
                     &mut targets,
                     &mut skipped,
@@ -408,10 +418,14 @@ impl Plan {
         }
         #[cfg(windows)]
         {
-            let own = windows::path_identity(&std::env::current_exe().map_err(|e| e.to_string())?)?;
+            let own_path = std::env::current_exe().map_err(|e| e.to_string())?;
+            let own_size = fs::metadata(&own_path).map_err(|e| e.to_string())?.len();
+            let own = windows::path_identity(&own_path)?;
             for entry in entries
                 .iter()
-                .filter(|e| !e.directory)
+                // A hard link to the executor necessarily has its byte length.
+                // Do not open every unrelated cache file just to exclude aliases.
+                .filter(|e| !e.directory && e.bytes == own_size)
             {
                 if windows::path_identity(&entry.path)? == own {
                     build.keep.push(
@@ -426,10 +440,11 @@ impl Plan {
             }
             build.keep.sort();
             build.keep.dedup();
+            let keeps = build.keep.iter().map(|keep| crate::artifact_paths::normalized(keep)).collect::<Vec<_>>();
             let protected = |relative: &str| {
-                build.keep.iter().any(|keep| {
-                    crate::artifact_paths::within(relative, keep)
-                        || crate::artifact_paths::within(keep, relative)
+                let key = crate::artifact_paths::normalized(relative);
+                keeps.iter().any(|keep| {
+                    within_normalized(&key, keep) || within_normalized(keep, &key)
                 })
             };
             entries.retain(|entry| {
@@ -579,8 +594,8 @@ impl Plan {
         after_delete: &mut dyn FnMut() -> Result<(), String>,
     ) -> Result<(), String> {
         use std::collections::BTreeMap;
-        self.verify()?;
         if self.entries.is_empty() {
+            self.verify()?;
             return Ok(());
         }
         let own_image = std::env::current_exe()
@@ -590,12 +605,14 @@ impl Plan {
         if self.entries.iter().any(|entry| entry.path == own_image) {
             return Err("cleanup executor conflicts with a cache/history path; use the current project tool and correct its build output roles".into());
         }
+        let file_targets = self.entries.iter().filter(|entry| !entry.directory)
+            .map(|entry| &entry.path).collect::<std::collections::BTreeSet<_>>();
         for (pid, image) in crate::process_activity::images()? {
             if pid == std::process::id() {
                 continue;
             }
             let image = image.canonicalize().unwrap_or(image);
-            if self.entries.iter().any(|e| !e.directory && e.path == image) {
+            if file_targets.contains(&image) {
                 return Err(format!(
                     "active process {pid} uses cleanup target {}",
                     image.display()
@@ -629,32 +646,23 @@ impl Plan {
         });
         let mut identities = BTreeMap::new();
         let mut counts = BTreeMap::new();
-        for entry in &files {
-            let id = windows::path_identity(&entry.path)?;
+        for (path, id) in windows::file_identities(&files)? {
             *counts.entry(id).or_insert(0usize) += 1;
-            identities.insert(entry.path.clone(), id);
+            identities.insert(path, id);
         }
         let mut guards = BTreeMap::new();
         let mut anchors = BTreeMap::new();
-        let mut opened = std::collections::BTreeSet::new();
         for entry in self.entries.iter().filter(|entry| entry.directory) {
             guards.insert(entry.path.clone(), windows::Guard::open(entry)?);
         }
-        for entry in &files {
-            let id = identities[&entry.path];
-            if !opened.insert(id) {
-                continue;
+        for (path, guard, anchor) in windows::file_guards(&files, &identities, &counts)? {
+            if let Some((id, anchor)) = anchor {
+                anchors.insert(id, anchor);
             }
-            if counts[&id] > 1 {
-                // Hold a read-only anchor across successive hard-link removals.
-                // It denies writes even between closing one DELETE handle and
-                // opening the next; each name is rebound to the original file ID.
-                anchors.insert(id, windows::read_anchor(&entry.path, id)?);
-            }
-            let guard = windows::Guard::open(entry)?;
-            guard.require_identity(id)?;
-            guards.insert(entry.path.clone(), guard);
+            guards.insert(path, guard);
         }
+        // Parallel work only acquires handles. Every worker has joined here;
+        // verification and all locks still precede the first ordered deletion.
         self.verify()?;
         for entry in &files {
             if let Some(guard) = guards.get(&entry.path) {
@@ -711,13 +719,8 @@ impl Plan {
             after_delete()?;
             require_absent(&entry.path)?;
         }
-        let remaining = self.remaining()?;
-        if !remaining.entries.is_empty() {
-            return Err(
-                "new artifact contents appeared during cleanup; preserved for next invocation"
-                    .into(),
-            );
-        }
+        // execute_observed performs the final remaining-state scan on both
+        // success and failure. Do not scan the same final tree twice.
         Ok(())
     }
 }
@@ -749,6 +752,73 @@ mod windows {
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
     pub(super) struct Identity(u32, u64);
+
+    /// Bound filesystem latency without changing the deletion order. On any
+    /// error, join every worker and drop every acquired handle before returning.
+    fn parallel_items<T: Sync, R: Send>(
+        items: &[T], operation: impl Fn(&T) -> Result<R, String> + Sync,
+    ) -> Result<Vec<R>, String> {
+        let workers = if items.len() < 256 { 1 } else {
+            std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1).min(8)
+        };
+        if workers == 1 {
+            return items.iter().map(operation).collect();
+        }
+        let cancelled = std::sync::atomic::AtomicBool::new(false);
+        std::thread::scope(|scope| {
+            let operation = &operation;
+            let cancelled = &cancelled;
+            let workers = items.chunks(items.len().div_ceil(workers)).map(|chunk| {
+                scope.spawn(move || {
+                    let mut values = Vec::with_capacity(chunk.len());
+                    for item in chunk {
+                        if cancelled.load(std::sync::atomic::Ordering::Relaxed) { break; }
+                        match operation(item) {
+                            Ok(value) => values.push(value),
+                            Err(error) => {
+                                cancelled.store(true, std::sync::atomic::Ordering::Relaxed);
+                                return Err(error);
+                            }
+                        }
+                    }
+                    Ok(values)
+                })
+            }).collect::<Vec<_>>();
+            let mut values = Vec::with_capacity(items.len());
+            let mut error = None;
+            for worker in workers {
+                match worker.join() {
+                    Ok(Ok(acquired)) => values.extend(acquired),
+                    Ok(Err(failure)) => { error.get_or_insert(failure); },
+                    Err(_) => { error.get_or_insert("cleanup handle worker panicked".into()); },
+                }
+            }
+            match error { Some(error) => Err(error), None => Ok(values) }
+        })
+    }
+
+    pub(super) fn file_identities(files: &[&Entry]) -> Result<Vec<(PathBuf, Identity)>, String> {
+        parallel_items(files, |entry| Ok((entry.path.clone(), path_identity(&entry.path)?)))
+    }
+
+    type AcquiredFile = (PathBuf, Guard, Option<(Identity, File)>);
+
+    pub(super) fn file_guards(
+        files: &[&Entry], identities: &std::collections::BTreeMap<PathBuf, Identity>,
+        counts: &std::collections::BTreeMap<Identity, usize>,
+    ) -> Result<Vec<AcquiredFile>, String> {
+        let mut opened = std::collections::BTreeSet::new();
+        let unique = files.iter().copied().filter(|entry| opened.insert(identities[&entry.path])).collect::<Vec<_>>();
+        parallel_items(&unique, |entry| {
+            let id = identities[&entry.path];
+            // One anchor spans every deletion of the same hard-linked object.
+            // It continues to deny writes between successive DELETE handles.
+            let anchor = if counts[&id] > 1 { Some((id, read_anchor(&entry.path, id)?)) } else { None };
+            let guard = Guard::open(entry)?;
+            guard.require_identity(id)?;
+            Ok((entry.path.clone(), guard, anchor))
+        })
+    }
 
     /// Resolve an explicitly kept, unreadable leaf by querying its readable
     /// parent. This handles 8.3 names without opening the protected leaf.
@@ -846,7 +916,12 @@ mod windows {
     }
 
     pub(super) fn path_identity(path: &Path) -> Result<Identity, String> {
-        let file = File::open(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let file = OpenOptions::new()
+            .read(true)
+            .access_mode(FILE_READ_ATTRIBUTES)
+            .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
+            .open(path).map_err(|e| format!("{}: {e}", path.display()))?;
         identity(&file)
     }
 
@@ -881,7 +956,7 @@ mod windows {
             let mut options = OpenOptions::new();
             options
                 .read(true)
-                .access_mode(0x80000000 | DELETE | FILE_READ_ATTRIBUTES)
+                .access_mode(DELETE | FILE_READ_ATTRIBUTES | if entry.directory { 0 } else { 0x80000000 })
                 .share_mode(FILE_SHARE_READ)
                 .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS);
             let file = options.open(&entry.path).map_err(|e| {

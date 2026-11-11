@@ -5,6 +5,40 @@ validation_status: verified
 
 # 清理 Skill：需求与实施计划
 
+## 用户验收：cleanup 执行器性能优化（2026-11-11）
+
+2026-11-11，用户在 CRS 清理长时间未返回后要求暂停批次，并明确授权优化执行器，保持既定删除规则。本轮显式调用 `$summary accept`，确认本次性能修复及下述验证范围符合需求；同时调用 `$git-sync release` 授权本轮正式发布。本节为 TODO-049 的性能增量验收，沿用已完成、已验证状态；不将发布授权、fixture 删除或项目预览当作真实 CRS 清理完成。
+
+### 实现与经验
+
+- 改动属于 Forge 通用产品执行器，不改 cleanup 的删除规则或 BP 私有项目编排。保留配置、下载、依赖、当前程序和收据的边界不变，未恢复旧 JSON 或旁账本。
+- 原扫描为排除执行器自身硬链接，对大量无关文件申请内容读取权限并查询身份；现在先按执行器字节长度筛选，再以仅属性权限、不跟随链接的句柄查询身份。复用同一次新鲜元数据判定 reparse，预归一化保留路径，并以集合查询实际运行映像，减少重复文件访问和匹配。
+- 合并冗余整树检查：非空计划仍在全部根、目录和文件句柄取得后、首项删除前核验输入，空计划也核验；成功和失败统一执行最终剩余检查。身份查询与全局去重后的文件句柄预开最多使用 8 个工作线程，所有线程 join、核验及锁检查完成后，才按原顺序串行删除文件和目录；预检失败仍为零删除。
+- 硬链接 anchor 的内容读取权限承担持续拒写作用，不能当成纯元数据查询删除。目录枚举缓存可能存在硬链接元数据滞后，本轮撤回该增量，保留逐条新鲜元数据检查。没有用减弱路径、占用、漂移或 Junction 保护换取速度。
+- 初次访问与热缓存的微基准差异明显，不将一次文件打开对照当作整体提速倍数。项目规模计时与冻结输入的 fixture 对照分别报告；逻辑删除字节不等于磁盘实际释放量。临时诊断执行器副本已删除。
+- CLI 输出扫描阶段、数量和耗时，结果增加 `timings_ms`；后续可以区分扫描与执行耗时，不再只有结束时的统计。
+
+### 验证与实测
+
+| 范围 | 实际依据与结果 |
+|---|---|
+| 核心回归 | 24 项通过；覆盖权限保留、只读文件、活动映像和锁、硬链接、路径边界、输入漂移和 Junction。新增 512 文件预检失败零删除及句柄释放、跨分块硬链接去重回归通过；子集复验不叠加计数 |
+| CLI 与工厂入口 | workflow 7 项、factory 1 项通过；合计 32 项针对性回归。两项隔离子进程辅助测试由父测试调用，性能 benchmark 另行显式运行，不冒充整 workspace 回归 |
+| 独立复核 | 复核身份查询权限、anchor、检查去重、并发预开屏障和跨分块覆盖；修正后无剩余阻断 |
+| 冻结输入实际删除 | 同一隔离 Git 仓库，每次重新生成 20,000 文件及 101 普通目录；串行候选总耗时 34.622 秒，并发预检候选 20.839 秒。两次均 completed、剩余待删项为 0，4 个保留／依据文件哈希无变化；文件删除本身仍串行 |
+| CRS 真实只读预览 | 最终分发 CLI 19.0.2：122,727 文件、80,493 普通目录、15 Junction，用时 36.335 秒；此前项目预览约 19 分钟为历史规模参考，不是冻结输入实验。32 个既有权限目录临时保留，整体为不完整预览；本次未删除 CRS 条目，12 个保护文件哈希无变化 |
+| 原生产物与 dogfood | 最终受管准备 prepared=3、written_files=9、self_test_executed=true；之后运行时检查 current/reused=3/built=0、manifest changed=false、factory-version healthy、公开 CLI self-test 版本 19.0.2。最终分发 CLI 另完成 300 文件真实 fixture 清理，保留内容不变 |
+
+核心命令为 `cargo test --locked --config scripts/tests/factory-cargo.toml --manifest-path Cargo.toml --target-dir .build/bridgeforge/test-target -p bridgeforge-core artifact_cleanup::tests -- --skip cleanup_external_permission_preview --test-threads=1`，workflow 使用同入口的对应包与 cleanup 测试过滤器，factory 验证 `cleanup_factory_retains_all_six_current_products`。Junction、硬链接及只读删除在本仓库隔离 fixture 中以可满足 Windows 原生权限的环境核验；早期沙箱拒绝或并行辅助进程干扰导致的失败不计为通过。
+
+本机证据根为 `.runtime/tests/cleanup-performance/`。`summary.json` 汇总最终结果；`serial-paired-result.json`、`parallel-paired-result.json` 与对应 timing 保存同输入对照；`crs-final-public-preview.json` 及 timing、保护哈希保存真实项目只读结果；`distributed-cli-smoke.json` 保存最终公开入口调用。核心保留与 Junction 测试位于 `scripts/tests/unit/core_artifact_cleanup.rs`、`core_cleanup_junctions.rs`，性能 benchmark 位于 `core_cleanup_performance.rs`。
+
+### 版本、验收和未验证边界
+
+性能修复候选为 BF 19.0.1 → 19.0.2、core 11.4.1 → 11.4.2、workflow 0.15.1 → 0.15.2，均为兼容性能修复；BP 与 orchestrator 在开发阶段未手动升版。组合发布的原生版本由受管 release 入口核对正式历史及实际净差异后决定，正式提交、标签、Release 和资产以发布收据为准。
+
+原清理批次保持用户要求的暂停：此前 BridgeLibrary 已完成实际清理，CRS 的长时间执行已停止，HoldemTrainer 和 StratusAgent 尚未开始。本次性能验收不恢复该批次，不补记真实 CRS 删除、完整批量完成、下游安装升级或业务 GUI 验证。发布授权不包括这些操作；32 个权限目录继续保留，未修改 ACL 或所有权。
+
 ## 用户验收：BP 批量 cleanup 入口（2026-11-11）
 
 用户要求修好 `bridgepilot-cleanup`，使其对已登记下游各自运行项目 cleanup。2026-11-11 用户显式调用 `$summary accept`，验收本次入口实现、必要验证及本机受管安装；同时调用 `$git-sync release` 授权发布本轮 BP 私有批量入口修复，再调用 `$bridgepilot-update` 授权发布后从官方来源更新本机与登记下游。该授权不包括真实批量清理、ACL 修改、下游业务提交或发布。

@@ -8,7 +8,7 @@ use bridgeforge_core::{
 use serde_json::json;
 use std::{
     path::{Path, PathBuf},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 pub fn command(args: &[String], runner: &dyn ProcessRunner) -> CommandOutcome {
@@ -92,16 +92,26 @@ pub fn command_with_products(
             crate::project_release::PROGRAM.into(),
             crate::project_release::RECEIPT.into(),
         ]);
+        eprintln!("[cleanup] scanning {}", root.display());
+        let scan_started = Instant::now();
         let plan = Plan::capture_with_build(&root, policy)?;
+        let scan_ms = scan_started.elapsed().as_millis();
+        let planned = plan.preview();
+        eprintln!("[cleanup] scan finished: {} files, {} directories, {} Junctions, {scan_ms} ms",
+            planned.planned_files, planned.planned_directories, planned.planned_junctions);
+        let execution_started = Instant::now();
         let report = if preview {
-            plan.preview()
+            planned
         } else {
             eligible(&root, runner)?;
+            eprintln!("[cleanup] checking target handles and deleting");
             plan.execute()
         };
+        let execution_ms = execution_started.elapsed().as_millis();
         let failed = !report.failures.is_empty();
         let mut receipt = serde_json::to_value(report).map_err(|e| e.to_string())?;
         receipt["products_reviewed"] = json!(true);
+        receipt["timings_ms"] = json!({"scan": scan_ms, "execution": execution_ms});
         let mut out = CommandOutcome::with_receipt(receipt);
         if failed {
             out.code = crate::EXIT_BLOCKED;
