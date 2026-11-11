@@ -1,5 +1,11 @@
 # Changelog
 
+## [BP 2.5.2] - 未发布
+
+- [product] 恢复 bridgepilot-cleanup 的批量编排：默认读取登记下游，各自执行项目 cleanup，支持指定项目及只读 preview，单项目受阻继续其余项目，结束后统一汇总权限项与其他结果。
+- [product] 安装或修复 Skill 不触发真实清理；删除规则和保护清单仍由各项目 cleanup 维护，BP 不增加第二套规则，不自动改权限、升级项目或发布。
+- [repo] install 0.10.0 → 0.10.1，BP 2.5.1 → 2.5.2 为本地修复候选，更新打包 Skill 与安装导航；BF 和 orchestrator 版本不变。
+
 ## [BP 2.5.1]
 
 - fix: 恢复项目产物清理及权限项汇总

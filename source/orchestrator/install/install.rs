@@ -30,7 +30,7 @@ BP 主产品从 1.0.0 起独立编号，bp versions 展示 BP、BF 来源引用�
 
 无参数 `$bridgepilot` 运行受管 Skill 的 scripts/bridgepilot_update.ps1，从官方 freakybridge/BridgePilot 的 main 快进拉取源码，锁定 Cargo.lock 构建后执行程序与 Skill 的预览、安装和核验。默认源码 ~/.bridgepilot-source；需要 Git、Rust 1.88+ 及 Windows C++ 构建环境。首次只安装，不创建私有档案；已有 home／workspace 原位复用。完整源码引导见官方源码根 INSTALL.md“无参数源码安装与更新”；咨询及带参数模式不自动更新。失败保留现场，程序与 Skill 两阶段分别报告，中断先对应 recover；不从安装推导接管、同步或恢复任务授权。
 
-0.12.0起同一受管安装事务另安装 bridgepilot-cleanup 私有入口。项目名单由只读 project-list 提供，支持指定子集及只读 preview；旧配置化 cleanup 已退役，缺少可靠原生成品保护时阻断删除。安装此入口不执行清理。用户修改、事务中断及回退能力保护同时覆盖三个入口；新入口的原生客户端发现另行核对。
+0.12.0起同一受管安装事务另安装 bridgepilot-cleanup 私有入口。当前调用默认由控制对话通过只读 project-list 获取全部登记下游，逐项目执行各自的 cleanup，支持指定子集和只读 preview；具体保留、Junction、权限项及安全边界沿项目 cleanup，单项目受阻继续其余项目，批次结尾统一汇总。安装或修复此入口不执行清理；只有显式清理调用授权对应范围。用户修改、事务中断及回退能力保护继续有效，入口客户端发现另行核对。
 
 具备 bp-git-sync-skill-v1 的包另含 bridgepilot-git-sync-skill.md 与 bridgepilot-git-sync-list-projects.py，安装到 home 的 source/orchestrator/skills/bridgepilot-git-sync/ 后由同一 Skill 事务投影正文、名单脚本及本机绑定。skill-status 核验四个入口的所有受管文件；未知或用户修改文件保持阻断，中断使用 skill-recover。安装后不能回退到缺少该能力的程序。该入口须另获明确同步或 release 调用，安装不执行项目提交、推送或发布。
 

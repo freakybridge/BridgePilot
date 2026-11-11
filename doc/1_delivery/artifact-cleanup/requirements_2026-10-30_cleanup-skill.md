@@ -5,6 +5,33 @@ validation_status: verified
 
 # 清理 Skill：需求与实施计划
 
+## 用户验收：BP 批量 cleanup 入口（2026-11-11）
+
+用户要求修好 `bridgepilot-cleanup`，使其对已登记下游各自运行项目 cleanup。2026-11-11 用户显式调用 `$summary accept`，验收本次入口实现、必要验证及本机受管安装；同时调用 `$git-sync release` 授权发布本轮 BP 私有批量入口修复，再调用 `$bridgepilot-update` 授权发布后从官方来源更新本机与登记下游。该授权不包括真实批量清理、ACL 修改、下游业务提交或发布。
+
+本节是 TODO-049 的 BP 私有入口增量验收；单项目 cleanup 的既有验收见下节。具体删除和保留规则仍以项目自身 cleanup 为准，不能因批量入口恢复而扩张范围。
+
+### 批量职责与安全边界
+
+- `cleanup` 负责单项目；`bridgepilot-cleanup` 只编排。默认范围来自只读 `bp project-list`，逐项目读取并执行实际安装的 `.agents/skills/cleanup/SKILL.md`，不创建第二套项目清单或删除实现，不发明 BP cleanup CLI 命令。
+- 正常显式清理调用授权所选项目各自约定范围；修复、安装入口和咨询不授权删除。支持精确名称／ID 子集和只读 preview，未知、歧义或显式空范围不回退为全部；preview 不写范围文件或收据，不自动随后删除。
+- 初始项目 ID 集合固定，每项执行前刷新 BP project-list/status，重新检查唯一当前机器／local host 绑定、实际 Git 根、控制权、暂停、在途和 Unknown；终态历史不误算在途。单项目受阻保留现场，继续其他独立项目，不恢复任务或接管。
+- 成品、运行依赖、Junction、权限跳过及路径／占用／漂移保护完全委托项目 cleanup；批次结束一次汇总所有项目结果和权限项，提示手动删除。存在跳过或失败不表述为全部成功；控制收据不得落入任一目标待删范围，不在刚清空目录中重建记录。
+
+### 已完成与验证
+
+BP 私有 Skill 维护源、统一入口导航、安装器内置 GUIDE 和根 INSTALL 已同步。稳定 asset ID、四入口所有权及受管安装／回退设施继续复用；不进入 Forge 公共 Template 或项目级共享 Skill 分发。
+
+既有隔离回归 `cleanup_entry_upgrades_two_entry_install_and_preserves_unknown_or_edited_skills` 与 `user_skill_projection_is_previewable_idempotent_and_preserves_user_edits` 各 1 项通过，覆盖缺入口补齐、preview 零写、幂等、绑定和用户编辑保护；未用复述文本的断言替代验证。独立只读复核发现并修正批次状态过期问题后，无剩余阻断；`git diff --check`、工厂 manifest --check（changed=false）通过。
+
+本地候选 BP 2.5.1 → 2.5.2、install 0.10.0 → 0.10.1；BF 19.0.1、orchestrator 0.18.0 保持。锁定 Cargo 构建、bundle、install-preview/install、skill-install-preview/skill-install 和最终 install-status/skill-status 已执行。本机实际安装 2.5.2，全部专用 Skills current=true，cleanup 用户级正文与源码哈希一致；project-list 前后完全相同，私有档案、绑定及 workspace 配置保持。证据根为 `.runtime/tests/bp-batch-cleanup/`，含包路径、各阶段收据和 verification.json；未手改用户级正文或绑定冒充安装。
+
+没有对真实登记下游执行批量删除，也未验证完整自然客户端批量执行；本次验收不把这些场景记作通过。发布后官方来源更新的成功结论另以本轮 source_update_completed 和下游计划／应用收据为准，不从候选或标签存在推断已更新。
+
+### 经验：本地候选与官方更新
+
+本机装入尚未发布的 2.5.2 后，再次普通 `$bridgepilot-update` 取到官方 2.5.1／`9dd16d0`，在 runtime-install 的预览阶段被原生版本保护拒绝降级，程序和 Skills 均未改写，无 pending 事务，2.5.2 修复保持 current。该失败不是修复被撤回，也不应通过强制覆盖或伪造官方来源解决；正确顺序是本次已授权的验收、正式发布，再从官方来源更新。先前失败收据位于 `.runtime/tests/bp-update-20261111/after-local-cleanup-fix/`。
+
 ## 用户验收：恢复清理与权限项处理（2026-11-11）
 
 用户本轮明确要求恢复可用的 cleanup、对 CausisRiskSuite 执行 dry-run，随后要求补齐 Junction 处理，以及无权限项跳过后在结尾一次性提示手动删除。2026-11-11 用户显式调用 `$summary accept` 验收本次实际交付，并调用 `$git-sync release` 授权本仓库本轮指定改动的真实发布。本节为 TODO-049 的最新增量验收，替代下文依赖旧项目 JSON 的在线方案；历史要求、验收和失败记录保留。发布授权不等于发布成功，最终版本、提交、标签和资产以受管 CLI 的 `released` 且 `publication_verified=true` 收据为准。

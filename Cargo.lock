@@ -201,7 +201,7 @@ dependencies = [
 
 [[package]]
 name = "bridgepilot-install"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "bridgeforge-core",
  "bridgepilot-storage",

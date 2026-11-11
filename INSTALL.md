@@ -125,13 +125,13 @@ Windows 源码构建需要 Git、Rust 1.88 或更高版本及其 Windows C++ 构
 
 `bridgepilot-git-sync` 同样由 BP 受管安装：包内正文和名单脚本进入 home 的 `source/orchestrator/skills/bridgepilot-git-sync/`，再通过 `skill-install-preview`／`skill-install` 投影到本机 Skills 目录。`skill-status` 验证正文、脚本和本机绑定；回退程序须具备 `bp-git-sync-skill-v1`。该安装不执行项目同步或发布，只有显式调用此入口才授权对应范围；菜单发现与文件安装分别核验。
 
-### 并行清理下游入口
+### 批量清理下游入口
 
 单项目 `$cleanup` 使用当前项目受管工具的 `explicit-cleanup-v1` 能力：固定保留配置、下载和依赖，依据当前原生构建、启动及发布文件核对成品，用重复 `--keep` 指定精确保留项、重复 `--evidence` 固定依据，再以 `--products-reviewed` 执行；`--dry-run` 零写入。运行必需但仍位于 `.runtime/` 的依赖同样显式保留。工厂自动保护自身三工具及收据，原生发布驱动和收据由其所属实现保护。旧项目旁文件不恢复；完整调用规则见项目 [cleanup Skill](.agents/skills/cleanup/SKILL.md)。
 
 BP 0.12.0 起，便携包新增 `payload/bridgepilot-cleanup-skill.md`，固定资产共十三项。程序和 `skill-install` 同时管理 `bridgepilot`、`bridgeforge-update`、`bridgepilot-cleanup` 三个私有入口；已有安装原位补齐，回退程序必须支持已安装的清理入口。新入口的安装、恢复、来源摘要及用户编辑保护与已有入口使用同一事务，不进入 Forge 共享分发。
 
-`$bridgepilot-cleanup` 核对登记下游的清理入口，可追加项目名称或 ID；`preview` 全程只读。项目枚举使用 `bp project-list --workspace <实际目录>`，非 preview 指定子集可用 `--input <JSON文件>` 传 `{"projects":["<名称或ID>"]}`，preview 在内存中匹配项目名单。该查询只读 SQLite 与已有机器身份，缺档案或身份直接报错。旧配置化 cleanup 已退役，缺少可靠原生成品保护时报告 blocked，不执行删除；原生流程的范围、控制权及保护规则见 [bridgepilot-cleanup](source/orchestrator/skills/bridgepilot-cleanup/SKILL.md)。安装入口不执行删除。
+`$bridgepilot-cleanup` 默认遍历全部登记下游，逐项目执行各自实际安装的 cleanup；可追加精确项目名称或 ID，`preview` 将各项目调用限制为只读预览。具体清理规则、成品及依赖保留、Junction 和权限项处理均由项目 cleanup 负责，BP 只编排、继续其余独立项目并在结尾统一汇总。项目枚举使用 `bp project-list --workspace <实际目录>`；非 preview 指定子集可用 `--input <JSON文件>` 传 `{"projects":["<名称或ID>"]}`，preview 在内存中匹配，不写范围文件或记录。未知／歧义范围不回退为全部。缺工具或保护依据只阻断相应项目，不自行升级、恢复旧 JSON、改权限或改用 shell 删除。完整调用、授权、控制权及安全边界见 [bridgepilot-cleanup](source/orchestrator/skills/bridgepilot-cleanup/SKILL.md)；安装或修复入口本身不执行删除。
 
 ### 从 GitHub 在新电脑安装并恢复
 

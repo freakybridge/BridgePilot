@@ -41,7 +41,7 @@ argument: 无参数安装或更新；init、project add <项目目录>、handoff
 | `$bridgepilot handoff prepare all` | 读取[旧机交出](references/handoff.md#prepare-all)：明确全部暂停并核验停止，保存已确认进度到工作分支，远端确认后释放控制权；不正式发布 |
 | `$bridgepilot handoff restore` | 读取[新机接管](references/handoff.md#restore)：恢复并核验准确检查点，自动完成独占接管；任务和 heartbeat 仍暂停 |
 | `$bridgepilot status` | 调用 CLI 只读 SQLite 状态视图，按下节原样展示固定六列；不扫描聊天拼表，不安装、迁移、上传、接管或推进 |
-| `bridgepilot-cleanup` | 读取实际 home 下私有 [清理入口](../bridgepilot-cleanup/SKILL.md)，核对登记下游或指定子集；旧配置化清理已退役，缺少可靠原生成品保护时阻断删除 |
+| `bridgepilot-cleanup` | 读取实际 home 下私有 [批量清理入口](../bridgepilot-cleanup/SKILL.md)，默认遍历登记下游，各自执行项目 cleanup；支持指定子集和只读 preview，结尾统一汇总，单项目受阻继续其余项目 |
 | `bridgepilot-git-sync` | 读取实际安装的私有 [批量同步入口](../bridgepilot-git-sync/SKILL.md)，按显式普通同步／release 授权处理已登记项目；安装和查看名单不授权提交或发布 |
 | 单项目或多项目骨架升级、`bridgepilot-update` | 读取实际 BP home 下 `source/orchestrator/skills/bridgepilot-update/SKILL.md`，由本控制对话编排整轮升级及本轮已有授权的发布；不从项目登记推导维护权限 |
 | 自然语言任务、明确范围暂停／恢复、原生唤醒 | 读取[日常执行](references/execution.md)，保留现有 confirm、调度、客户端交接及开发／发布证据要求 |

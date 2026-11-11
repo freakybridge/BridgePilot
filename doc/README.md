@@ -4,7 +4,7 @@ delivery_layout: flat
 
 # BridgePilot Documents
 
-- 已验收：[cleanup 恢复、Junction 与权限项处理](1_delivery/artifact-cleanup/requirements_2026-10-30_cleanup-skill.md#用户验收恢复清理与权限项处理2026-11-11)（TODO-049 增量；固定规则、原生依据与精确保留路径恢复清理，Junction 仅删链接，权限项结尾统一提示手动删除。CRS 部分只读预览完成，跳过 32 目录，实际删除 0；未升级 CRS 原安装，正式发布以受管 CLI 收据为准）。
+- 已验收：[BP 批量 cleanup 入口](1_delivery/artifact-cleanup/requirements_2026-10-30_cleanup-skill.md#用户验收bp-批量-cleanup-入口2026-11-11)（TODO-049 增量；默认登记下游逐项目执行自身 cleanup、逐项刷新状态、末尾汇总，支持子集与 preview。两项安装回归、独立复核及本机 2.5.2 候选安装核验通过，未执行真实批量删除；已授权本轮发布并随后更新）。
 
 - 已验收：[Forge 项目级工作流分发迁移](1_delivery/forge-simplification/plan_2026-11-06_project-workflows.md#用户验收2026-11-06)（Forge 19.0.0 候选，工厂核验、隔离项目安装和用户级端到端迁移通过，已授权正式发布）。
 
