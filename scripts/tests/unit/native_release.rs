@@ -792,6 +792,8 @@ fn release_without_adapter_and_invalid_arguments_never_fall_back_to_sync() {
         vec!["git-sync", "--remote"],
         vec!["git-sync", "--preflight", "--preflight"],
         vec!["git-sync", "--publication-required"],
+        vec!["git-sync", "--recover-author-identity"],
+        vec!["git-sync", "release", "--preflight", "--recover-author-identity"],
     ] {
         let out = crate::git_command::run(
             &args.into_iter().map(str::to_owned).collect::<Vec<_>>(),
@@ -1115,4 +1117,160 @@ fn push_recovery_never_replaces_fixed_commit_with_same_tree_fast_forward() {
     assert_eq!(f.state().status, "source-uncertain");
     assert_eq!(runner.count("POST"), 0);
     assert_eq!(runner.count("mock-build"), 1);
+}
+
+#[test]
+fn identity_recovery_reconstructs_only_provable_additions() {
+    let f = Fixture::new();
+    let base = "core.hookspath\n.githooks\0commit.gpgsign\ntrue\0";
+    let before = raw_sha(base.as_bytes());
+    for tail in [
+        "user.name\nNew Name\0user.email\nnew@example.invalid\0",
+        "credential.https://other.example:8443.provider\ngeneric\0user.name\nNew Name\0",
+    ] {
+        assert!(recovery::reconstruct(&format!("{base}{tail}"), &before, &f.plan).is_ok());
+    }
+    for tail in [
+        "user.name\nNew Name\0core.hookspath\nother\0",
+        "user.name\nNew Name\0commit.gpgsign\nfalse\0",
+        "user.name\nNew Name\0credential.https://github.com.provider\ngeneric\0",
+        "user.name\nNew Name\0credential.https://github.com:8443.provider\ngeneric\0",
+        "user.name\nNew Name\0credential.https://*.example.provider\ngeneric\0",
+        "user.name\nNew Name\0credential.https://other.example/path.provider\ngeneric\0",
+        "user.name\nNew Name\0credential.https://other.example.helper\nevil\0",
+        "user.name\nNew Name\0credential.https://other.example.provider\ncustom\0",
+        "user.name\nNew Name\0remote.origin.url\nhttps://evil.example/repo\0",
+        "credential.https://other.example.provider\ngeneric\0",
+    ] {
+        assert!(recovery::reconstruct(&format!("{base}{tail}"), &before, &f.plan).is_err(), "{tail:?}");
+    }
+    // Replacement/removal of original values cannot be inferred from a legacy digest.
+    assert!(recovery::reconstruct("user.name\nNew\0", &raw_sha(b"user.name\nOld\0"), &f.plan).is_err());
+}
+
+fn append_recovery_identity(f: &Fixture) {
+    process(&f.root, &["config", "--add", "user.name", "Recovered Author"]);
+    process(&f.root, &["config", "--add", "user.email", "recovered@example.invalid"]);
+    process(&f.root, &["config", "credential.https://unrelated.example.provider", "generic"]);
+}
+
+#[test]
+fn identity_recovery_preserves_legacy_attempt_and_reuses_candidate() {
+    for corrected_source in [false, true] {
+        let f = Fixture::current_project();
+        let cargo = fs::read_to_string(f.root.join("Cargo.toml")).unwrap();
+        fs::write(f.root.join("Cargo.toml"), format!("{cargo}source-args=[\"source\"]\n")).unwrap();
+        process(&f.root, &["add", "."]);
+        process(&f.root, &["commit", "-m", "chore: configure source adapter"]);
+        process(&f.root, &["push"]);
+        let mut runner = Runner::new(f.plan.clone());
+        runner.source_version = Some("1.0.1".into());
+        fs::write(f.root.join("review.txt"), b"pending").unwrap();
+        runner.fail_commit.set(true);
+        assert_ne!(run(&f.root, &runner, Default::default()).code, 0);
+        let old = fs::read(f.state_path()).unwrap();
+        assert!(f.state().identity_recovery.is_none()); // Exact legacy wire format.
+        let source_transaction = fs::read(f.root.join(".runtime/bridgeforge-codex/native-release/source.json")).unwrap();
+        append_recovery_identity(&f);
+        let denied = run(&f.root, &runner, Default::default());
+        assert_ne!(denied.code, 0);
+        assert_eq!(fs::read(f.state_path()).unwrap(), old);
+        if corrected_source { fs::write(f.root.join("review.txt"), b"corrected tool inputs").unwrap(); }
+        runner.fail_commit.set(false);
+        let result = run(&f.root, &runner, git_sync::GitSyncOptions { recover_author_identity: true, ..Default::default() });
+        assert_eq!(result.code, 0, "{}", result.stderr);
+        let receipt = result.receipt.unwrap();
+        assert_eq!(receipt["version"], "1.0.1");
+        assert_eq!(fs::read_to_string(f.root.join("VERSION")).unwrap(), "1.0.1\n");
+        let tx: Value = serde_json::from_slice(&fs::read(f.root.join(".runtime/bridgeforge-codex/native-release/source.json")).unwrap()).unwrap();
+        assert_eq!(tx["finished"], true);
+        assert_eq!(tx["plan"]["edits"].as_array().unwrap().len(), 1);
+        assert_eq!(fs::read(f.root.join(".runtime/bridgeforge-codex/native-release/source.json")).unwrap(), source_transaction);
+        assert_eq!(runner.count("source"), if corrected_source { 4 } else { 2 });
+        let evidence = &receipt["identity_recovery"];
+        assert_eq!(fs::read(f.root.join(evidence["previous_attempt"].as_str().unwrap())).unwrap(), old);
+        assert_eq!(evidence["removed_keys_to_reconstruct_before"].as_array().unwrap().len(), 3);
+        assert_eq!(runner.count("mock-build"), if corrected_source { 3 } else { 2 });
+        assert_eq!(runner.count("commit"), 2); // Failed original plus exactly one retry.
+    }
+}
+
+#[test]
+fn identity_recovery_archive_interruption_and_concurrent_writes_are_recoverable() {
+    struct DuringRecovery<'a> { runner: &'a Runner, archived: PathBuf, action: &'a str, fired: Cell<bool> }
+    impl ProcessRunner for DuringRecovery<'_> {
+        fn run(&self, q: &ProcessRequest) -> std::io::Result<ProcessOutput> {
+            if self.archived.exists() && !self.fired.replace(true) {
+                match self.action {
+                    "interrupt" => return Err(std::io::Error::other("interrupted after archive")),
+                    "state" => fs::write(q.cwd.join(".runtime/bridgeforge-codex/native-release/current.json"), b"external state\n")?,
+                    "config" => process(&q.cwd, &["config", "commit.gpgsign", "false"]),
+                    "index" => process(&q.cwd, &["add", "review.txt"]),
+                    "source" => fs::write(q.cwd.join("review.txt"), b"concurrent source")?,
+                    _ => unreachable!(),
+                }
+            }
+            self.runner.run(q)
+        }
+    }
+    for action in ["interrupt", "state", "config", "index", "source"] {
+        let f = Fixture::current_project();
+        let runner = Runner::new(f.plan.clone());
+        fs::write(f.root.join("review.txt"), b"pending").unwrap();
+        runner.fail_commit.set(true);
+        assert_ne!(run(&f.root, &runner, Default::default()).code, 0);
+        let bytes = fs::read(f.state_path()).unwrap();
+        let archived = f.root.join(format!(".runtime/bridgeforge-codex/native-release/attempts/{}/state.json", &raw_sha(&bytes)[7..]));
+        append_recovery_identity(&f);
+        let current = anchor(&f.root, &runner).unwrap();
+        let mut expected = Some(bytes.clone());
+        let mut old = Some(f.state());
+        let injected = DuringRecovery { runner: &runner, archived: archived.clone(), action, fired: Cell::new(false) };
+        assert!(recovery::recover(&f.root, &injected, &f.state_path(), &mut expected, &mut old, &current).is_err(), "{action}");
+        assert!(injected.fired.get());
+        assert_eq!(fs::read(archived).unwrap(), bytes);
+        assert_eq!(fs::read(f.state_path()).unwrap(), if action == "state" { b"external state\n".to_vec() } else { bytes.clone() });
+        if action == "interrupt" {
+            // No state repair/deletion: retry consumes the exact retained legacy attempt.
+            recovery::recover(&f.root, &runner, &f.state_path(), &mut expected, &mut old, &current).unwrap();
+            assert!(f.state().identity_recovery.is_some());
+        }
+    }
+}
+
+#[test]
+fn identity_recovery_rejects_unsafe_or_missing_evidence_without_state_writes() {
+    for drift in ["hook", "signing", "branch", "index", "guard", "uncertain", "fixed", "source-transaction", "driver"] {
+        let f = Fixture::current_project();
+        let runner = Runner::new(f.plan.clone());
+        fs::write(f.root.join("review.txt"), b"pending").unwrap();
+        runner.fail_commit.set(true);
+        assert_ne!(run(&f.root, &runner, Default::default()).code, 0);
+        append_recovery_identity(&f);
+        match drift {
+            "hook" => process(&f.root, &["config", "core.hooksPath", ".runtime/other-hooks"]),
+            "signing" => process(&f.root, &["config", "commit.gpgsign", "false"]),
+            "branch" => process(&f.root, &["config", "remote.origin.push", "HEAD:refs/heads/other"]),
+            "index" => process(&f.root, &["add", "review.txt"]),
+            "guard" => fs::remove_file(f.root.join(".runtime/bridgeforge-codex/release-preparation/commit-guard.json")).unwrap(),
+            "uncertain" | "fixed" => {
+                let mut state = f.state();
+                if drift == "fixed" { state.commit = Some(state.anchor.as_ref().unwrap().head.clone()); }
+                else { state.status = "source-uncertain".into(); }
+                fs::write(f.state_path(), serde_json::to_vec(&state).unwrap()).unwrap();
+            },
+            "source-transaction" => fs::write(f.root.join(".runtime/bridgeforge-codex/native-release/source.json"), b"{\"schema\":1}").unwrap(),
+            "driver" => {
+                let path = f.root.join("Cargo.toml");
+                fs::write(&path, fs::read_to_string(&path).unwrap().replace("mock-build", "changed-build")).unwrap();
+            },
+            _ => unreachable!(),
+        }
+        let before = fs::read(f.state_path()).unwrap();
+        let result = run(&f.root, &runner, git_sync::GitSyncOptions { recover_author_identity: true, ..Default::default() });
+        assert_ne!(result.code, 0, "{drift}");
+        assert_eq!(fs::read(f.state_path()).unwrap(), before, "{drift}");
+        assert_eq!(runner.count("POST"), 0);
+        assert_eq!(runner.count("commit"), 1);
+    }
 }

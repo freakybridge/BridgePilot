@@ -3054,7 +3054,7 @@
         }
       ]
     },
-    "release_version": "19.0.2",
+    "release_version": "19.0.3",
     "release_model": "product-packages",
     "host": "codex",
     "stamp": ".codex/.bridgeforge_codex_version",
@@ -3330,8 +3330,10 @@
         "source": "source/forge/templates/skills/git-sync/SKILL.md",
         "target": ".agents/skills/git-sync/SKILL.md",
         "strategy": "whole",
-        "current_sha256": "sha256:cc88742d4e1e71082815365040c27067eda3b77ef6b4b549f4c3dfc1d977048a",
-        "previous_sha256": []
+        "current_sha256": "sha256:82c645eece6261c6be3f81b7f968801ea43aa05266428be93fb3ac3d3193aeef",
+        "previous_sha256": [
+          "sha256:cc88742d4e1e71082815365040c27067eda3b77ef6b4b549f4c3dfc1d977048a"
+        ]
       },
       {
         "id": "codex.project-workflow.git-sync.references.first-use.md",
@@ -3714,7 +3716,7 @@
         "source": "Cargo.lock",
         "target": ".codex/hooks/Cargo.lock",
         "strategy": "whole",
-        "current_sha256": "sha256:24f455df0b857e1632b75510908191126384e6095cfdc5f89e410e7933263ddd",
+        "current_sha256": "sha256:217ae744402e9314caeb01451a28536edf4143c982237a53c7f72d19fa02b3c0",
         "render": "public-runtime-lock"
       },
       {
@@ -3807,7 +3809,7 @@
         "source": "source/forge/cli/Cargo.toml",
         "target": ".codex/hooks/source/cli/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:2bc521da51d1db73b0ff28874522528e0090641f8c7d287299c66dea417eac65"
+        "current_sha256": "sha256:1eee5f02479eb258d6f6f0adb5cca4178d45b0d4bc9d60ca9bc5aaee65e605fd"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-cli-src-main-rs",
@@ -3842,7 +3844,7 @@
         "source": "source/forge/core/Cargo.toml",
         "target": ".codex/hooks/source/core/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:6c19e66913a68e415ce4276cd6352926d083fcc24e0ac704518d556a77be1f45"
+        "current_sha256": "sha256:13bd9fa06bc442716a87e265c5b4aa884f548820439db7afbe6c63b762d28b0e"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-core-src-artifact-cache-rs",
@@ -4080,7 +4082,7 @@
         "source": "source/forge/core/src/template_assets.rs",
         "target": ".codex/hooks/source/core/src/template_assets.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:420117e54d3a13f4a0d89d629928f03adf9ce79a7a771fe8a7439b9df9735951"
+        "current_sha256": "sha256:75241b2d5485c4291957558957af91591857c9ec4f4f2b96d8cdfd34457cbcaf"
       },
       {
         "id": "codex.hooks.source-core-src-template-standard-rs",
@@ -4500,7 +4502,7 @@
         "source": "source/forge/workflow/Cargo.toml",
         "target": ".codex/hooks/source/workflow/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:21de773c19ecca876be272e9a10e7ae1044dbfe2e935e92e3d03ac17bc65f43f"
+        "current_sha256": "sha256:47009a7ee21efed833b26c1c269b0f6c3bea5025f7c69dac8b7baf7c5a17a326"
       },
       {
         "id": "codex.hooks.source-workflow-src-artifact-cleanup-rs",
@@ -4521,14 +4523,14 @@
         "source": "source/forge/workflow/src/git_command.rs",
         "target": ".codex/hooks/source/workflow/src/git_command.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:09cae5da18185229b3177c2a961e2a2acce0eb81bbac3314b0045cc91c241794"
+        "current_sha256": "sha256:103ea2719fb12b69456882c7e6238102158fea0455c56514a399961d6e4f163d"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-core-src-git-sync-rs",
         "source": "source/forge/workflow/src/git_sync.rs",
         "target": ".codex/hooks/source/workflow/src/git_sync.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:26d32dda52be03bc87840a9f40d2dbc5874bf4c160802a730ad23254abda82d4"
+        "current_sha256": "sha256:49fa1bf14b0c1e5640822ea6c4c90894f0801524abf4f91e4b94000361548d97"
       },
       {
         "id": "codex.hooks.source-workflow-src-git-sync-plan-rs",
@@ -4563,7 +4565,7 @@
         "source": "source/forge/workflow/src/native_release.rs",
         "target": ".codex/hooks/source/workflow/src/native_release.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:4a5a16114522a117d593ca79538e275540874fab2f4ced24eff2f21e1ca16401"
+        "current_sha256": "sha256:ce2a786de7d579696250ee7229bad720c0c6ebba84e672fae8f4c4ea8cf66d6f"
       },
       {
         "id": "codex.hooks.source-workflow-src-native-release-github-rs",
@@ -4587,11 +4589,18 @@
         "current_sha256": "sha256:6849edfc4cbe54d006c0893ba356e372ef39c67ffd490eeff699a4b008ed5af1"
       },
       {
+        "id": "codex.hooks.source-workflow-src-native-release-recovery-rs",
+        "source": "source/forge/workflow/src/native_release_recovery.rs",
+        "target": ".codex/hooks/source/workflow/src/native_release_recovery.rs",
+        "strategy": "whole",
+        "current_sha256": "sha256:3f6882aa03ea00f044ff80f229567e901c817a3d7b577894942ab3cf44ee3a16"
+      },
+      {
         "id": "codex.hooks.source-workflow-src-native-release-source-rs",
         "source": "source/forge/workflow/src/native_release_source.rs",
         "target": ".codex/hooks/source/workflow/src/native_release_source.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:f1f066dbfdf7ade8444aaf969151a4cd1e87c3877cab83e10bf3a7498d384bcd"
+        "current_sha256": "sha256:cb0fc869ba78ca160cf98766c8311f10159438b1702ae0508c816adf6f69508e"
       },
       {
         "id": "codex.hooks.source-workflow-src-project-release-rs",
@@ -4687,15 +4696,15 @@
             "status": "ok",
             "build_identity": {
               "protocol": 1,
-              "source_tree_sha256": "sha256:3b4e7de291fe94e142eb3e4f2ce8086966b9353372bb8e50dd580d5e88ca3b67",
-              "lockfile_sha256": "sha256:24f455df0b857e1632b75510908191126384e6095cfdc5f89e410e7933263ddd"
+              "source_tree_sha256": "sha256:c634f0517b9a4e6bf15a7445464910a947dac095e350cb480328d9130fe3ac36",
+              "lockfile_sha256": "sha256:217ae744402e9314caeb01451a28536edf4143c982237a53c7f72d19fa02b3c0"
             }
           }
         },
-        "source_tree_sha256": "sha256:3b4e7de291fe94e142eb3e4f2ce8086966b9353372bb8e50dd580d5e88ca3b67",
-        "lockfile_sha256": "sha256:24f455df0b857e1632b75510908191126384e6095cfdc5f89e410e7933263ddd",
+        "source_tree_sha256": "sha256:c634f0517b9a4e6bf15a7445464910a947dac095e350cb480328d9130fe3ac36",
+        "lockfile_sha256": "sha256:217ae744402e9314caeb01451a28536edf4143c982237a53c7f72d19fa02b3c0",
         "build_recipe_sha256": "sha256:38f32bc9a727a88db971e8bcf9c71d1f9e3dc0cd9a68a6f560bcd48bda07c444",
-        "self_test_sha256": "sha256:6b8c1c417cf6ca49f33eb325b758e7b67f3ef932895b23b9f8d93159fc239bfe",
+        "self_test_sha256": "sha256:eb073b56b459c6a4f51942b608a783567caf98bc4ec3576dbb4b7e1390b87d6f",
         "source_projection": "public-runtime-v1"
       },
       {
@@ -4739,15 +4748,15 @@
             "status": "ok",
             "build_identity": {
               "protocol": 1,
-              "source_tree_sha256": "sha256:3b4e7de291fe94e142eb3e4f2ce8086966b9353372bb8e50dd580d5e88ca3b67",
-              "lockfile_sha256": "sha256:24f455df0b857e1632b75510908191126384e6095cfdc5f89e410e7933263ddd"
+              "source_tree_sha256": "sha256:c634f0517b9a4e6bf15a7445464910a947dac095e350cb480328d9130fe3ac36",
+              "lockfile_sha256": "sha256:217ae744402e9314caeb01451a28536edf4143c982237a53c7f72d19fa02b3c0"
             }
           }
         },
-        "source_tree_sha256": "sha256:3b4e7de291fe94e142eb3e4f2ce8086966b9353372bb8e50dd580d5e88ca3b67",
-        "lockfile_sha256": "sha256:24f455df0b857e1632b75510908191126384e6095cfdc5f89e410e7933263ddd",
+        "source_tree_sha256": "sha256:c634f0517b9a4e6bf15a7445464910a947dac095e350cb480328d9130fe3ac36",
+        "lockfile_sha256": "sha256:217ae744402e9314caeb01451a28536edf4143c982237a53c7f72d19fa02b3c0",
         "build_recipe_sha256": "sha256:cf5fb262a1e28cd8e05979b29b633143e52ae3cd1b62eeea56d9f55da70d1e5e",
-        "self_test_sha256": "sha256:36ef646957ad455c7c5e6d527726095830c75660181ded3e9d77689d607a6ecd",
+        "self_test_sha256": "sha256:53a7f4295ea5b2e23780cc31f851274f2bdd1afa4bfcad100073e00f0e870cb9",
         "source_projection": "public-runtime-v1"
       }
     ],

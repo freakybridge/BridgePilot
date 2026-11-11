@@ -146,6 +146,7 @@ fn check_release_commit_guard(git: &Git<'_>) -> Result<(), String> {
 
 #[derive(Clone, Debug, Default)]
 pub struct GitSyncOptions {
+    pub recover_author_identity: bool,
     pub message: Option<String>,
     pub message_file: Option<PathBuf>,
     pub remote: String,

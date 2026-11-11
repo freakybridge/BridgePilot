@@ -39,6 +39,7 @@ pub fn run_with_identity(
                 "--preflight",
                 "--sync-remote",
                 "--publication-required",
+                "--recover-author-identity",
             ]
             .contains(&arg)
             {
@@ -57,6 +58,9 @@ pub fn run_with_identity(
         }
         if flags.contains("--publication-required") && !release {
             return Err("--publication-required requires the release operation".into());
+        }
+        if flags.contains("--recover-author-identity") && (!release || flags.contains("--preflight")) {
+            return Err("--recover-author-identity requires an executing release operation".into());
         }
         if flags.contains("--preflight") && flags.contains("--sync-remote") {
             return Err("choose one Git mode".into());
@@ -84,6 +88,7 @@ pub fn run_with_identity(
             return Ok(out);
         }
         let options = crate::git_sync::GitSyncOptions {
+            recover_author_identity: flags.contains("--recover-author-identity"),
             message: values.get("--message").cloned(),
             message_file: values.get("--message-file").map(PathBuf::from),
             remote: values

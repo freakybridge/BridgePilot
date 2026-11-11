@@ -19,4 +19,6 @@ argument: 可选 release；完整发布的唯一用户入口
 
 不从当前调用推导其他项目部署、用户环境安装或清理授权。保留 stash、冲突与失败现场，不使用 --no-verify；不反复 self-test、外层核验或前置准备。输入或收据有实际矛盾时才补查，已有授权不重复询问。
 
+缺作者身份而提交前失败时，先核对用户已确认的姓名／邮箱与配置变化；已有恢复授权后，使用同一 release 入口附加 `--recover-author-identity`。CLI 必须用当前配置精确重建旧哈希、验证提交前 guard、HEAD、空暂存区、驱动和实际推送目标，并归档原 attempt 后原子保存恢复证据。仅允许可证明的身份字段追加，以及无关服务主机的精确 HTTP(S) origin 下 `credential.provider=generic` 追加；修改／删除旧值、相关凭据、Hook、签名等差异仍阻断。工具升级导致源码变化时沿原生 reprepare 复用合理候选；固定提交、未知结果或未完成版本事务不得重设锚点。无证据不删除或手改接续文件，也不回退身份绕过检查。
+
 首次连接有缺口时读[首次使用](references/first-use.md)，权限或运行异常时读[运行边界](references/runtime-context.md)；涉及旧发布参数时读[旧 schema4 退役边界](references/schema4.md)，不恢复该机制。

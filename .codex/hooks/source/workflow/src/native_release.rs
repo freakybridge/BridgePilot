@@ -77,6 +77,8 @@ mod gitlab;
 mod platform;
 #[path = "native_release_source.rs"]
 mod source;
+#[path = "native_release_recovery.rs"]
+mod recovery;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -106,6 +108,8 @@ struct State {
     previous_attempt: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     reuse_release: Option<bridgeforge_core::native_release::PublishedVersion>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    identity_recovery: Option<recovery::Evidence>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -611,7 +615,7 @@ fn run_inner(
         .map_err(conflict)?;
         let state_path = root.join(".runtime/bridgeforge-codex/native-release/current.json");
         let mut expected = state_bytes(&state_path)?;
-        let old = expected
+        let mut old = expected
             .as_deref()
             .map(|bytes| {
                 serde_json::from_slice::<State>(bytes)
@@ -643,6 +647,9 @@ fn run_inner(
         }
         let observed = anchor(root, runner)?;
         require_idle_git(root, runner)?;
+        if options.recover_author_identity {
+            recovery::recover(root, runner, &state_path, &mut expected, &mut old, &observed)?;
+        }
         source::recover(root, runner)?;
         let mut input = fingerprint(root, runner)?;
         if old.as_ref().is_some_and(|s| s.status == "source-uncertain") {
@@ -753,6 +760,7 @@ fn run_inner(
                 anchor: Some(prepared_from),
                 previous_attempt: archived_attempt.clone(),
                 reuse_release,
+                identity_recovery: old.as_ref().and_then(|s| s.identity_recovery.clone()),
             };
             save(&state_path, &state, &mut expected)?;
             state
@@ -919,6 +927,7 @@ fn run_inner(
             "prepared"
         });
         result["previous_attempt"] = json!(state.previous_attempt);
+        result["identity_recovery"] = json!(state.identity_recovery);
         Ok(result)
     })();
     match result {

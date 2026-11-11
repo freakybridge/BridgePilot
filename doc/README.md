@@ -4,6 +4,8 @@ delivery_layout: flat
 
 # BridgePilot Documents
 
+- 修复验证通过、发布接续中：[Git 作者身份修正后的发布接续](1_delivery/native-release/handoff_2026-11-11_author-identity-recovery.md)（2026-11-11；Forge 显式恢复精确重建旧配置哈希并归档原 attempt，39 项针对性测试及独立复核通过，受管工具与 dogfood 一致；BP 修复发布、Holdem 更新和接续进行中；CRS 3.8.0／Library 0.74.5／Stratus 7.0.0 不重复发布）。
+
 - 已验收：[cleanup 执行器性能优化](1_delivery/artifact-cleanup/requirements_2026-10-30_cleanup-skill.md#用户验收cleanup-执行器性能优化2026-11-11)（TODO-049 增量；CRS 可访问范围预览 36.335 秒，32 个权限目录跳过；2 万文件同输入实际清理 34.622 → 20.839 秒，32 项针对性回归和独立复核通过，受管工具及 dogfood 已就绪。已授权本轮发布，原清理批次保持暂停，未升级下游）。
 
 - 已验收：[BP 批量 cleanup 入口](1_delivery/artifact-cleanup/requirements_2026-10-30_cleanup-skill.md#用户验收bp-批量-cleanup-入口2026-11-11)（TODO-049 增量；默认登记下游逐项目执行自身 cleanup、逐项刷新状态、末尾汇总，支持子集与 preview。两项安装回归、独立复核及本机 2.5.2 候选安装核验通过，未执行真实批量删除；已授权本轮发布并随后更新）。
