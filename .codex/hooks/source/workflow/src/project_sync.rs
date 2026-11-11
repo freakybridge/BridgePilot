@@ -117,7 +117,8 @@ pub fn legacy_artifact_retirements(root: &Path) -> Result<BTreeMap<PathBuf, Vec<
     Ok(files)
 }
 
-fn verify_legacy_artifact_retirement(root: &Path, ignore_retired: bool) -> Result<(), String> {
+/// Post-retirement invariant, shared with the factory's post-deletion transaction.
+pub fn verify_legacy_artifact_retirement(root: &Path, ignore_retired: bool) -> Result<(), String> {
     if !legacy_artifact_retirements(root)?.is_empty() {
         return Err("legacy artifact contents appeared during migration".into());
     }

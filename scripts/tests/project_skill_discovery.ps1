@@ -51,16 +51,16 @@ try {
     Write-Request @{jsonrpc='2.0';method='initialized'}
     Write-Request @{jsonrpc='2.0';id=2;method='skills/list';params=@{cwds=@($project);forceReload=$true}}
     $found = Read-Response 2
-    $expected = @((Get-ChildItem -LiteralPath (Join-Path $project '.agents/skills') -Directory) | Where-Object {
-        $_.Name -in @('archive-scan','autopilot','cleanup','collab','confirm','create-worktree','debate','develop','escalate','explain','find-doc','focus','git-sync','plan','refactor-scan','spinoff','summary','sync-docs','todo')
-    })
-    if ($expected.Count -ne 19) { throw 'Fixture is missing Forge project Skills.' }
+    $manifest = Get-Content -LiteralPath (Join-Path $repository 'source/forge/bridgeforge-manifest.json') -Raw | ConvertFrom-Json
+    $expected = @($manifest.project_skeleton.assets | Where-Object { $_.id -like 'codex.project-workflow.*' -and $_.target -match '^\.codex/skills/[^/]+/SKILL\.md$' })
+    if ($expected.Count -ne 20) { throw 'Fixture is missing Forge project Skills.' }
     foreach ($skill in $expected) {
-        $path = Join-Path $skill.FullName 'SKILL.md'
-        $entries = @($found.data[0].skills | Where-Object { $_.name -eq $skill.Name -and $_.enabled })
+        $name = ($skill.target -split '/')[2]
+        $path = Join-Path $project $skill.target
+        $entries = @($found.data[0].skills | Where-Object { $_.name -eq $name -and $_.enabled })
         if ($entries.Count -ne 1 -or $entries[0].scope -cne 'repo' -or
             [IO.Path]::GetFullPath($entries[0].path).Replace('\\?\','') -ne $path) {
-            throw "Codex did not discover exactly one active project entry for $($skill.Name): $path"
+            throw "Codex did not discover exactly one active project entry for ${name}: $path"
         }
     }
     $receipt = [ordered]@{schema=1;status='passed';project=$project;skill_count=$expected.Count;skills=$found.data[0].skills;errors=$found.data[0].errors}

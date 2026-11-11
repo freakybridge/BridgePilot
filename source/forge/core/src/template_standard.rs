@@ -8,3 +8,8 @@ pub struct Asset {
 }
 
 include!("template_assets.rs");
+
+/// Relocations are generated from the owning product manifest, never a second registry.
+pub fn skill_relocations() -> Vec<Value> {
+    assets().into_iter().filter_map(|asset| asset.rule.get("relocation").cloned()).collect()
+}

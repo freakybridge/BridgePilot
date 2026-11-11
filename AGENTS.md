@@ -120,7 +120,7 @@
 - `source/forge/templates/**`：下沉到项目的 Codex 公共骨架与公共 `AGENTS.md` 源。
 - `source/forge/**`：工厂 Rust workspace 的唯一维护源，公共八包投影到 `.codex/hooks/source/`，factory 只用于本仓库。
 - `source/orchestrator/**`：BP 私有总管，含 tasks（任务模型与规则）、storage（SQLite 与事务）、execution（执行、调度与核验）、transfer（同步换机）、install（安装恢复）、cli（命令组合）六个独立包及本地交互 Skill；与 `source/forge/` 平行，无额外 `src/`。包依赖向 tasks/storage 收敛，transfer 可调用 execution 的必要查询；只依赖 Forge core，不进入公共源码投影或共享 Skill 分发。Forge 不依赖 orchestrator。
-- `source/forge/templates/skills/**`：通用 Skill 的维护源，作为骨架投影到项目 `.agents/skills/`；`source/forge/templates/maintenance/**` 随骨架投影内部维护手册与准备入口。
+- `source/forge/templates/skills/**`：通用 Skill 的维护源，作为骨架投影到项目 `.codex/skills/`；`source/forge/templates/maintenance/**` 随骨架投影内部维护手册与准备入口。
 - `scripts/**`：Windows 用户级迁移入口、独立辅助工具及 `scripts/tests/**` 自动测试；工厂 Rust 命令由 `source/forge/factory/` 实现。
 - `.codex/**`：本仓库 dogfood 镜像与本仓库配置；legacy 项目 Memory 仅在迁移完成前保留，不再作为运行时设施。
 - `doc/**`、`README.md`、`CHANGELOG.md`：架构、交付、Bug、参考资料与发布说明。
@@ -133,7 +133,7 @@ BP 组织单项目或多项目骨架升级时，读取私有 [bridgepilot-update
 
 用户要求 BP 初始化、项目登记、换机、分派、状态核对或明确范围的暂停时，先读取 [BridgePilot 统一入口](source/orchestrator/skills/bridgepilot/SKILL.md)。该入口由 BP 独立包管理，可受管安装到用户级 Skills，不进入 Forge 共享分发。有限窗口调度由自有进程执行，窗口外接续依赖本控制对话已核验的原生 heartbeat；每次唤醒先核对机器、控制对话与实际原生配置，不接管 Unknown。任务回合结束先进入 Reviewing；只读报告核对命令、文件及原生成员，写任务按项目原生验证与人工审阅处理。旧账本自动认证已退役，不能把 completed 自动标为 Released。工作区和恢复入口见 [INSTALL.md](INSTALL.md#bridgepilot-本地试用与档案恢复)，实际验证缺口见唯一开发计划。
 
-本工厂开发及 dogfood 优先读取 `source/forge/templates/skills/develop/SKILL.md` 及其按需引用的 reference，运行时由 `.agents/skills/` 的工厂镜像发现。不调用已退役的配置化 develop/release。
+本工厂开发及 dogfood 优先读取 `source/forge/templates/skills/develop/SKILL.md` 及其按需引用的 reference，运行时由 `.codex/skills/` 的工厂镜像发现。不调用已退役的配置化 develop/release。
 
 实际工厂命令使用受管准备后的 `.build/bridgeforge/bin/bridgeforge-factory.exe`；模板内置规则由 `template-standard` 从通用 Template 生成，再经 manifest 与受管构建校验。不把旧账本缺失当作原生验证失败，不以本地 dogfood 证明正式发布，也不自动更新用户级共享安装。
 

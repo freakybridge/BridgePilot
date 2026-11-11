@@ -14,7 +14,7 @@
 
 固定官方源码的工厂准备入口从公共源投影构建或复用不可变 CLI／Hook 产物。项目事务从 prepared 收据捕获已验证字节；项目级安装既不构建公共工具，也不构建项目自有 Hook。
 
-通用工作流随公共骨架进入 `.agents/skills/`，内部维护入口进入 `.codex/maintenance/bridgeforge-codex/`。工作流以显式路径、稳定 ID 和可验证历史哈希判断归属；已有同名未知内容时暂停并保留现场。工厂使用同一资产规则生成项目镜像。用户级统一指令、原生 Memory Hook 和旧用户级 Forge 退役由独立事务处理。
+通用工作流随公共骨架进入 `.codex/skills/`，内部维护入口进入 `.codex/maintenance/bridgeforge-codex/`。工作流以显式路径、稳定 ID 和可验证历史哈希判断归属；已有同名未知内容时暂停并保留现场。旧 `.agents/skills/` 中精确登记且哈希可证明的 Forge 文件与新目标共用计划、指纹、备份和回滚，缺失旧路径也纳入漂移检查；自定义 Skill、额外文件和本地修改保持项目所有，不整目录覆盖或删除。成功后仅尝试移除迁移文件的空父目录；元数据检查仍覆盖两个 Skill 根。工厂以同一编译迁移规则在自身受管准备事务中完成 dogfood 迁移。用户级统一指令、原生 Memory Hook 和旧用户级 Forge 退役由独立事务处理。
 
 编译器由受管 builder 注入 `BRIDGEFORGE_BUILD_SOURCE_SHA` 和 `BRIDGEFORGE_BUILD_LOCK_SHA`，工具自检暴露 compiled identity。基线以此作为独立来源期望，核对源码、锁、配方、自检、平台与二进制回执。回执不作为它自己的来源期望。
 

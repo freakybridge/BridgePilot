@@ -211,6 +211,13 @@ fn safe_relative_string(value: &Value) -> bool {
         })
 }
 
+fn skill_relocation(row: &Value) -> bool {
+    row["id"].as_str().is_some_and(|s|s.starts_with("codex.project-workflow."))
+        && row["previous_target"].as_str().and_then(|s|s.strip_prefix(".agents/skills/"))
+            .zip(row["target"].as_str().and_then(|s|s.strip_prefix(".codex/skills/")))
+            .is_some_and(|(old,new)|!old.is_empty() && old == new)
+}
+
 /// Derive the executable retirement list from traceable asset history.
 pub fn retired_assets_from_history(history: &Value) -> Result<Value, String> {
     exact_keys(
@@ -249,7 +256,7 @@ pub fn retired_assets_from_history(history: &Value) -> Result<Value, String> {
             let target = row[path_key].as_str().ok_or("asset history path missing")?;
             if !row["id"].as_str().is_some_and(|id| id_pattern.is_match(id))
                 || !safe_relative_string(&row[path_key])
-                || !target.starts_with(".codex/hooks/")
+                || !(target.starts_with(".codex/hooks/") || (section == "relocations" && skill_relocation(row)))
                 || !paths.insert(target.to_ascii_lowercase())
             {
                 return Err("invalid or duplicate asset history identity".into());
@@ -347,6 +354,7 @@ pub fn validate_contract(value: &Value) -> Result<(), String> {
         "merge_policy",
         "merge_validation",
         "region",
+        "relocation",
     ];
     let id_pattern = Regex::new(r"^[a-z0-9][a-z0-9._-]*$").map_err(|error| error.to_string())?;
     if let Some(retired) = value.get("retired_assets") {
@@ -361,7 +369,8 @@ pub fn validate_contract(value: &Value) -> Result<(), String> {
                 .as_str()
                 .is_some_and(|id| id_pattern.is_match(id))
                 || !safe_relative_string(&item["target"])
-                || !target.starts_with(".codex/hooks/")
+                || !(target.starts_with(".codex/hooks/") || value["asset_history"]["relocations"].as_array().is_some_and(|rows|
+                    rows.iter().any(|r|r["previous_target"] == target && r["id"] == item["id"] && skill_relocation(r))))
                 || target
                     .strip_prefix(".codex/hooks/")
                     .and_then(|p| p.split('/').next())
@@ -428,7 +437,7 @@ pub fn validate_contract(value: &Value) -> Result<(), String> {
             let history = asset["previous_sha256"].as_array()
                 .ok_or("project workflow requires an explicit hash history")?;
             if asset["strategy"] != "whole"
-                || !(target.starts_with(".agents/skills/") || target.starts_with(".codex/maintenance/bridgeforge-codex/"))
+                || !(target.starts_with(".agents/skills/") || target.starts_with(".codex/skills/") || target.starts_with(".codex/maintenance/bridgeforge-codex/"))
                 || history.iter().any(|hash| !hash_string(hash))
                 || history.iter().map(Value::as_str).collect::<BTreeSet<_>>().len() != history.len()
             {
@@ -436,6 +445,13 @@ pub fn validate_contract(value: &Value) -> Result<(), String> {
             }
         } else if asset.get("previous_sha256").is_some() {
             return Err(format!("unexpected project workflow history: {id}"));
+        }
+        if let Some(relocation) = asset.get("relocation") {
+            if !skill_relocation(relocation) || relocation["id"] != id || relocation["target"] != target
+                || relocation["source"] != asset["source"] || asset["strategy"] != "whole"
+                || !value["asset_history"]["relocations"].as_array().is_some_and(|rows|rows.contains(relocation)) {
+                return Err(format!("invalid project workflow relocation: {id}"));
+            }
         }
         if let Some(managed) = asset.get("managed_blocks") {
             if !managed.is_object()
@@ -514,6 +530,12 @@ pub fn validate_contract(value: &Value) -> Result<(), String> {
     if let Some(history) = value.get("asset_history") {
         if retired_assets_from_history(history)? != value["retired_assets"] {
             return Err("retired assets differ from asset history".into());
+        }
+        for relocation in history["relocations"].as_array().into_iter().flatten().filter(|r|skill_relocation(r)) {
+            if !assets.iter().any(|a|a["id"] == relocation["id"] && a["target"] == relocation["target"]
+                && a["source"] == relocation["source"] && a["strategy"] == "whole") {
+                return Err("workflow relocation has no matching active asset".into());
+            }
         }
     }
     let generated = value["generated_assets"]

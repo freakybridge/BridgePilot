@@ -25,6 +25,7 @@ function Move-FixturePath([string]$Source, [string]$Destination) {
     if (!$from.StartsWith($root, [StringComparison]::OrdinalIgnoreCase) -or !$to.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) {
         throw 'Fixture move escapes its test directory'
     }
+    New-Item -ItemType Directory -Path (Split-Path -Parent $to) -Force | Out-Null
     Move-Item -LiteralPath $from -Destination $to
 }
 function Invoke-NativeCli([string[]]$Arguments, [bool]$ExpectFailure = $false) {
@@ -62,7 +63,7 @@ $original = Tree
 $preview = Invoke-NativeCli ($argsBase + @('--release-spec',$specPath))
 if ($preview.value.gaps.Count -ne 0) { throw 'Configured fixture has readiness gaps' }
 foreach ($path in @('Cargo.toml','.build/project-release/bin/bridgeforge.exe','.build/project-release/bin/receipt.json',
-    '.agents/skills/develop/SKILL.md','.agents/skills/git-sync/references/first-use.md',
+    '.codex/skills/develop/SKILL.md','.codex/skills/git-sync/references/first-use.md',
     '.codex/maintenance/bridgeforge-codex/MAINTENANCE.md')) {
     if ($preview.value.safe -notcontains $path) { throw ('Missing exact planned target: ' + $path) }
 }
@@ -77,25 +78,45 @@ if ($repeat.value.safe.Count -or $repeat.value.risk.Count -or $repeat.value.gaps
 $noop = Invoke-NativeCli ($argsBase + @('--apply','--plan-fingerprint',$repeat.value.aggregate_fingerprint))
 if ($noop.value.written -ne 0 -or $null -ne $noop.value.recovery -or (Tree) -ne $after) { throw 'No-op rewrote files or created recovery artifacts' }
 
+# Model the exact old Forge layout, including custom content outside the declared files.
+$manifest = Get-Content -LiteralPath (Join-Path $ProjectRoot 'source/forge/bridgeforge-manifest.json') -Raw | ConvertFrom-Json
+$relocated = @($manifest.project_skeleton.assets | Where-Object { $_.PSObject.Properties['relocation'] })
+if ($relocated.Count -ne 35) { throw 'Expected 35 explicitly registered workflow relocations' }
+foreach ($asset in $relocated) {
+    Move-FixturePath (Join-Path $fixture $asset.target) (Join-Path $fixture $asset.relocation.previous_target)
+}
+$customReference = Join-Path $fixture '.agents/skills/develop/references/custom.txt'
+[IO.File]::WriteAllText($customReference, 'preserve custom reference')
+$oldLayout = Tree
+$relocation = Invoke-NativeCli $argsBase
+if ($relocation.value.retired.Count -ne 35 -or (Tree) -ne $oldLayout) { throw 'Old workflow layout was not planned without writes' }
+$moved = Invoke-NativeCli ($argsBase + @('--apply','--confirmed-risk','--plan-fingerprint',$relocation.value.aggregate_fingerprint))
+if ($moved.value.status -ne 'succeeded' -or [IO.File]::ReadAllText($customReference) -ne 'preserve custom reference') { throw 'Workflow relocation failed preservation' }
+foreach ($asset in $relocated) {
+    if (!(Test-Path -LiteralPath (Join-Path $fixture $asset.target)) -or (Test-Path -LiteralPath (Join-Path $fixture $asset.relocation.previous_target))) { throw 'Old and new Forge workflow entries coexist' }
+}
+
 # Model an already installed runtime that predates project-scoped workflows.
-Move-FixturePath (Join-Path $fixture '.agents/skills') (Join-Path $batch 'v2-skill-copy')
+Move-FixturePath (Join-Path $fixture '.codex/skills') (Join-Path $batch 'v2-skill-copy')
 Move-FixturePath (Join-Path $fixture '.codex/maintenance') (Join-Path $batch 'v2-maintenance-copy')
 $private = Join-Path $fixture '.agents/skills/personal/SKILL.md'
 New-Item -ItemType Directory -Path (Split-Path -Parent $private) -Force | Out-Null
 [IO.File]::WriteAllText($private, 'personal fixture skill')
 $previousScope = Tree
 $upgrade = Invoke-NativeCli $argsBase
-if ($upgrade.value.safe -notcontains '.agents/skills/develop/SKILL.md' -or (Tree) -ne $previousScope) { throw 'Old installation preview did not plan a zero-write project Skill migration' }
+if ($upgrade.value.safe -notcontains '.codex/skills/develop/SKILL.md' -or (Tree) -ne $previousScope) { throw 'Old installation preview did not plan a zero-write project Skill migration' }
 $migrated = Invoke-NativeCli ($argsBase + @('--apply','--confirmed-risk','--plan-fingerprint',$upgrade.value.aggregate_fingerprint))
 if ($migrated.value.status -ne 'succeeded' -or [IO.File]::ReadAllText($private) -ne 'personal fixture skill') { throw 'Project workflow upgrade or preservation failed' }
 
 $legacy = Join-Path $fixture '.codex/skills/develop/SKILL.md'
+$managedSkillBytes = [IO.File]::ReadAllBytes($legacy)
 New-Item -ItemType Directory -Path (Split-Path -Parent $legacy) -Force | Out-Null
 [IO.File]::WriteAllText($legacy, 'personal same-name skill')
 $collision = Tree
 $collisionResult = Invoke-NativeCli $argsBase $true
-if ($collisionResult.output -notlike '*same-name project Skill*' -or (Tree) -ne $collision) { throw 'Same-name project Skill was not preserved' }
+if ($collisionResult.output -notlike '*unowned or modified project workflow*' -or (Tree) -ne $collision) { throw 'Same-name project Skill was not preserved' }
 Move-FixturePath $legacy (Join-Path $batch 'preserved-same-name.md')
+[IO.File]::WriteAllBytes($legacy, $managedSkillBytes)
 
 Set-Content -LiteralPath (Join-Path $fixture 'VERSION') -Value '1.0.1' -Encoding utf8NoBOM
 $drifted = Tree

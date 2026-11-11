@@ -43,7 +43,7 @@ fn skill_sync_checks_project_workflows_independently_of_the_user_ledger() {
     let ledger = fixture.root.join("fake-home/.codex/bridgeforge-codex-managed.json");
     fs::create_dir_all(ledger.parent().unwrap()).unwrap();
     fs::write(&ledger, b"unrelated ledger bytes").unwrap();
-    assert!(session::skill_sync().stdout.contains(".agents/skills/develop/SKILL.md"));
+    assert!(session::skill_sync().stdout.contains(".codex/skills/develop/SKILL.md"));
     for asset in bridgeforge_core::template_standard::assets() {
         if asset.rule.get("previous_sha256").is_none() { continue; }
         let path = fixture.root.join(asset.rule["target"].as_str().unwrap());
@@ -51,8 +51,8 @@ fn skill_sync_checks_project_workflows_independently_of_the_user_ledger() {
         fs::write(path, asset.payload).unwrap();
     }
     assert!(session::skill_sync().stdout.is_empty());
-    fs::write(fixture.root.join(".agents/skills/develop/SKILL.md"), b"local edit").unwrap();
-    assert!(session::skill_sync().stdout.contains(".agents/skills/develop/SKILL.md"));
+    fs::write(fixture.root.join(".codex/skills/develop/SKILL.md"), b"local edit").unwrap();
+    assert!(session::skill_sync().stdout.contains(".codex/skills/develop/SKILL.md"));
     assert_eq!(fs::read(ledger).unwrap(), b"unrelated ledger bytes");
 }
 

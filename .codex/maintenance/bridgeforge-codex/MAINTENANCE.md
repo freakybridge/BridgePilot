@@ -1,6 +1,6 @@
 # Forge 项目骨架维护
 
-本手册随骨架进入项目 `.codex/maintenance/bridgeforge-codex/`。项目工作流由 `.agents/skills/` 发现，公共 CLI、Hook 和来源收据位于 `.deps/bridgeforge/bin/`。
+本手册随骨架进入项目 `.codex/maintenance/bridgeforge-codex/`。项目工作流由 `.codex/skills/` 发现，公共 CLI、Hook 和来源收据位于 `.deps/bridgeforge/bin/`。
 
 ## 1. 固定项目与官方来源
 

@@ -281,8 +281,8 @@ fn upgrade_fixture(previous: &str, release: &str) -> (PathBuf, PathBuf, PathBuf)
 }
 
 #[test]
-fn legacy_project_hook_outputs_are_preserved_without_relocation() {
-    let (root, project, factory) = upgrade_fixture("8.0.1", "8.1.0");
+fn legacy_project_hook_outputs_block_automatic_legacy_migration() {
+    let (root, project, _factory) = upgrade_fixture("8.0.1", "8.1.0");
     let registration = json!({"hooks":{"Stop":[{"matcher":"","hooks":[{
         "type":"command","bridgeforgeProjectHookId":"demo:0","timeout":150,
         "command":".codex/bin/project_demo","commandWindows":".codex/bin/project_demo.exe"
@@ -300,11 +300,8 @@ fn legacy_project_hook_outputs_are_preserved_without_relocation() {
         ".codex/bin/build-receipt-project-demo.json",
         &receipt,
     );
-    assert!(legacy_artifact_retirements(&project).unwrap().is_empty());
+    assert!(legacy_artifact_retirements(&project).unwrap_err().contains("retired"));
     assert!(legacy_artifact_relocations(&project).unwrap().is_empty());
-    let plan = build_plan(&project, &factory, SyncMode::Update).unwrap();
-    let fingerprint = plan.aggregate_fingerprint.clone();
-    apply_plan(plan, &fingerprint, true).unwrap();
     assert_eq!(fs::read(project.join(&binary)).unwrap(), b"old executable");
     assert_eq!(
         fs::read(project.join(".codex/bin/build-receipt-project-demo.json")).unwrap(),
@@ -1512,7 +1509,7 @@ fn legacy_bytes() -> Vec<u8> {
 }
 
 #[test]
-fn legacy_runtime_retirement_does_not_require_project_hook_registration() {
+fn legacy_bin_retirement_is_blocked_regardless_of_project_hook_registration() {
     let (root, _) = transaction_fixture(true);
     let directory = root.join(".codex/bin");
     fs::create_dir_all(&directory).unwrap();
@@ -1531,18 +1528,15 @@ fn legacy_runtime_retirement_does_not_require_project_hook_registration() {
         fs::write(root.join(path), bytes).unwrap();
     }
     fs::write(root.join(LEGACY_RECEIPT), legacy_bytes()).unwrap();
-    // Both an empty registration and project-specific, opaque registration are
-    // independent of retirement of the public tool's proven receipt.
+    // Registration is not evidence allowing retired binary migration to resume.
     for registry in [
         b"{\"schema_version\":1,\"hooks\":[]}".as_slice(),
         b"private registry",
     ] {
         fs::write(root.join(".codex/project-hooks.json"), registry).unwrap();
-        let retired = legacy_artifact_retirements(&root).unwrap();
-        assert_eq!(retired.len(), 1);
-        assert!(retired.contains_key(&root.join(LEGACY_RECEIPT)));
+        assert!(legacy_artifact_retirements(&root).unwrap_err().contains("retired"));
+        assert_eq!(fs::read(root.join(LEGACY_RECEIPT)).unwrap(),legacy_bytes());
         for (path, bytes) in project_files {
-            assert!(!retired.contains_key(&root.join(path)));
             assert_eq!(fs::read(root.join(path)).unwrap(), bytes);
         }
         assert_eq!(
@@ -1621,30 +1615,19 @@ fn legacy_test_reports_are_preserved_during_public_relocation_conflicts_and_roll
 }
 
 #[test]
-fn legacy_ignore_retirement_rechecks_late_project_files_without_claiming_them() {
+fn legacy_ignore_and_late_project_files_both_block_automatic_retirement() {
     let (root, _) = transaction_fixture(true);
     let ignore = root.join(".codex/bin/.gitignore");
     fs::create_dir_all(ignore.parent().unwrap()).unwrap();
     fs::write(&ignore, b"*\n!.gitignore\n").unwrap();
-    let retired = legacy_artifact_retirements(&root).unwrap();
-    assert_eq!(retired.len(), 1);
-    let before = legacy_runtime_fingerprint(&root, &retired).unwrap();
+    assert!(legacy_artifact_retirements(&root).unwrap_err().contains("retired"));
     let private = root.join(".codex/bin/project_late.exe");
-    // New project files remove the ignore policy from the deletion set, so
-    // the existing pre-apply fingerprint guard detects that plan drift.
+    // Neither an ignore-only directory nor later private content is authorized
+    // for automatic migration by the current native contract.
     fs::write(&private, b"late independent program").unwrap();
-    let after = legacy_artifact_retirements(&root).unwrap();
-    assert!(after.is_empty());
-    assert_ne!(before, legacy_runtime_fingerprint(&root, &after).unwrap());
-    // The same end-of-transaction guard is called by project apply and shared
-    // installation; shared installation separately tests actual rollback.
-    fs::remove_file(&ignore).unwrap();
-    let error = verify_legacy_artifact_retirement(&root, true).unwrap_err();
-    assert!(error.contains("project files appeared"), "{error}");
-    verify_legacy_artifact_retirement(&root, false).unwrap();
+    assert!(legacy_artifact_retirements(&root).unwrap_err().contains("retired"));
+    assert_eq!(fs::read(&ignore).unwrap(),b"*\n!.gitignore\n");
     assert_eq!(fs::read(&private).unwrap(), b"late independent program");
-    fs::remove_file(private).unwrap();
-    verify_legacy_artifact_retirement(&root, true).unwrap();
     fs::remove_dir_all(root).unwrap();
 }
 

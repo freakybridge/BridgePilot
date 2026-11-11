@@ -2,6 +2,8 @@
 
 以产品 Template 和预编译公共工具生成零写计划。旧项目合同、版本配置、账本及骨架身份戳均已退役，不读取它们决定更新政策，也不建立替代载体。
 
+Forge 项目 Skill 默认安装到 `.codex/skills/`。旧 `.agents/skills/` 中仅精确登记并有正式历史哈希证明的 Forge 文件进入迁移；旧别名的存在与缺失、新目标、备份和退役均绑定 aggregate fingerprint。自定义 Skill、额外文件及本地修改保留；同名未知目标或旧文件修改阻断该项目，不整目录覆盖。成功后仅移除已迁移文件的空父目录。该迁移含退役，不能使用身份恢复模式绕过 pending release guard。
+
 `project-sync --project-root <项目根> --template-root <已验证产品根> --mode update` 输出 aggregate_fingerprint、safe、risk、retired、gaps、blockers。未知额外 JSON 阻断并保留现场；已知退役文件按精确路径和原字节列出风险计划。项目原生 handler、AGENTS 项目区、pre-commit 扩展及业务 Skill 保持项目所有。
 
 安装同时部署并验证项目发布入口。已有 `Cargo.toml` 中的原生发布声明和项目规则必须保留；首次缺入口时，主对话从 INSTALL、原生版本文件、实际 push 目标及已有构建入口整理一次明确的发布规则，作为内部 `--release-spec <本次输入>` 传入计划和 apply。规则只引用原生版本来源，不保存版本值或账本；未知构建／产物范围在安装阶段确认，不等到 release 才补配置。

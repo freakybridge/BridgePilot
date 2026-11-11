@@ -8,7 +8,7 @@
 
 批次只准备一次公共产物，各项目复用；无变化不编译、不重复改写。发布阶段复用仍匹配的原生产物和固定提交，未知上传先核销再接续，不盲目重复写入。源码归档按项目显式规则选择，保留现有目录和启动方式，不表示提供独立安装包或已验证新机运行。
 
-缺作者身份导致提交前失败后的受管恢复见项目 [git-sync Skill](.agents/skills/git-sync/SKILL.md)。显式恢复精确证明配置追加并保留原 attempt；证据不足、固定提交或未知结果继续阻断，不手改接续文件。
+缺作者身份导致提交前失败后的受管恢复见项目 [git-sync Skill](.codex/skills/git-sync/SKILL.md)。显式恢复精确证明配置追加并保留原 attempt；证据不足、固定提交或未知结果继续阻断，不手改接续文件。
 
 BridgePilot 当前支持 Windows 和 Codex。源码开发及 Forge 工程维护需要 Rust/Cargo 1.88+；Cargo 在安装、升级及工厂运行时准备时按需构建
 受管 Rust 工具；日常 Hook 不调用 Cargo 或脚本解释器。请按自己的情况直接进入对应章节：
@@ -56,7 +56,7 @@ Cargo 引导可能产生增量构建及缓存写入，只用于已授权维护�
 
 1. 在目标项目确认 Git 根、原生版本和发布入口。通过 `$bridgepilot-update` 固定本批官方源码；独立引导从 `https://github.com/freakybridge/BridgePilot.git` 获取干净 `main`，以已获取的 `origin/main` 提交为准。
 2. 从固定源码阅读 [Forge 项目维护手册](source/forge/templates/maintenance/bridgeforge-codex/MAINTENANCE.md)。按手册调用 `prepare-project.ps1` 准备一次公共 CLI 和 Hook，然后用该收据生成目标项目的零写入计划。
-3. 按计划和指纹应用。项目 Skill 安装在 `.agents/skills/`，内部维护手册在 `.codex/maintenance/bridgeforge-codex/`，公共 Hook 注册在 `.codex/hooks.json`，公共工具及构建收据在 `.deps/bridgeforge/bin/`。应用保护项目自有 Skill、Hook、AGENTS 项目区和 pre-commit 私有扩展。用新 Codex 会话核对实际 Skill 路径。
+3. 按计划和指纹应用。项目 Skill 安装在 `.codex/skills/`，内部维护手册在 `.codex/maintenance/bridgeforge-codex/`，公共 Hook 注册在 `.codex/hooks.json`，公共工具及构建收据在 `.deps/bridgeforge/bin/`。应用保护项目自有 Skill、Hook、AGENTS 项目区和 pre-commit 私有扩展。用新 Codex 会话核对实际 Skill 路径。
 
 项目同步采用统一的 Template-only 规则。旧项目合同、版本配置、账本、目录覆盖及 Hook 旁文件进入精确退役；未知额外 JSON 保留并阻断。Apply 核对指纹、公共工具编译来源和 `.codex` 递归仅 hooks.json，失败恢复自身改动并保留外部变化。详见 [项目同步设计](doc/0_architecture/design/codex-project-sync.md)。
 
@@ -129,7 +129,7 @@ Windows 源码构建需要 Git、Rust 1.88 或更高版本及其 Windows C++ 构
 
 ### 批量清理下游入口
 
-单项目 `$cleanup` 使用当前项目受管工具的 `explicit-cleanup-v1` 能力：固定保留配置、下载和依赖，依据当前原生构建、启动及发布文件核对成品，用重复 `--keep` 指定精确保留项、重复 `--evidence` 固定依据，再以 `--products-reviewed` 执行；`--dry-run` 零写入。运行必需但仍位于 `.runtime/` 的依赖同样显式保留。工厂自动保护自身三工具及收据，原生发布驱动和收据由其所属实现保护。旧项目旁文件不恢复；完整调用规则见项目 [cleanup Skill](.agents/skills/cleanup/SKILL.md)。
+单项目 `$cleanup` 使用当前项目受管工具的 `explicit-cleanup-v1` 能力：固定保留配置、下载和依赖，依据当前原生构建、启动及发布文件核对成品，用重复 `--keep` 指定精确保留项、重复 `--evidence` 固定依据，再以 `--products-reviewed` 执行；`--dry-run` 零写入。运行必需但仍位于 `.runtime/` 的依赖同样显式保留。工厂自动保护自身三工具及收据，原生发布驱动和收据由其所属实现保护。旧项目旁文件不恢复；完整调用规则见项目 [cleanup Skill](.codex/skills/cleanup/SKILL.md)。
 
 BP 0.12.0 起，便携包新增 `payload/bridgepilot-cleanup-skill.md`，固定资产共十三项。程序和 `skill-install` 同时管理 `bridgepilot`、`bridgeforge-update`、`bridgepilot-cleanup` 三个私有入口；已有安装原位补齐，回退程序必须支持已安装的清理入口。新入口的安装、恢复、来源摘要及用户编辑保护与已有入口使用同一事务，不进入 Forge 共享分发。
 

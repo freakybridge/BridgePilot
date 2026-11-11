@@ -7,7 +7,7 @@ argument: 可选 preview，以及项目名称或 ID 列表
 
 # bridgepilot-cleanup
 
-由当前控制对话编排，默认遍历 BP 已登记下游，逐项目执行该项目实际安装的 `.agents/skills/cleanup/SKILL.md`。本入口不维护第二套删除规则或项目清单，不新增 BP cleanup CLI 子命令，不代替项目执行器拼接删除命令。
+由当前控制对话编排，默认遍历 BP 已登记下游，逐项目执行该项目实际安装的 `.codex/skills/cleanup/SKILL.md`。本入口不维护第二套删除规则或项目清单，不新增 BP cleanup CLI 子命令，不代替项目执行器拼接删除命令。
 
 显式调用本 Skill 即授权所选项目各自 cleanup 约定范围的本轮清理，不逐项目重复询问。`preview` 仅预览，不随后自动删除；咨询、查看名单、修复或安装本 Skill 本身不授权清理。项目清理规则和保护范围仍须逐一核实，不从项目登记推导其他业务、安装、提交或发布授权。
 

@@ -153,15 +153,33 @@ fn factory_and_consumer_workflows_share_explicit_assets() {
     let mut count = 0;
     for asset in public["assets"].as_array().unwrap() {
         let target = asset["target"].as_str().unwrap();
-        if !target.starts_with(".agents/skills/") && !target.starts_with(".codex/maintenance/") { continue; }
+        if !target.starts_with(".codex/skills/") && !target.starts_with(".codex/maintenance/") { continue; }
         if target.ends_with("/SKILL.md") { count += 1; }
         let source = asset["source"].as_str().unwrap();
         assert_eq!(outputs[target], fs::read(root.join(source)).unwrap());
         assert_eq!(outputs[target], fs::read(root.join(target)).unwrap());
     }
-    assert_eq!(count, 19);
-    assert!(outputs.contains_key(".agents/skills/git-sync/SKILL.md"));
+    assert_eq!(count, 20);
+    assert!(outputs.contains_key(".codex/skills/git-sync/SKILL.md"));
     assert!(outputs.contains_key(".codex/maintenance/bridgeforge-codex/scripts/prepare-project.ps1"));
+}
+
+#[test]
+fn factory_workflow_destinations_preserve_unknown_and_partial_custom_content() {
+    let root=test_artifacts::root(env!("CARGO_MANIFEST_DIR"),"factory-workflow-ownership").join(std::process::id().to_string());
+    let asset=bridgeforge_core::template_standard::assets().into_iter().find(|a|a.rule["target"]==".codex/skills/develop/SKILL.md").unwrap();
+    let target=root.join(".codex/skills/develop/SKILL.md");
+    fs::create_dir_all(target.parent().unwrap()).unwrap();
+    fs::write(&target,b"custom same-name Skill").unwrap();
+    assert!(verify_factory_workflow_target(&root,&asset.rule,Some(b"custom same-name Skill")).unwrap_err().contains("preserved"));
+    assert_eq!(fs::read(&target).unwrap(),b"custom same-name Skill");fs::remove_file(&target).unwrap();
+    let extra=root.join(".codex/skills/develop/references/private.md");fs::create_dir_all(extra.parent().unwrap()).unwrap();fs::write(&extra,b"private").unwrap();
+    assert!(verify_factory_workflow_target(&root,&asset.rule,None).unwrap_err().contains("preserved"));
+    assert_eq!(fs::read(&extra).unwrap(),b"private");assert!(!target.exists());
+    fs::write(&target,&asset.payload).unwrap();
+    verify_factory_workflow_target(&root,&asset.rule,Some(&asset.payload)).unwrap();
+    assert_eq!(fs::read(extra).unwrap(),b"private");
+    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

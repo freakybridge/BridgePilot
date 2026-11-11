@@ -326,6 +326,11 @@ fn render_contract_value(
         assets.push(asset);
     }
     for asset in &mut assets {
+        if let Some(relocation) = history.as_ref().and_then(|h|h["relocations"].as_array())
+            .and_then(|rows|rows.iter().find(|r|r["id"] == asset["id"] && r["target"] == asset["target"]
+                && r["previous_target"].as_str().is_some_and(|p|p.starts_with(".agents/skills/")))) {
+            asset["relocation"] = relocation.clone();
+        }
         let source = asset["source"].as_str().unwrap_or("");
         let payload = if let Some(bytes) = bridgeforge_skeleton::content::inline_source(asset)? {
             bytes.to_vec()
@@ -477,6 +482,13 @@ pub fn render_distribution_manifest(root: &Path) -> Result<Vec<u8>, String> {
 
 /// Render only explicit factory mirrors; public/project extension regions keep
 /// the same ownership and preservation semantics as the installation renderer.
+fn verify_factory_workflow_target(root: &Path, asset: &Value, current: Option<&[u8]>) -> Result<(), String> {
+    if asset["id"].as_str().is_some_and(|id|id.starts_with("codex.project-workflow.")) {
+        bridgeforge_workflow::template_sync::verify_workflow_target(root,asset["target"].as_str().ok_or("workflow target missing")?,asset,current)?;
+    }
+    Ok(())
+}
+
 fn factory_entrypoints(root: &Path) -> Result<BTreeMap<String, Vec<u8>>, String> {
     let contract: Value = serde_json::from_slice(&render_factory_contract(root, &BTreeMap::new())?)
         .map_err(|e| e.to_string())?;
@@ -506,6 +518,7 @@ fn factory_entrypoints(root: &Path) -> Result<BTreeMap<String, Vec<u8>>, String>
         let payload = factory_payload(id, payload)?;
         let current =
             crate::managed_paths::read_metadata(&safe_join(root, target)?, 16 * 1024 * 1024)?;
+        verify_factory_workflow_target(root, asset, current.as_deref())?;
         let rendered = bridgeforge_skeleton::content::render(
             id,
             &payload,
@@ -655,9 +668,11 @@ pub fn rebuild(root: &Path, check: bool) -> Result<bool, String> {
         .any(|(path, payload)| before[path].as_deref() != payload.as_deref());
     if changed && !check {
         let switches_runtime = targets.iter().any(|(path, payload)| {
-            [".codex/hooks.json", ".githooks/pre-commit"]
+            ([".codex/hooks.json", ".githooks/pre-commit"]
                 .iter()
                 .any(|p| path == &root.join(p))
+                || path.starts_with(root.join(".codex/skills"))
+                || path.starts_with(root.join(".agents/skills")))
                 && before[path].as_deref() != payload.as_deref()
         });
         if switches_runtime && crate::source_projection::available(root) {

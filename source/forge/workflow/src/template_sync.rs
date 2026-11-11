@@ -31,26 +31,43 @@ fn state(root: &Path, relative: &str) -> Result<Option<Vec<u8>>, String> {
 }
 
 fn verify_workflow_root(root: &Path, relative: &str) -> Result<(), String> {
-    let skill = relative.strip_prefix(".agents/skills/")
+    let skill = relative.strip_prefix(".codex/skills/")
         .and_then(|path| path.strip_suffix("/SKILL.md"))
         .filter(|name| !name.contains('/'));
-    if let Some(name) = skill {
-        let legacy = format!(".codex/skills/{name}/SKILL.md");
-        if state(root, &legacy)?.is_some() {
-            return Err(format!("same-name project Skill is preserved: {legacy}"));
-        }
-    } else if relative != ".codex/maintenance/bridgeforge-codex/MAINTENANCE.md" {
+    if skill.is_none() && relative != ".codex/maintenance/bridgeforge-codex/MAINTENANCE.md" {
         return Ok(());
     }
 
     if state(root, relative)?.is_none() {
         let entry = managed_paths::safe_join(root, relative, "project workflow entry")?;
         let directory = entry.parent().ok_or("project workflow entry has no parent")?;
-        if directory.exists() && fs::read_dir(directory).map_err(|error| error.to_string())?.next().is_some() {
+        if directory.exists() && unowned_workflow_content(root, directory)? {
             return Err(format!("unowned nonempty project workflow is preserved: {relative}"));
         }
     }
     Ok(())
+}
+
+fn unowned_workflow_content(root: &Path, directory: &Path) -> Result<bool, String> {
+    let assets = template_standard::assets();
+    let mut pending = vec![directory.to_path_buf()];
+    while let Some(path) = pending.pop() {
+        if persistence::is_link_or_reparse(&path).map_err(|e|e.to_string())? {
+            return Err("linked project workflow content is preserved".into());
+        }
+        for entry in fs::read_dir(&path).map_err(|e|e.to_string())? {
+            let path = entry.map_err(|e|e.to_string())?.path();
+            if persistence::is_link_or_reparse(&path).map_err(|e|e.to_string())? {
+                return Err("linked project workflow content is preserved".into());
+            }
+            if path.is_dir() { pending.push(path); continue; }
+            let relative = path.strip_prefix(root).map_err(|e|e.to_string())?.to_string_lossy().replace('\\', "/");
+            let Some(asset) = assets.iter().find(|a|a.rule["target"] == relative) else { return Ok(true); };
+            let current = state(root, &relative)?;
+            verify_workflow_asset(&relative, &asset.rule, current.as_deref())?;
+        }
+    }
+    Ok(false)
 }
 
 fn verify_workflow_asset(relative: &str, rule: &Value, current: Option<&[u8]>) -> Result<(), String> {
@@ -61,6 +78,12 @@ fn verify_workflow_asset(relative: &str, rule: &Value, current: Option<&[u8]>) -
         }
     }
     Ok(())
+}
+
+/// Shared factory/consumer ownership gate before rendering any whole workflow file.
+pub fn verify_workflow_target(root: &Path, relative: &str, rule: &Value, current: Option<&[u8]>) -> Result<(), String> {
+    verify_workflow_root(root, relative)?;
+    verify_workflow_asset(relative, rule, current)
 }
 
 fn public_source(product: &Path) -> Result<(BTreeMap<String, Vec<u8>>,String), String> {
@@ -154,6 +177,7 @@ fn revalidate(plan:&Plan)->Result<(),String> {
         return Err("factory dogfood cannot use downstream project-sync".into());
     }
     require_no_pending_development(&plan.root)?;
+    bridgeforge_skeleton::template::retired_workflow_inputs(&plan.root)?;
     if plan.identity_recovery.is_some() { verify_recovery(plan, true)?; }
     else if state(&plan.root,".runtime/bridgeforge-codex/release-preparation/commit-guard.json")?.is_some() {
         return Err("unfinished Git commit guard; preserve and resolve it before template retirement".into());
@@ -228,6 +252,10 @@ pub fn plan_with_identity_recovery(root: &Path, product: &Path, requested:Option
     let mut before = runtime_targets(&root, contract)?;
     let mut writes = BTreeMap::new();
     let mut retirements = BTreeMap::new();
+    for (path, bytes) in bridgeforge_skeleton::template::retired_workflow_inputs(&root)? {
+        if let Some(bytes) = &bytes { retirements.insert(path.clone(), bytes.clone()); }
+        before.insert(path, bytes);
+    }
     let json_paths = bridgeforge_skeleton::template::json_paths(&root)?;
     for path in &json_paths {
         if path != ".codex/hooks.json" && !RETIRED.contains(&path.as_str()) {
@@ -355,9 +383,10 @@ pub fn apply(plan: Plan, fingerprint: &str, confirmed_risk: bool, prepared: &Pat
             if let Some(r)=&plan.release_recipe {verify_target(&plan,&crate::native_release::installation_target(&plan.root,&r.repository,r.gitlab_origin.as_deref())?)?;}
             crate::project_release::verify_driver(&plan.root).map(|_| ())
         })?;
+    let retained_directories=bridgeforge_skeleton::template::prune_workflow_directories(&plan.root);
     Ok(json!({"schema":1,"status":"succeeded","model":"template-only-v1",
         "aggregate_fingerprint":fingerprint,"retired":plan.report["retired"],
-        "written":writes.len(),"recovery":recovery,"release_installation":crate::project_release::verify_driver(&plan.root)?,"baseline":bridgeforge_skeleton::template::verify(&plan.root, true)?}))
+        "written":writes.len(),"recovery":recovery,"retained_directories":retained_directories,"release_installation":crate::project_release::verify_driver(&plan.root)?,"baseline":bridgeforge_skeleton::template::verify(&plan.root, true)?}))
 }
 
 #[cfg(all(test, bridgeforge_factory_tests))]

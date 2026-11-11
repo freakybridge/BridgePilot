@@ -83,7 +83,10 @@ pub fn prepare(root: &Path, check: bool, runner: &dyn ProcessRunner) -> CommandO
 fn prepare_inner(root: &Path, check: bool, runner: &dyn ProcessRunner) -> Result<Value, String> {
     let root = root.canonicalize().map_err(|e| e.to_string())?;
     let (contract, original) = identity_mode(&root, check)?;
-    let retirements = project_sync::legacy_artifact_retirements(&root)?;
+    let legacy_retirements = project_sync::legacy_artifact_retirements(&root)?;
+    let workflow_inputs=bridgeforge_skeleton::template::retired_workflow_inputs(&root)?;
+    let mut retirements=legacy_retirements.clone();
+    retirements.extend(workflow_inputs.iter().filter_map(|(p,b)|b.as_ref().map(|b|(p.clone(),b.clone()))));
     let assets = contract["generated_assets"]
         .as_array()
         .ok_or("missing generated assets")?;
@@ -108,19 +111,20 @@ fn prepare_inner(root: &Path, check: bool, runner: &dyn ProcessRunner) -> Result
     let _sync = crate::git_sync::lock_factory_runtime(&root, runner)?;
     let _project = project_sync::ProjectLock::acquire(&root)?;
     let _legacy_cache = crate::artifact_cache::lock_legacy(&root)?;
-    if !retirements.is_empty() {
+    if !legacy_retirements.is_empty() {
         bridgeforge_core::process_activity::legacy_clients_quiet(&root)?;
     }
     if identity(&root)?.1 != original {
         return Err("factory inputs changed before preparation".into());
     }
-    if !retirements.is_empty() {
+    if !legacy_retirements.is_empty() {
         bridgeforge_core::process_activity::legacy_clients_quiet(&root)?;
     }
-    if project_sync::legacy_artifact_retirements(&root)? != retirements {
+    if project_sync::legacy_artifact_retirements(&root)? != legacy_retirements {
         return Err("legacy runtime changed before preparation".into());
     }
     let mut before = BTreeMap::new();
+    before.extend(workflow_inputs);
     let projection = manifest::render_targets(&root)?;
     for (path, _) in &projection {
         before.insert(path.clone(), project_sync::transaction_file_state(path)?);
@@ -227,7 +231,7 @@ fn prepare_inner(root: &Path, check: bool, runner: &dyn ProcessRunner) -> Result
     if identity(&root)?.1 != original {
         return Err("factory inputs changed during build; installed files preserved".into());
     }
-    if project_sync::legacy_artifact_retirements(&root)? != retirements {
+    if project_sync::legacy_artifact_retirements(&root)? != legacy_retirements {
         return Err("legacy runtime changed during build; installed files preserved".into());
     }
     for (source, expected) in &environments {
@@ -246,19 +250,24 @@ fn prepare_inner(root: &Path, check: bool, runner: &dyn ProcessRunner) -> Result
             ));
         }
     }
-    project_sync::install_generated_transaction_retiring(
+    project_sync::install_template_transaction(
         &root,
         &writes,
         &before,
         &binaries,
         &retirements,
         || {
-            if project_sync::legacy_artifact_retirements(&root)? != retirements {
+            if !project_sync::legacy_artifact_retirements(&root)?.is_empty() {
                 return Err("legacy runtime changed during installation".into());
+            }
+            if !legacy_retirements.is_empty() {
+                project_sync::verify_legacy_artifact_retirement(&root,legacy_retirements.contains_key(&root.join(".codex/bin/.gitignore")))?;
+                bridgeforge_core::process_activity::legacy_clients_quiet(&root)?;
             }
             if identity(&root)?.1 != original {
                 return Err("factory inputs changed during installation".into());
             }
+            bridgeforge_skeleton::template::verify_workflow_retirements(&root)?;
             for asset in assets {
                 let (binary, _) = paths(&root, asset)?;
                 if !generated_assets::installed_current(&root, asset, &binary, runner) {
@@ -275,10 +284,11 @@ fn prepare_inner(root: &Path, check: bool, runner: &dyn ProcessRunner) -> Result
             Ok(())
         },
     )?;
+    let retained_directories=bridgeforge_skeleton::template::prune_workflow_directories(&root);
     Ok(
         json!({"schema":1,"status":if rebuilt == 0 {"current"} else {"prepared"},
         "read_only":false,"self_test_executed":true,"reused":assets.len()-rebuilt,
-        "prepared":rebuilt,"written_files":written_files,"public_artifacts":public_receipt,"retired_files":retirements.len(),"build_policy":"verified-cache-or-locked-cargo"}),
+        "prepared":rebuilt,"written_files":written_files,"public_artifacts":public_receipt,"retired_files":retirements.len(),"retained_directories":retained_directories,"build_policy":"verified-cache-or-locked-cargo"}),
     )
 }
 

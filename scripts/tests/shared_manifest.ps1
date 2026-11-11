@@ -20,7 +20,7 @@ $profileRoot = Join-Path $Base 'profile'
 New-Item -ItemType Directory -Path $profileRoot -Force | Out-Null
 $sourceManifest = Read-JsonFile -Path (Join-Path $RepositoryRoot $ManifestName)
 if ($sourceManifest.schema_version -ne 2 -or $null -ne $sourceManifest.PSObject.Properties['shared_skills']) { throw 'Expected project-only distribution' }
-$entries = @($sourceManifest.project_skeleton.assets | Where-Object { $_.target -like '.agents/skills/*/SKILL.md' })
+$entries = @($sourceManifest.project_skeleton.assets | Where-Object { $_.target -like '.codex/skills/*/SKILL.md' })
 if ($entries.Count -ne 19) { throw 'Incorrect project Skill count' }
 foreach ($entry in $entries) {
     if ($entry.strategy -cne 'whole' -or $entry.id -notlike 'codex.project-workflow.*') { throw 'Project Skill has no explicit ownership' }

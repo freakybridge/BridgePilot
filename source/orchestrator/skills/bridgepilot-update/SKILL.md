@@ -17,7 +17,7 @@ argument: 项目目录或项目集合，以及 dry-run、升级或本轮已授�
 
 成功后读取实际已安装 home 下 `source/orchestrator/skills/bridgepilot-update/SKILL.md`，携带本次安装收据从下游阶段继续，不递归调用本节。只读模式跳过安装，使用现有合格工具；本节结果不授权恢复任务、接管、清理或业务环境安装。
 
-由 BP 主对话编排整轮骨架升级，沿用 [BP 入口](../bridgepilot/SKILL.md) 的项目绑定、控制权和任务核验。从本次成功源码更新收据固定的 `source_root/source/forge/templates/maintenance/bridgeforge-codex/MAINTENANCE.md` 进入 Forge 维护。已安装的项目工作流从该项目 `.agents/skills/` 读取。只读时复用已经核验的源码与 prepared 收据，缺项时报告预览缺口。
+由 BP 主对话编排整轮骨架升级，沿用 [BP 入口](../bridgepilot/SKILL.md) 的项目绑定、控制权和任务核验。从本次成功源码更新收据固定的 `source_root/source/forge/templates/maintenance/bridgeforge-codex/MAINTENANCE.md` 进入 Forge 维护。已安装的项目工作流从该项目 `.codex/skills/` 读取。只读时复用已经核验的源码与 prepared 收据，缺项时报告预览缺口。
 
 读取本 Skill 目录的 `bridgepilot-local.json`，以实际 `home` 定位 `.build/bridgepilot/bin/bp.exe`；源码引导无绑定时按 BP 安装入口核对实际 home，不猜路径。正常调用的安装授权限于本节规定范围，不能扩展成发布授权。
 

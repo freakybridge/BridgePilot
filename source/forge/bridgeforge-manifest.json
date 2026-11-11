@@ -15,6 +15,466 @@
       "format": "bridgeforge-asset-history-v1",
       "relocations": [
         {
+          "id": "codex.project-workflow.cleanup.skill.md",
+          "previous_target": ".agents/skills/cleanup/SKILL.md",
+          "source": "source/forge/templates/skills/cleanup/SKILL.md",
+          "target": ".codex/skills/cleanup/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:a6a993c86ef55402a9b09f0030ce80bd54b4231393ab3cdf715ff5fab58c37af",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/cleanup/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.archive-scan.skill.md",
+          "previous_target": ".agents/skills/archive-scan/SKILL.md",
+          "source": "source/forge/templates/skills/archive-scan/SKILL.md",
+          "target": ".codex/skills/archive-scan/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:e2ab974e9fc13fb65fd2c28419e1c97c0d0e34c5443a5fa666789558ccf09542",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/archive-scan/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.autopilot.skill.md",
+          "previous_target": ".agents/skills/autopilot/SKILL.md",
+          "source": "source/forge/templates/skills/autopilot/SKILL.md",
+          "target": ".codex/skills/autopilot/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:b4f59bd47d7d0cd9cbe470b77159fafe3440f5c86ba7393160395e44ff550dcf",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/autopilot/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.autopilot.references.runtime.md",
+          "previous_target": ".agents/skills/autopilot/references/runtime.md",
+          "source": "source/forge/templates/skills/autopilot/references/runtime.md",
+          "target": ".codex/skills/autopilot/references/runtime.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:c3e8ec00a4778e2792908a194fdeaca640f465c7ba9d18a6e6e55d37d423ceac",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/autopilot/references/runtime.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.collab.skill.md",
+          "previous_target": ".agents/skills/collab/SKILL.md",
+          "source": "source/forge/templates/skills/collab/SKILL.md",
+          "target": ".codex/skills/collab/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:bbcd5cbf6a0b119615427815a55e614c55b4d4af1f1bf46676e37bea0751b253",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/collab/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.confirm.skill.md",
+          "previous_target": ".agents/skills/confirm/SKILL.md",
+          "source": "source/forge/templates/skills/confirm/SKILL.md",
+          "target": ".codex/skills/confirm/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:850fe88cd78f4598e2fa33ea126d36fcea4b5a07065226c40588d16c1a69bfb7",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/confirm/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.confirm.references.weekly-quota.md",
+          "previous_target": ".agents/skills/confirm/references/weekly-quota.md",
+          "source": "source/forge/templates/skills/confirm/references/weekly-quota.md",
+          "target": ".codex/skills/confirm/references/weekly-quota.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:4dc91f611b1b594e8a5b33a6e16cce2bc049a7751be77ce918da5a28c61652ed",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/confirm/references/weekly-quota.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.create-worktree.skill.md",
+          "previous_target": ".agents/skills/create-worktree/SKILL.md",
+          "source": "source/forge/templates/skills/create-worktree/SKILL.md",
+          "target": ".codex/skills/create-worktree/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:d0e58c1b0bbdf5213336bbaf8c8951c2415ef5b86dba9be1735efc460fd8000c",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/create-worktree/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.create-worktree.agents.openai.yaml",
+          "previous_target": ".agents/skills/create-worktree/agents/openai.yaml",
+          "source": "source/forge/templates/skills/create-worktree/agents/openai.yaml",
+          "target": ".codex/skills/create-worktree/agents/openai.yaml",
+          "known_hashes": [
+            {
+              "sha256": "sha256:f40c1215a001cb5e43495b151107b9d7fee34c4f00ee35bfc4136d7cf5a9dbe8",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/create-worktree/agents/openai.yaml"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.create-worktree.scripts.create_worktree.ps1",
+          "previous_target": ".agents/skills/create-worktree/scripts/create_worktree.ps1",
+          "source": "source/forge/templates/skills/create-worktree/scripts/create_worktree.ps1",
+          "target": ".codex/skills/create-worktree/scripts/create_worktree.ps1",
+          "known_hashes": [
+            {
+              "sha256": "sha256:3574d9e0c8a1500049aaa5130551306af8e53a5f064a603dc8e62395dd0e8351",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/create-worktree/scripts/create_worktree.ps1"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.debate.skill.md",
+          "previous_target": ".agents/skills/debate/SKILL.md",
+          "source": "source/forge/templates/skills/debate/SKILL.md",
+          "target": ".codex/skills/debate/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:cf41d29f58b7c9acc599bbc61e4e8d124fabb36da7f768152da967a23004fdbe",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/debate/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.develop.references.agent-execution.md",
+          "previous_target": ".agents/skills/develop/references/agent-execution.md",
+          "source": "source/forge/templates/skills/develop/references/agent-execution.md",
+          "target": ".codex/skills/develop/references/agent-execution.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:117194ba9d75b7e7117719d960755c5efe781bccc13311006b251185b826e8b3",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/develop/references/agent-execution.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.develop.references.ml-delivery.md",
+          "previous_target": ".agents/skills/develop/references/ml-delivery.md",
+          "source": "source/forge/templates/skills/develop/references/ml-delivery.md",
+          "target": ".codex/skills/develop/references/ml-delivery.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:2ccdcdcb7a9e1db4f551fd5fc8bfbfab10dd9254094be4588094cd6a3dda4055",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/develop/references/ml-delivery.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.develop.references.completion-release.md",
+          "previous_target": ".agents/skills/develop/references/completion-release.md",
+          "source": "source/forge/templates/skills/develop/references/completion-release.md",
+          "target": ".codex/skills/develop/references/completion-release.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:a56d784bb4afa213d06ee2eb97a60137a178fef4bdb268c2914c0a6f2f2cce91",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/develop/references/completion-release.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.avoid-overdefensive-programming.skill.md",
+          "previous_target": ".agents/skills/avoid-overdefensive-programming/SKILL.md",
+          "source": "source/forge/templates/skills/avoid-overdefensive-programming/SKILL.md",
+          "target": ".codex/skills/avoid-overdefensive-programming/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:13ee87ae37dc1e46c0681962519adef071b6024cf014b5ca07f5c47edda6523a",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/avoid-overdefensive-programming/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.develop.skill.md",
+          "previous_target": ".agents/skills/develop/SKILL.md",
+          "source": "source/forge/templates/skills/develop/SKILL.md",
+          "target": ".codex/skills/develop/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:fc953f08ba7ae316f14e61376d8e74d084a5eab155d47aa547a1050d4f3787ba",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/develop/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.escalate.skill.md",
+          "previous_target": ".agents/skills/escalate/SKILL.md",
+          "source": "source/forge/templates/skills/escalate/SKILL.md",
+          "target": ".codex/skills/escalate/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:f0647f3c0a70176b384a0764a61121fa2502ca6aa20214438fd35b8b00fae236",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/escalate/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.explain.skill.md",
+          "previous_target": ".agents/skills/explain/SKILL.md",
+          "source": "source/forge/templates/skills/explain/SKILL.md",
+          "target": ".codex/skills/explain/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:ee9e6bac1a8ff26150755b53c34eab0c53e9ed6969e94f4abfce84c4a9aaf40e",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/explain/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.find-doc.skill.md",
+          "previous_target": ".agents/skills/find-doc/SKILL.md",
+          "source": "source/forge/templates/skills/find-doc/SKILL.md",
+          "target": ".codex/skills/find-doc/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:74a692b66f96c29e03883c75c077fc10fd6ba026624c56ce27f92512eff2d25e",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/find-doc/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.focus.skill.md",
+          "previous_target": ".agents/skills/focus/SKILL.md",
+          "source": "source/forge/templates/skills/focus/SKILL.md",
+          "target": ".codex/skills/focus/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:d6eb386a5bf73e532d204f3c74885f236a0d571df8b85c1780733954ca8db3d4",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/focus/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.git-sync.skill.md",
+          "previous_target": ".agents/skills/git-sync/SKILL.md",
+          "source": "source/forge/templates/skills/git-sync/SKILL.md",
+          "target": ".codex/skills/git-sync/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:8910de659f1a604d56fc7cc8d741b5fb52f2a4d53e23886a3e7249ed26c68e35",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/git-sync/SKILL.md"
+            },
+            {
+              "sha256": "sha256:cc88742d4e1e71082815365040c27067eda3b77ef6b4b549f4c3dfc1d977048a",
+              "revision": "e00683bca1356316f04667d43ad9a12186379888",
+              "source": "source/forge/templates/skills/git-sync/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.git-sync.references.first-use.md",
+          "previous_target": ".agents/skills/git-sync/references/first-use.md",
+          "source": "source/forge/templates/skills/git-sync/references/first-use.md",
+          "target": ".codex/skills/git-sync/references/first-use.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:26234a62b1f08417c8a47af33669ade7d7576030c535e07fbc8e3463e1ad7606",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/git-sync/references/first-use.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.git-sync.references.schema4.md",
+          "previous_target": ".agents/skills/git-sync/references/schema4.md",
+          "source": "source/forge/templates/skills/git-sync/references/schema4.md",
+          "target": ".codex/skills/git-sync/references/schema4.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:da5622d93ab2d7bd02024c91277b459f6cde1e572dee440ce9395a198e592a2a",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/git-sync/references/schema4.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.git-sync.references.runtime-context.md",
+          "previous_target": ".agents/skills/git-sync/references/runtime-context.md",
+          "source": "source/forge/templates/skills/git-sync/references/runtime-context.md",
+          "target": ".codex/skills/git-sync/references/runtime-context.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:843ee21bccce0d61b04585a163390a05838ab42583feb9a6c60fd6a41b16ab6a",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/git-sync/references/runtime-context.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.plan.skill.md",
+          "previous_target": ".agents/skills/plan/SKILL.md",
+          "source": "source/forge/templates/skills/plan/SKILL.md",
+          "target": ".codex/skills/plan/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:65d595a899749b588a03cbdf49e625839a741d803b030679c94b5b6eb9e7bb95",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/plan/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.spinoff.skill.md",
+          "previous_target": ".agents/skills/spinoff/SKILL.md",
+          "source": "source/forge/templates/skills/spinoff/SKILL.md",
+          "target": ".codex/skills/spinoff/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:09c0b4d514e192ae1ead8c40c861371c31185b426b9bfb6d8a19769c7a06a4a4",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/spinoff/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.summary.references.acceptance-mode.md",
+          "previous_target": ".agents/skills/summary/references/acceptance-mode.md",
+          "source": "source/forge/templates/skills/summary/references/acceptance-mode.md",
+          "target": ".codex/skills/summary/references/acceptance-mode.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:a965228a36022ce61c650eaa6cd2f056de814b9fc4ccfe482f8c1573e5eb0a9a",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/summary/references/acceptance-mode.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.summary.references.ordinary-mode.md",
+          "previous_target": ".agents/skills/summary/references/ordinary-mode.md",
+          "source": "source/forge/templates/skills/summary/references/ordinary-mode.md",
+          "target": ".codex/skills/summary/references/ordinary-mode.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:cec6a41bf61be4166ed057f50132d51f7b07bf4e0697a41e2b8eddd18948a657",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/summary/references/ordinary-mode.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.summary.skill.md",
+          "previous_target": ".agents/skills/summary/SKILL.md",
+          "source": "source/forge/templates/skills/summary/SKILL.md",
+          "target": ".codex/skills/summary/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:157d6ce0c8bbc2537de4ac70c5f3a5bbf5450fc7382a8dae4143ed119f34368a",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/summary/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.summary.references.switch-mode.md",
+          "previous_target": ".agents/skills/summary/references/switch-mode.md",
+          "source": "source/forge/templates/skills/summary/references/switch-mode.md",
+          "target": ".codex/skills/summary/references/switch-mode.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:4b8b2724c385df1ee0d2d5b65939c2e99cfc048e3dadc94424c5fd25f2457d1a",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/summary/references/switch-mode.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.refactor-scan.skill.md",
+          "previous_target": ".agents/skills/refactor-scan/SKILL.md",
+          "source": "source/forge/templates/skills/refactor-scan/SKILL.md",
+          "target": ".codex/skills/refactor-scan/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:fb1a948d719fbf3da5857d73b9c80343775a9b51c05af4d644f0441d84bc5069",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/refactor-scan/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.refactor-scan.references.report-contract.md",
+          "previous_target": ".agents/skills/refactor-scan/references/report-contract.md",
+          "source": "source/forge/templates/skills/refactor-scan/references/report-contract.md",
+          "target": ".codex/skills/refactor-scan/references/report-contract.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:4e5740a0b8b50d2cc2bc19c2631b0806ceb55fb0f2b0b960ff4ab01bbe63ca3c",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/refactor-scan/references/report-contract.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.sync-docs.skill.md",
+          "previous_target": ".agents/skills/sync-docs/SKILL.md",
+          "source": "source/forge/templates/skills/sync-docs/SKILL.md",
+          "target": ".codex/skills/sync-docs/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:84e8278811707f2bfa8651f8c71eee5708f02d4889ee9b14d711016104c9b61d",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/sync-docs/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.todo.references.contract.md",
+          "previous_target": ".agents/skills/todo/references/contract.md",
+          "source": "source/forge/templates/skills/todo/references/contract.md",
+          "target": ".codex/skills/todo/references/contract.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:cd9ae1e62989caf72de5f83624b9fd59c36cd6c8ccf07d1fc7f1d78cb72ad90f",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/todo/references/contract.md"
+            }
+          ]
+        },
+        {
+          "id": "codex.project-workflow.todo.skill.md",
+          "previous_target": ".agents/skills/todo/SKILL.md",
+          "source": "source/forge/templates/skills/todo/SKILL.md",
+          "target": ".codex/skills/todo/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:43128595e71c8ffb3dbef80994a4cd945bd5f142b76ec1d76464773af9151dea",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/todo/SKILL.md"
+            }
+          ]
+        },
+        {
           "id": "codex.hooks.gitignore",
           "previous_target": ".codex/hooks/.gitignore",
           "known_hashes": [
@@ -3054,7 +3514,7 @@
         }
       ]
     },
-    "release_version": "19.0.4",
+    "release_version": "20.0.0",
     "release_model": "product-packages",
     "host": "codex",
     "stamp": ".codex/.bridgeforge_codex_version",
@@ -3071,7 +3531,7 @@
       {
         "id": "codex.project-workflow.cleanup.skill.md",
         "source": "source/forge/templates/skills/cleanup/SKILL.md",
-        "target": ".agents/skills/cleanup/SKILL.md",
+        "target": ".codex/skills/cleanup/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:a6a993c86ef55402a9b09f0030ce80bd54b4231393ab3cdf715ff5fab58c37af",
         "previous_sha256": [
@@ -3079,16 +3539,30 @@
           "sha256:c61860b618f2b6a4cfcf99faec633252f7aa98595871a2cab9a9272dac97cc0d",
           "sha256:7ad000f9e0a9b985b09c2d17d1ef596ca2e855da0b53f788b1d0aa8e8cf50eec",
           "sha256:f79eba5e90577dcd5b5cf364515f5ce98cd2c5790d2313bdb98eb1864c92d493"
-        ]
+        ],
+        "relocation": {
+          "id": "codex.project-workflow.cleanup.skill.md",
+          "previous_target": ".agents/skills/cleanup/SKILL.md",
+          "source": "source/forge/templates/skills/cleanup/SKILL.md",
+          "target": ".codex/skills/cleanup/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:a6a993c86ef55402a9b09f0030ce80bd54b4231393ab3cdf715ff5fab58c37af",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/cleanup/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.bridgeforge-codex.maintenance.md",
         "source": "source/forge/templates/maintenance/bridgeforge-codex/MAINTENANCE.md",
         "target": ".codex/maintenance/bridgeforge-codex/MAINTENANCE.md",
         "strategy": "whole",
-        "current_sha256": "sha256:35c47bbec618ea0dbd04be5c663ae94d9737e02d886d975cb6a8a967244dfc3c",
+        "current_sha256": "sha256:3e9cdb8262af3918b828816dc8fcbbdf816bcf7f864f58b7426da8478565e2b8",
         "previous_sha256": [
-          "sha256:7e6116e397eed70b4d3413ab87f5868c75c9dc0b295e9e58f0f45aafd5e74ae9"
+          "sha256:7e6116e397eed70b4d3413ab87f5868c75c9dc0b295e9e58f0f45aafd5e74ae9",
+          "sha256:35c47bbec618ea0dbd04be5c663ae94d9737e02d886d975cb6a8a967244dfc3c"
         ]
       },
       {
@@ -3158,9 +3632,10 @@
         "source": "source/forge/templates/maintenance/bridgeforge-codex/references/update.md",
         "target": ".codex/maintenance/bridgeforge-codex/references/update.md",
         "strategy": "whole",
-        "current_sha256": "sha256:6a091d5419974a680c664b6589829d520c3f727d6130cb0c2f137913e8e9759c",
+        "current_sha256": "sha256:107b5d828a792ab74e2cae00b627386b7f1dccd174ec0cde20b2d84200c048ea",
         "previous_sha256": [
-          "sha256:d50516728d61bdfbe768c6256fab49ca95d5bcf8c7e1c14e3220c227aa493087"
+          "sha256:d50516728d61bdfbe768c6256fab49ca95d5bcf8c7e1c14e3220c227aa493087",
+          "sha256:6a091d5419974a680c664b6589829d520c3f727d6130cb0c2f137913e8e9759c"
         ]
       },
       {
@@ -3176,279 +3651,726 @@
       {
         "id": "codex.project-workflow.archive-scan.skill.md",
         "source": "source/forge/templates/skills/archive-scan/SKILL.md",
-        "target": ".agents/skills/archive-scan/SKILL.md",
+        "target": ".codex/skills/archive-scan/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:e2ab974e9fc13fb65fd2c28419e1c97c0d0e34c5443a5fa666789558ccf09542",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.archive-scan.skill.md",
+          "previous_target": ".agents/skills/archive-scan/SKILL.md",
+          "source": "source/forge/templates/skills/archive-scan/SKILL.md",
+          "target": ".codex/skills/archive-scan/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:e2ab974e9fc13fb65fd2c28419e1c97c0d0e34c5443a5fa666789558ccf09542",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/archive-scan/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.autopilot.skill.md",
         "source": "source/forge/templates/skills/autopilot/SKILL.md",
-        "target": ".agents/skills/autopilot/SKILL.md",
+        "target": ".codex/skills/autopilot/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:b4f59bd47d7d0cd9cbe470b77159fafe3440f5c86ba7393160395e44ff550dcf",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.autopilot.skill.md",
+          "previous_target": ".agents/skills/autopilot/SKILL.md",
+          "source": "source/forge/templates/skills/autopilot/SKILL.md",
+          "target": ".codex/skills/autopilot/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:b4f59bd47d7d0cd9cbe470b77159fafe3440f5c86ba7393160395e44ff550dcf",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/autopilot/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.autopilot.references.runtime.md",
         "source": "source/forge/templates/skills/autopilot/references/runtime.md",
-        "target": ".agents/skills/autopilot/references/runtime.md",
+        "target": ".codex/skills/autopilot/references/runtime.md",
         "strategy": "whole",
         "current_sha256": "sha256:c3e8ec00a4778e2792908a194fdeaca640f465c7ba9d18a6e6e55d37d423ceac",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.autopilot.references.runtime.md",
+          "previous_target": ".agents/skills/autopilot/references/runtime.md",
+          "source": "source/forge/templates/skills/autopilot/references/runtime.md",
+          "target": ".codex/skills/autopilot/references/runtime.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:c3e8ec00a4778e2792908a194fdeaca640f465c7ba9d18a6e6e55d37d423ceac",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/autopilot/references/runtime.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.collab.skill.md",
         "source": "source/forge/templates/skills/collab/SKILL.md",
-        "target": ".agents/skills/collab/SKILL.md",
+        "target": ".codex/skills/collab/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:bbcd5cbf6a0b119615427815a55e614c55b4d4af1f1bf46676e37bea0751b253",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.collab.skill.md",
+          "previous_target": ".agents/skills/collab/SKILL.md",
+          "source": "source/forge/templates/skills/collab/SKILL.md",
+          "target": ".codex/skills/collab/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:bbcd5cbf6a0b119615427815a55e614c55b4d4af1f1bf46676e37bea0751b253",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/collab/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.confirm.skill.md",
         "source": "source/forge/templates/skills/confirm/SKILL.md",
-        "target": ".agents/skills/confirm/SKILL.md",
+        "target": ".codex/skills/confirm/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:850fe88cd78f4598e2fa33ea126d36fcea4b5a07065226c40588d16c1a69bfb7",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.confirm.skill.md",
+          "previous_target": ".agents/skills/confirm/SKILL.md",
+          "source": "source/forge/templates/skills/confirm/SKILL.md",
+          "target": ".codex/skills/confirm/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:850fe88cd78f4598e2fa33ea126d36fcea4b5a07065226c40588d16c1a69bfb7",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/confirm/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.confirm.references.weekly-quota.md",
         "source": "source/forge/templates/skills/confirm/references/weekly-quota.md",
-        "target": ".agents/skills/confirm/references/weekly-quota.md",
+        "target": ".codex/skills/confirm/references/weekly-quota.md",
         "strategy": "whole",
         "current_sha256": "sha256:4dc91f611b1b594e8a5b33a6e16cce2bc049a7751be77ce918da5a28c61652ed",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.confirm.references.weekly-quota.md",
+          "previous_target": ".agents/skills/confirm/references/weekly-quota.md",
+          "source": "source/forge/templates/skills/confirm/references/weekly-quota.md",
+          "target": ".codex/skills/confirm/references/weekly-quota.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:4dc91f611b1b594e8a5b33a6e16cce2bc049a7751be77ce918da5a28c61652ed",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/confirm/references/weekly-quota.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.create-worktree.skill.md",
         "source": "source/forge/templates/skills/create-worktree/SKILL.md",
-        "target": ".agents/skills/create-worktree/SKILL.md",
+        "target": ".codex/skills/create-worktree/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:d0e58c1b0bbdf5213336bbaf8c8951c2415ef5b86dba9be1735efc460fd8000c",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.create-worktree.skill.md",
+          "previous_target": ".agents/skills/create-worktree/SKILL.md",
+          "source": "source/forge/templates/skills/create-worktree/SKILL.md",
+          "target": ".codex/skills/create-worktree/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:d0e58c1b0bbdf5213336bbaf8c8951c2415ef5b86dba9be1735efc460fd8000c",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/create-worktree/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.create-worktree.agents.openai.yaml",
         "source": "source/forge/templates/skills/create-worktree/agents/openai.yaml",
-        "target": ".agents/skills/create-worktree/agents/openai.yaml",
+        "target": ".codex/skills/create-worktree/agents/openai.yaml",
         "strategy": "whole",
         "current_sha256": "sha256:f40c1215a001cb5e43495b151107b9d7fee34c4f00ee35bfc4136d7cf5a9dbe8",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.create-worktree.agents.openai.yaml",
+          "previous_target": ".agents/skills/create-worktree/agents/openai.yaml",
+          "source": "source/forge/templates/skills/create-worktree/agents/openai.yaml",
+          "target": ".codex/skills/create-worktree/agents/openai.yaml",
+          "known_hashes": [
+            {
+              "sha256": "sha256:f40c1215a001cb5e43495b151107b9d7fee34c4f00ee35bfc4136d7cf5a9dbe8",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/create-worktree/agents/openai.yaml"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.create-worktree.scripts.create_worktree.ps1",
         "source": "source/forge/templates/skills/create-worktree/scripts/create_worktree.ps1",
-        "target": ".agents/skills/create-worktree/scripts/create_worktree.ps1",
+        "target": ".codex/skills/create-worktree/scripts/create_worktree.ps1",
         "strategy": "whole",
         "current_sha256": "sha256:3574d9e0c8a1500049aaa5130551306af8e53a5f064a603dc8e62395dd0e8351",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.create-worktree.scripts.create_worktree.ps1",
+          "previous_target": ".agents/skills/create-worktree/scripts/create_worktree.ps1",
+          "source": "source/forge/templates/skills/create-worktree/scripts/create_worktree.ps1",
+          "target": ".codex/skills/create-worktree/scripts/create_worktree.ps1",
+          "known_hashes": [
+            {
+              "sha256": "sha256:3574d9e0c8a1500049aaa5130551306af8e53a5f064a603dc8e62395dd0e8351",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/create-worktree/scripts/create_worktree.ps1"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.debate.skill.md",
         "source": "source/forge/templates/skills/debate/SKILL.md",
-        "target": ".agents/skills/debate/SKILL.md",
+        "target": ".codex/skills/debate/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:cf41d29f58b7c9acc599bbc61e4e8d124fabb36da7f768152da967a23004fdbe",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.debate.skill.md",
+          "previous_target": ".agents/skills/debate/SKILL.md",
+          "source": "source/forge/templates/skills/debate/SKILL.md",
+          "target": ".codex/skills/debate/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:cf41d29f58b7c9acc599bbc61e4e8d124fabb36da7f768152da967a23004fdbe",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/debate/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.develop.references.agent-execution.md",
         "source": "source/forge/templates/skills/develop/references/agent-execution.md",
-        "target": ".agents/skills/develop/references/agent-execution.md",
+        "target": ".codex/skills/develop/references/agent-execution.md",
         "strategy": "whole",
         "current_sha256": "sha256:117194ba9d75b7e7117719d960755c5efe781bccc13311006b251185b826e8b3",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.develop.references.agent-execution.md",
+          "previous_target": ".agents/skills/develop/references/agent-execution.md",
+          "source": "source/forge/templates/skills/develop/references/agent-execution.md",
+          "target": ".codex/skills/develop/references/agent-execution.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:117194ba9d75b7e7117719d960755c5efe781bccc13311006b251185b826e8b3",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/develop/references/agent-execution.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.develop.references.ml-delivery.md",
         "source": "source/forge/templates/skills/develop/references/ml-delivery.md",
-        "target": ".agents/skills/develop/references/ml-delivery.md",
+        "target": ".codex/skills/develop/references/ml-delivery.md",
         "strategy": "whole",
         "current_sha256": "sha256:2ccdcdcb7a9e1db4f551fd5fc8bfbfab10dd9254094be4588094cd6a3dda4055",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.develop.references.ml-delivery.md",
+          "previous_target": ".agents/skills/develop/references/ml-delivery.md",
+          "source": "source/forge/templates/skills/develop/references/ml-delivery.md",
+          "target": ".codex/skills/develop/references/ml-delivery.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:2ccdcdcb7a9e1db4f551fd5fc8bfbfab10dd9254094be4588094cd6a3dda4055",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/develop/references/ml-delivery.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.develop.references.completion-release.md",
         "source": "source/forge/templates/skills/develop/references/completion-release.md",
-        "target": ".agents/skills/develop/references/completion-release.md",
+        "target": ".codex/skills/develop/references/completion-release.md",
         "strategy": "whole",
         "current_sha256": "sha256:a56d784bb4afa213d06ee2eb97a60137a178fef4bdb268c2914c0a6f2f2cce91",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.develop.references.completion-release.md",
+          "previous_target": ".agents/skills/develop/references/completion-release.md",
+          "source": "source/forge/templates/skills/develop/references/completion-release.md",
+          "target": ".codex/skills/develop/references/completion-release.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:a56d784bb4afa213d06ee2eb97a60137a178fef4bdb268c2914c0a6f2f2cce91",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/develop/references/completion-release.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.avoid-overdefensive-programming.skill.md",
         "source": "source/forge/templates/skills/avoid-overdefensive-programming/SKILL.md",
-        "target": ".agents/skills/avoid-overdefensive-programming/SKILL.md",
+        "target": ".codex/skills/avoid-overdefensive-programming/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:13ee87ae37dc1e46c0681962519adef071b6024cf014b5ca07f5c47edda6523a",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.avoid-overdefensive-programming.skill.md",
+          "previous_target": ".agents/skills/avoid-overdefensive-programming/SKILL.md",
+          "source": "source/forge/templates/skills/avoid-overdefensive-programming/SKILL.md",
+          "target": ".codex/skills/avoid-overdefensive-programming/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:13ee87ae37dc1e46c0681962519adef071b6024cf014b5ca07f5c47edda6523a",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/avoid-overdefensive-programming/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.develop.skill.md",
         "source": "source/forge/templates/skills/develop/SKILL.md",
-        "target": ".agents/skills/develop/SKILL.md",
+        "target": ".codex/skills/develop/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:fc953f08ba7ae316f14e61376d8e74d084a5eab155d47aa547a1050d4f3787ba",
         "previous_sha256": [
           "sha256:12eed5cc7ede6870a33fd36727eebee279aceda827f9fdd18ce152de7cfd9e67"
-        ]
+        ],
+        "relocation": {
+          "id": "codex.project-workflow.develop.skill.md",
+          "previous_target": ".agents/skills/develop/SKILL.md",
+          "source": "source/forge/templates/skills/develop/SKILL.md",
+          "target": ".codex/skills/develop/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:fc953f08ba7ae316f14e61376d8e74d084a5eab155d47aa547a1050d4f3787ba",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/develop/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.escalate.skill.md",
         "source": "source/forge/templates/skills/escalate/SKILL.md",
-        "target": ".agents/skills/escalate/SKILL.md",
+        "target": ".codex/skills/escalate/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:f0647f3c0a70176b384a0764a61121fa2502ca6aa20214438fd35b8b00fae236",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.escalate.skill.md",
+          "previous_target": ".agents/skills/escalate/SKILL.md",
+          "source": "source/forge/templates/skills/escalate/SKILL.md",
+          "target": ".codex/skills/escalate/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:f0647f3c0a70176b384a0764a61121fa2502ca6aa20214438fd35b8b00fae236",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/escalate/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.explain.skill.md",
         "source": "source/forge/templates/skills/explain/SKILL.md",
-        "target": ".agents/skills/explain/SKILL.md",
+        "target": ".codex/skills/explain/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:ee9e6bac1a8ff26150755b53c34eab0c53e9ed6969e94f4abfce84c4a9aaf40e",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.explain.skill.md",
+          "previous_target": ".agents/skills/explain/SKILL.md",
+          "source": "source/forge/templates/skills/explain/SKILL.md",
+          "target": ".codex/skills/explain/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:ee9e6bac1a8ff26150755b53c34eab0c53e9ed6969e94f4abfce84c4a9aaf40e",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/explain/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.find-doc.skill.md",
         "source": "source/forge/templates/skills/find-doc/SKILL.md",
-        "target": ".agents/skills/find-doc/SKILL.md",
+        "target": ".codex/skills/find-doc/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:74a692b66f96c29e03883c75c077fc10fd6ba026624c56ce27f92512eff2d25e",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.find-doc.skill.md",
+          "previous_target": ".agents/skills/find-doc/SKILL.md",
+          "source": "source/forge/templates/skills/find-doc/SKILL.md",
+          "target": ".codex/skills/find-doc/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:74a692b66f96c29e03883c75c077fc10fd6ba026624c56ce27f92512eff2d25e",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/find-doc/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.focus.skill.md",
         "source": "source/forge/templates/skills/focus/SKILL.md",
-        "target": ".agents/skills/focus/SKILL.md",
+        "target": ".codex/skills/focus/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:d6eb386a5bf73e532d204f3c74885f236a0d571df8b85c1780733954ca8db3d4",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.focus.skill.md",
+          "previous_target": ".agents/skills/focus/SKILL.md",
+          "source": "source/forge/templates/skills/focus/SKILL.md",
+          "target": ".codex/skills/focus/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:d6eb386a5bf73e532d204f3c74885f236a0d571df8b85c1780733954ca8db3d4",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/focus/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.git-sync.skill.md",
         "source": "source/forge/templates/skills/git-sync/SKILL.md",
-        "target": ".agents/skills/git-sync/SKILL.md",
+        "target": ".codex/skills/git-sync/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:8910de659f1a604d56fc7cc8d741b5fb52f2a4d53e23886a3e7249ed26c68e35",
         "previous_sha256": [
           "sha256:cc88742d4e1e71082815365040c27067eda3b77ef6b4b549f4c3dfc1d977048a",
           "sha256:82c645eece6261c6be3f81b7f968801ea43aa05266428be93fb3ac3d3193aeef"
-        ]
+        ],
+        "relocation": {
+          "id": "codex.project-workflow.git-sync.skill.md",
+          "previous_target": ".agents/skills/git-sync/SKILL.md",
+          "source": "source/forge/templates/skills/git-sync/SKILL.md",
+          "target": ".codex/skills/git-sync/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:8910de659f1a604d56fc7cc8d741b5fb52f2a4d53e23886a3e7249ed26c68e35",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/git-sync/SKILL.md"
+            },
+            {
+              "sha256": "sha256:cc88742d4e1e71082815365040c27067eda3b77ef6b4b549f4c3dfc1d977048a",
+              "revision": "e00683bca1356316f04667d43ad9a12186379888",
+              "source": "source/forge/templates/skills/git-sync/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.git-sync.references.first-use.md",
         "source": "source/forge/templates/skills/git-sync/references/first-use.md",
-        "target": ".agents/skills/git-sync/references/first-use.md",
+        "target": ".codex/skills/git-sync/references/first-use.md",
         "strategy": "whole",
         "current_sha256": "sha256:26234a62b1f08417c8a47af33669ade7d7576030c535e07fbc8e3463e1ad7606",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.git-sync.references.first-use.md",
+          "previous_target": ".agents/skills/git-sync/references/first-use.md",
+          "source": "source/forge/templates/skills/git-sync/references/first-use.md",
+          "target": ".codex/skills/git-sync/references/first-use.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:26234a62b1f08417c8a47af33669ade7d7576030c535e07fbc8e3463e1ad7606",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/git-sync/references/first-use.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.git-sync.references.schema4.md",
         "source": "source/forge/templates/skills/git-sync/references/schema4.md",
-        "target": ".agents/skills/git-sync/references/schema4.md",
+        "target": ".codex/skills/git-sync/references/schema4.md",
         "strategy": "whole",
         "current_sha256": "sha256:da5622d93ab2d7bd02024c91277b459f6cde1e572dee440ce9395a198e592a2a",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.git-sync.references.schema4.md",
+          "previous_target": ".agents/skills/git-sync/references/schema4.md",
+          "source": "source/forge/templates/skills/git-sync/references/schema4.md",
+          "target": ".codex/skills/git-sync/references/schema4.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:da5622d93ab2d7bd02024c91277b459f6cde1e572dee440ce9395a198e592a2a",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/git-sync/references/schema4.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.git-sync.references.runtime-context.md",
         "source": "source/forge/templates/skills/git-sync/references/runtime-context.md",
-        "target": ".agents/skills/git-sync/references/runtime-context.md",
+        "target": ".codex/skills/git-sync/references/runtime-context.md",
         "strategy": "whole",
         "current_sha256": "sha256:843ee21bccce0d61b04585a163390a05838ab42583feb9a6c60fd6a41b16ab6a",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.git-sync.references.runtime-context.md",
+          "previous_target": ".agents/skills/git-sync/references/runtime-context.md",
+          "source": "source/forge/templates/skills/git-sync/references/runtime-context.md",
+          "target": ".codex/skills/git-sync/references/runtime-context.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:843ee21bccce0d61b04585a163390a05838ab42583feb9a6c60fd6a41b16ab6a",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/git-sync/references/runtime-context.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.plan.skill.md",
         "source": "source/forge/templates/skills/plan/SKILL.md",
-        "target": ".agents/skills/plan/SKILL.md",
+        "target": ".codex/skills/plan/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:65d595a899749b588a03cbdf49e625839a741d803b030679c94b5b6eb9e7bb95",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.plan.skill.md",
+          "previous_target": ".agents/skills/plan/SKILL.md",
+          "source": "source/forge/templates/skills/plan/SKILL.md",
+          "target": ".codex/skills/plan/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:65d595a899749b588a03cbdf49e625839a741d803b030679c94b5b6eb9e7bb95",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/plan/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.spinoff.skill.md",
         "source": "source/forge/templates/skills/spinoff/SKILL.md",
-        "target": ".agents/skills/spinoff/SKILL.md",
+        "target": ".codex/skills/spinoff/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:09c0b4d514e192ae1ead8c40c861371c31185b426b9bfb6d8a19769c7a06a4a4",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.spinoff.skill.md",
+          "previous_target": ".agents/skills/spinoff/SKILL.md",
+          "source": "source/forge/templates/skills/spinoff/SKILL.md",
+          "target": ".codex/skills/spinoff/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:09c0b4d514e192ae1ead8c40c861371c31185b426b9bfb6d8a19769c7a06a4a4",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/spinoff/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.summary.references.acceptance-mode.md",
         "source": "source/forge/templates/skills/summary/references/acceptance-mode.md",
-        "target": ".agents/skills/summary/references/acceptance-mode.md",
+        "target": ".codex/skills/summary/references/acceptance-mode.md",
         "strategy": "whole",
         "current_sha256": "sha256:a965228a36022ce61c650eaa6cd2f056de814b9fc4ccfe482f8c1573e5eb0a9a",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.summary.references.acceptance-mode.md",
+          "previous_target": ".agents/skills/summary/references/acceptance-mode.md",
+          "source": "source/forge/templates/skills/summary/references/acceptance-mode.md",
+          "target": ".codex/skills/summary/references/acceptance-mode.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:a965228a36022ce61c650eaa6cd2f056de814b9fc4ccfe482f8c1573e5eb0a9a",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/summary/references/acceptance-mode.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.summary.references.ordinary-mode.md",
         "source": "source/forge/templates/skills/summary/references/ordinary-mode.md",
-        "target": ".agents/skills/summary/references/ordinary-mode.md",
+        "target": ".codex/skills/summary/references/ordinary-mode.md",
         "strategy": "whole",
         "current_sha256": "sha256:cec6a41bf61be4166ed057f50132d51f7b07bf4e0697a41e2b8eddd18948a657",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.summary.references.ordinary-mode.md",
+          "previous_target": ".agents/skills/summary/references/ordinary-mode.md",
+          "source": "source/forge/templates/skills/summary/references/ordinary-mode.md",
+          "target": ".codex/skills/summary/references/ordinary-mode.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:cec6a41bf61be4166ed057f50132d51f7b07bf4e0697a41e2b8eddd18948a657",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/summary/references/ordinary-mode.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.summary.skill.md",
         "source": "source/forge/templates/skills/summary/SKILL.md",
-        "target": ".agents/skills/summary/SKILL.md",
+        "target": ".codex/skills/summary/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:157d6ce0c8bbc2537de4ac70c5f3a5bbf5450fc7382a8dae4143ed119f34368a",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.summary.skill.md",
+          "previous_target": ".agents/skills/summary/SKILL.md",
+          "source": "source/forge/templates/skills/summary/SKILL.md",
+          "target": ".codex/skills/summary/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:157d6ce0c8bbc2537de4ac70c5f3a5bbf5450fc7382a8dae4143ed119f34368a",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/summary/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.summary.references.switch-mode.md",
         "source": "source/forge/templates/skills/summary/references/switch-mode.md",
-        "target": ".agents/skills/summary/references/switch-mode.md",
+        "target": ".codex/skills/summary/references/switch-mode.md",
         "strategy": "whole",
         "current_sha256": "sha256:4b8b2724c385df1ee0d2d5b65939c2e99cfc048e3dadc94424c5fd25f2457d1a",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.summary.references.switch-mode.md",
+          "previous_target": ".agents/skills/summary/references/switch-mode.md",
+          "source": "source/forge/templates/skills/summary/references/switch-mode.md",
+          "target": ".codex/skills/summary/references/switch-mode.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:4b8b2724c385df1ee0d2d5b65939c2e99cfc048e3dadc94424c5fd25f2457d1a",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/summary/references/switch-mode.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.refactor-scan.skill.md",
         "source": "source/forge/templates/skills/refactor-scan/SKILL.md",
-        "target": ".agents/skills/refactor-scan/SKILL.md",
+        "target": ".codex/skills/refactor-scan/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:fb1a948d719fbf3da5857d73b9c80343775a9b51c05af4d644f0441d84bc5069",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.refactor-scan.skill.md",
+          "previous_target": ".agents/skills/refactor-scan/SKILL.md",
+          "source": "source/forge/templates/skills/refactor-scan/SKILL.md",
+          "target": ".codex/skills/refactor-scan/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:fb1a948d719fbf3da5857d73b9c80343775a9b51c05af4d644f0441d84bc5069",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/refactor-scan/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.refactor-scan.references.report-contract.md",
         "source": "source/forge/templates/skills/refactor-scan/references/report-contract.md",
-        "target": ".agents/skills/refactor-scan/references/report-contract.md",
+        "target": ".codex/skills/refactor-scan/references/report-contract.md",
         "strategy": "whole",
         "current_sha256": "sha256:4e5740a0b8b50d2cc2bc19c2631b0806ceb55fb0f2b0b960ff4ab01bbe63ca3c",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.refactor-scan.references.report-contract.md",
+          "previous_target": ".agents/skills/refactor-scan/references/report-contract.md",
+          "source": "source/forge/templates/skills/refactor-scan/references/report-contract.md",
+          "target": ".codex/skills/refactor-scan/references/report-contract.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:4e5740a0b8b50d2cc2bc19c2631b0806ceb55fb0f2b0b960ff4ab01bbe63ca3c",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/refactor-scan/references/report-contract.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.sync-docs.skill.md",
         "source": "source/forge/templates/skills/sync-docs/SKILL.md",
-        "target": ".agents/skills/sync-docs/SKILL.md",
+        "target": ".codex/skills/sync-docs/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:84e8278811707f2bfa8651f8c71eee5708f02d4889ee9b14d711016104c9b61d",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.sync-docs.skill.md",
+          "previous_target": ".agents/skills/sync-docs/SKILL.md",
+          "source": "source/forge/templates/skills/sync-docs/SKILL.md",
+          "target": ".codex/skills/sync-docs/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:84e8278811707f2bfa8651f8c71eee5708f02d4889ee9b14d711016104c9b61d",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/sync-docs/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.todo.references.contract.md",
         "source": "source/forge/templates/skills/todo/references/contract.md",
-        "target": ".agents/skills/todo/references/contract.md",
+        "target": ".codex/skills/todo/references/contract.md",
         "strategy": "whole",
         "current_sha256": "sha256:cd9ae1e62989caf72de5f83624b9fd59c36cd6c8ccf07d1fc7f1d78cb72ad90f",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.todo.references.contract.md",
+          "previous_target": ".agents/skills/todo/references/contract.md",
+          "source": "source/forge/templates/skills/todo/references/contract.md",
+          "target": ".codex/skills/todo/references/contract.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:cd9ae1e62989caf72de5f83624b9fd59c36cd6c8ccf07d1fc7f1d78cb72ad90f",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/todo/references/contract.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.project-workflow.todo.skill.md",
         "source": "source/forge/templates/skills/todo/SKILL.md",
-        "target": ".agents/skills/todo/SKILL.md",
+        "target": ".codex/skills/todo/SKILL.md",
         "strategy": "whole",
         "current_sha256": "sha256:43128595e71c8ffb3dbef80994a4cd945bd5f142b76ec1d76464773af9151dea",
-        "previous_sha256": []
+        "previous_sha256": [],
+        "relocation": {
+          "id": "codex.project-workflow.todo.skill.md",
+          "previous_target": ".agents/skills/todo/SKILL.md",
+          "source": "source/forge/templates/skills/todo/SKILL.md",
+          "target": ".codex/skills/todo/SKILL.md",
+          "known_hashes": [
+            {
+              "sha256": "sha256:43128595e71c8ffb3dbef80994a4cd945bd5f142b76ec1d76464773af9151dea",
+              "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
+              "source": "source/forge/templates/skills/todo/SKILL.md"
+            }
+          ]
+        }
       },
       {
         "id": "codex.doc.project-rust-hooks",
@@ -3719,7 +4641,7 @@
         "source": "Cargo.lock",
         "target": ".codex/hooks/Cargo.lock",
         "strategy": "whole",
-        "current_sha256": "sha256:a4610549dab604ce162e40c9eca14e67a45890186695470e430193b83210651c",
+        "current_sha256": "sha256:eb79894bac5f628fb5bb64d9985f566c5062d165921ee01dd9200ba7903252be",
         "render": "public-runtime-lock"
       },
       {
@@ -3812,7 +4734,7 @@
         "source": "source/forge/cli/Cargo.toml",
         "target": ".codex/hooks/source/cli/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:137784c54700d6c48a5ae901082c3a6f96c34a639ae7ed7ca3a1ccce941bc485"
+        "current_sha256": "sha256:ea2acc37e5df6d6fa767a78b30e822e3644f5714c5aea008c38692f52985c447"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-cli-src-main-rs",
@@ -3847,7 +4769,7 @@
         "source": "source/forge/core/Cargo.toml",
         "target": ".codex/hooks/source/core/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:1b00b153fbea25a9c9fa2cf2e3ca631e15fd8cc3e3feee8134f029488076b796"
+        "current_sha256": "sha256:4c7d30db124031d25930f5583d076f794c6158dc8aeb12ecff7bc3a474264cee"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-core-src-artifact-cache-rs",
@@ -4085,14 +5007,14 @@
         "source": "source/forge/core/src/template_assets.rs",
         "target": ".codex/hooks/source/core/src/template_assets.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:398f2aee0a100ef3e8b5f1f81db1301ea111fd18be102e45a6c1d040e8cce901"
+        "current_sha256": "sha256:bbabe1fe36cb03dda1da415dbae4f54a3efcc3c181f4dd4c74502be49dbdcff9"
       },
       {
         "id": "codex.hooks.source-core-src-template-standard-rs",
         "source": "source/forge/core/src/template_standard.rs",
         "target": ".codex/hooks/source/core/src/template_standard.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:68725e8490bcb3222f84f74f8f0082a2115a53a8dcc2f15df486dd7117437362"
+        "current_sha256": "sha256:e7757463c0fc6a5f8ebd7afea8dbe96a5ab856a86267452a1b72e61897b61f12"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-core-src-user-agents-rs",
@@ -4456,7 +5378,7 @@
         "source": "source/forge/skeleton/Cargo.toml",
         "target": ".codex/hooks/source/skeleton/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:27e53442f61340a7dc8be50c32589e3aa6226833791d4c3767c53c52a8289e30"
+        "current_sha256": "sha256:33f4a5d77b994384f4ca64c7942e4795b940dddfd9805f15ef5f86fd1fccaf66"
       },
       {
         "id": "codex.hooks.source-skeleton-src-attributes-rs",
@@ -4470,7 +5392,7 @@
         "source": "source/forge/skeleton/src/baseline.rs",
         "target": ".codex/hooks/source/skeleton/src/baseline.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:fb619bf741a94758aaf3c09d71329898c08b013dc1161770fcd42edd64ea6d36"
+        "current_sha256": "sha256:3d25abd1c541689e3e5357fb3a18558b8267cd61ef3f1842b578ffbbbe81f940"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-core-src-project-sync-content-rs",
@@ -4498,14 +5420,14 @@
         "source": "source/forge/skeleton/src/template.rs",
         "target": ".codex/hooks/source/skeleton/src/template.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:b97e44a9ff429a432502c8c046916e4efe7b0aae0709951c5179eb62e2cfd924"
+        "current_sha256": "sha256:e497153da5cada494734bb03fa5a6296182706be18d6856a19a699426fed0f01"
       },
       {
         "id": "codex.hooks.source-workflow-cargo-toml",
         "source": "source/forge/workflow/Cargo.toml",
         "target": ".codex/hooks/source/workflow/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:f5cf4e5397bf58044d69f7243d5a74d43556d245f742a682b7acc6e049f77ed1"
+        "current_sha256": "sha256:d7679cef2e24ace4fe5350bf272b9be14e0fdd3eb5d651853d6346f96471b26f"
       },
       {
         "id": "codex.hooks.source-workflow-src-artifact-cleanup-rs",
@@ -4631,7 +5553,7 @@
         "source": "source/forge/workflow/src/project_sync.rs",
         "target": ".codex/hooks/source/workflow/src/project_sync.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:89bfc55967bb6ca9d6a0d544737d52d79b78e177fff05a987a92432f8384d932"
+        "current_sha256": "sha256:33b0044607206f831000da3034a0bf6663cf503c65a7d0eab303bdfbe9ec564f"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-core-src-public-artifacts-rs",
@@ -4652,7 +5574,7 @@
         "source": "source/forge/workflow/src/template_sync.rs",
         "target": ".codex/hooks/source/workflow/src/template_sync.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:99346c7d0eb745bee9ac8ac5584f410f95f47c3ebea23a48b3db98d3cfb05389"
+        "current_sha256": "sha256:7f1108a86872a25417274353603f257b2c5f1c03ed2910604049b764e3575968"
       }
     ],
     "baseline_model": "current-only",
@@ -4699,15 +5621,15 @@
             "status": "ok",
             "build_identity": {
               "protocol": 1,
-              "source_tree_sha256": "sha256:ea4ff25d64e5dbd33a1b72b0e06bbf97af29548016e07e9370b21d260b6a08c0",
-              "lockfile_sha256": "sha256:a4610549dab604ce162e40c9eca14e67a45890186695470e430193b83210651c"
+              "source_tree_sha256": "sha256:85e0515976c95879673bc7dc17cc6000f2cad5d97900d59124b9f375554d34ce",
+              "lockfile_sha256": "sha256:eb79894bac5f628fb5bb64d9985f566c5062d165921ee01dd9200ba7903252be"
             }
           }
         },
-        "source_tree_sha256": "sha256:ea4ff25d64e5dbd33a1b72b0e06bbf97af29548016e07e9370b21d260b6a08c0",
-        "lockfile_sha256": "sha256:a4610549dab604ce162e40c9eca14e67a45890186695470e430193b83210651c",
+        "source_tree_sha256": "sha256:85e0515976c95879673bc7dc17cc6000f2cad5d97900d59124b9f375554d34ce",
+        "lockfile_sha256": "sha256:eb79894bac5f628fb5bb64d9985f566c5062d165921ee01dd9200ba7903252be",
         "build_recipe_sha256": "sha256:38f32bc9a727a88db971e8bcf9c71d1f9e3dc0cd9a68a6f560bcd48bda07c444",
-        "self_test_sha256": "sha256:9683f9e1214755d90bd4b228a09d793c868f1562abfc10412387b06b99c858c0",
+        "self_test_sha256": "sha256:468f3b57a63af5212847c2bc6fa55280f103bc8457dfbe95708f23f9eeb1d443",
         "source_projection": "public-runtime-v1"
       },
       {
@@ -4751,19 +5673,265 @@
             "status": "ok",
             "build_identity": {
               "protocol": 1,
-              "source_tree_sha256": "sha256:ea4ff25d64e5dbd33a1b72b0e06bbf97af29548016e07e9370b21d260b6a08c0",
-              "lockfile_sha256": "sha256:a4610549dab604ce162e40c9eca14e67a45890186695470e430193b83210651c"
+              "source_tree_sha256": "sha256:85e0515976c95879673bc7dc17cc6000f2cad5d97900d59124b9f375554d34ce",
+              "lockfile_sha256": "sha256:eb79894bac5f628fb5bb64d9985f566c5062d165921ee01dd9200ba7903252be"
             }
           }
         },
-        "source_tree_sha256": "sha256:ea4ff25d64e5dbd33a1b72b0e06bbf97af29548016e07e9370b21d260b6a08c0",
-        "lockfile_sha256": "sha256:a4610549dab604ce162e40c9eca14e67a45890186695470e430193b83210651c",
+        "source_tree_sha256": "sha256:85e0515976c95879673bc7dc17cc6000f2cad5d97900d59124b9f375554d34ce",
+        "lockfile_sha256": "sha256:eb79894bac5f628fb5bb64d9985f566c5062d165921ee01dd9200ba7903252be",
         "build_recipe_sha256": "sha256:cf5fb262a1e28cd8e05979b29b633143e52ae3cd1b62eeea56d9f55da70d1e5e",
-        "self_test_sha256": "sha256:cec73cb18033e3534cc17683bfd40573286b49259754db6b0a9e9938f6a81fc3",
+        "self_test_sha256": "sha256:2fb4dc46430cbef45dba4990f6b9f264ab4d6cb3bd9797e2f25701d7ac1b7295",
         "source_projection": "public-runtime-v1"
       }
     ],
     "retired_assets": [
+      {
+        "id": "codex.project-workflow.cleanup.skill.md",
+        "target": ".agents/skills/cleanup/SKILL.md",
+        "known_hashes": [
+          "sha256:a6a993c86ef55402a9b09f0030ce80bd54b4231393ab3cdf715ff5fab58c37af"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.archive-scan.skill.md",
+        "target": ".agents/skills/archive-scan/SKILL.md",
+        "known_hashes": [
+          "sha256:e2ab974e9fc13fb65fd2c28419e1c97c0d0e34c5443a5fa666789558ccf09542"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.autopilot.skill.md",
+        "target": ".agents/skills/autopilot/SKILL.md",
+        "known_hashes": [
+          "sha256:b4f59bd47d7d0cd9cbe470b77159fafe3440f5c86ba7393160395e44ff550dcf"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.autopilot.references.runtime.md",
+        "target": ".agents/skills/autopilot/references/runtime.md",
+        "known_hashes": [
+          "sha256:c3e8ec00a4778e2792908a194fdeaca640f465c7ba9d18a6e6e55d37d423ceac"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.collab.skill.md",
+        "target": ".agents/skills/collab/SKILL.md",
+        "known_hashes": [
+          "sha256:bbcd5cbf6a0b119615427815a55e614c55b4d4af1f1bf46676e37bea0751b253"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.confirm.skill.md",
+        "target": ".agents/skills/confirm/SKILL.md",
+        "known_hashes": [
+          "sha256:850fe88cd78f4598e2fa33ea126d36fcea4b5a07065226c40588d16c1a69bfb7"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.confirm.references.weekly-quota.md",
+        "target": ".agents/skills/confirm/references/weekly-quota.md",
+        "known_hashes": [
+          "sha256:4dc91f611b1b594e8a5b33a6e16cce2bc049a7751be77ce918da5a28c61652ed"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.create-worktree.skill.md",
+        "target": ".agents/skills/create-worktree/SKILL.md",
+        "known_hashes": [
+          "sha256:d0e58c1b0bbdf5213336bbaf8c8951c2415ef5b86dba9be1735efc460fd8000c"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.create-worktree.agents.openai.yaml",
+        "target": ".agents/skills/create-worktree/agents/openai.yaml",
+        "known_hashes": [
+          "sha256:f40c1215a001cb5e43495b151107b9d7fee34c4f00ee35bfc4136d7cf5a9dbe8"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.create-worktree.scripts.create_worktree.ps1",
+        "target": ".agents/skills/create-worktree/scripts/create_worktree.ps1",
+        "known_hashes": [
+          "sha256:3574d9e0c8a1500049aaa5130551306af8e53a5f064a603dc8e62395dd0e8351"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.debate.skill.md",
+        "target": ".agents/skills/debate/SKILL.md",
+        "known_hashes": [
+          "sha256:cf41d29f58b7c9acc599bbc61e4e8d124fabb36da7f768152da967a23004fdbe"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.develop.references.agent-execution.md",
+        "target": ".agents/skills/develop/references/agent-execution.md",
+        "known_hashes": [
+          "sha256:117194ba9d75b7e7117719d960755c5efe781bccc13311006b251185b826e8b3"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.develop.references.ml-delivery.md",
+        "target": ".agents/skills/develop/references/ml-delivery.md",
+        "known_hashes": [
+          "sha256:2ccdcdcb7a9e1db4f551fd5fc8bfbfab10dd9254094be4588094cd6a3dda4055"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.develop.references.completion-release.md",
+        "target": ".agents/skills/develop/references/completion-release.md",
+        "known_hashes": [
+          "sha256:a56d784bb4afa213d06ee2eb97a60137a178fef4bdb268c2914c0a6f2f2cce91"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.avoid-overdefensive-programming.skill.md",
+        "target": ".agents/skills/avoid-overdefensive-programming/SKILL.md",
+        "known_hashes": [
+          "sha256:13ee87ae37dc1e46c0681962519adef071b6024cf014b5ca07f5c47edda6523a"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.develop.skill.md",
+        "target": ".agents/skills/develop/SKILL.md",
+        "known_hashes": [
+          "sha256:fc953f08ba7ae316f14e61376d8e74d084a5eab155d47aa547a1050d4f3787ba"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.escalate.skill.md",
+        "target": ".agents/skills/escalate/SKILL.md",
+        "known_hashes": [
+          "sha256:f0647f3c0a70176b384a0764a61121fa2502ca6aa20214438fd35b8b00fae236"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.explain.skill.md",
+        "target": ".agents/skills/explain/SKILL.md",
+        "known_hashes": [
+          "sha256:ee9e6bac1a8ff26150755b53c34eab0c53e9ed6969e94f4abfce84c4a9aaf40e"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.find-doc.skill.md",
+        "target": ".agents/skills/find-doc/SKILL.md",
+        "known_hashes": [
+          "sha256:74a692b66f96c29e03883c75c077fc10fd6ba026624c56ce27f92512eff2d25e"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.focus.skill.md",
+        "target": ".agents/skills/focus/SKILL.md",
+        "known_hashes": [
+          "sha256:d6eb386a5bf73e532d204f3c74885f236a0d571df8b85c1780733954ca8db3d4"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.git-sync.skill.md",
+        "target": ".agents/skills/git-sync/SKILL.md",
+        "known_hashes": [
+          "sha256:8910de659f1a604d56fc7cc8d741b5fb52f2a4d53e23886a3e7249ed26c68e35",
+          "sha256:cc88742d4e1e71082815365040c27067eda3b77ef6b4b549f4c3dfc1d977048a"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.git-sync.references.first-use.md",
+        "target": ".agents/skills/git-sync/references/first-use.md",
+        "known_hashes": [
+          "sha256:26234a62b1f08417c8a47af33669ade7d7576030c535e07fbc8e3463e1ad7606"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.git-sync.references.schema4.md",
+        "target": ".agents/skills/git-sync/references/schema4.md",
+        "known_hashes": [
+          "sha256:da5622d93ab2d7bd02024c91277b459f6cde1e572dee440ce9395a198e592a2a"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.git-sync.references.runtime-context.md",
+        "target": ".agents/skills/git-sync/references/runtime-context.md",
+        "known_hashes": [
+          "sha256:843ee21bccce0d61b04585a163390a05838ab42583feb9a6c60fd6a41b16ab6a"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.plan.skill.md",
+        "target": ".agents/skills/plan/SKILL.md",
+        "known_hashes": [
+          "sha256:65d595a899749b588a03cbdf49e625839a741d803b030679c94b5b6eb9e7bb95"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.spinoff.skill.md",
+        "target": ".agents/skills/spinoff/SKILL.md",
+        "known_hashes": [
+          "sha256:09c0b4d514e192ae1ead8c40c861371c31185b426b9bfb6d8a19769c7a06a4a4"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.summary.references.acceptance-mode.md",
+        "target": ".agents/skills/summary/references/acceptance-mode.md",
+        "known_hashes": [
+          "sha256:a965228a36022ce61c650eaa6cd2f056de814b9fc4ccfe482f8c1573e5eb0a9a"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.summary.references.ordinary-mode.md",
+        "target": ".agents/skills/summary/references/ordinary-mode.md",
+        "known_hashes": [
+          "sha256:cec6a41bf61be4166ed057f50132d51f7b07bf4e0697a41e2b8eddd18948a657"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.summary.skill.md",
+        "target": ".agents/skills/summary/SKILL.md",
+        "known_hashes": [
+          "sha256:157d6ce0c8bbc2537de4ac70c5f3a5bbf5450fc7382a8dae4143ed119f34368a"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.summary.references.switch-mode.md",
+        "target": ".agents/skills/summary/references/switch-mode.md",
+        "known_hashes": [
+          "sha256:4b8b2724c385df1ee0d2d5b65939c2e99cfc048e3dadc94424c5fd25f2457d1a"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.refactor-scan.skill.md",
+        "target": ".agents/skills/refactor-scan/SKILL.md",
+        "known_hashes": [
+          "sha256:fb1a948d719fbf3da5857d73b9c80343775a9b51c05af4d644f0441d84bc5069"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.refactor-scan.references.report-contract.md",
+        "target": ".agents/skills/refactor-scan/references/report-contract.md",
+        "known_hashes": [
+          "sha256:4e5740a0b8b50d2cc2bc19c2631b0806ceb55fb0f2b0b960ff4ab01bbe63ca3c"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.sync-docs.skill.md",
+        "target": ".agents/skills/sync-docs/SKILL.md",
+        "known_hashes": [
+          "sha256:84e8278811707f2bfa8651f8c71eee5708f02d4889ee9b14d711016104c9b61d"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.todo.references.contract.md",
+        "target": ".agents/skills/todo/references/contract.md",
+        "known_hashes": [
+          "sha256:cd9ae1e62989caf72de5f83624b9fd59c36cd6c8ccf07d1fc7f1d78cb72ad90f"
+        ]
+      },
+      {
+        "id": "codex.project-workflow.todo.skill.md",
+        "target": ".agents/skills/todo/SKILL.md",
+        "known_hashes": [
+          "sha256:43128595e71c8ffb3dbef80994a4cd945bd5f142b76ec1d76464773af9151dea"
+        ]
+      },
       {
         "id": "codex.hooks.crates-bridgeforge-cli-cargo-toml",
         "target": ".codex/hooks/crates/bridgeforge-cli/Cargo.toml",

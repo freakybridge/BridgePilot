@@ -22,6 +22,53 @@ pub fn verify_factory_identity(root: &Path, identity: &Value) -> Result<(), Stri
     Err("factory source differs from compiled public or factory verifier".into())
 }
 
+/// Exact historical files only. Unknown content is preserved and blocks migration.
+pub fn retired_workflow_inputs(root: &Path) -> Result<BTreeMap<std::path::PathBuf, Option<Vec<u8>>>, String> {
+    let rows = template_standard::skill_relocations();
+    let retired = crate::baseline::retired_assets_from_history(&json!({"schema":1,"format":"bridgeforge-asset-history-v1","relocations":rows,"retirements":[]}))?;
+    let mut inputs = BTreeMap::new();
+    for item in retired.as_array().ok_or("workflow retirements missing")? {
+        let relative = item["target"].as_str().ok_or("workflow retirement target missing")?;
+        let path = managed_paths::safe_join(root, relative, "workflow relocation")?;
+        let bytes = managed_paths::read_metadata(&path, 32 * 1024 * 1024)?;
+        if bytes.as_ref().is_some_and(|b|!item["known_hashes"].as_array().is_some_and(|known|
+            known.iter().any(|h|h.as_str() == Some(build_manifest::normalized_hash(b).as_str())))) {
+            return Err(format!("modified or unowned old project Skill is preserved: {relative}"));
+        }
+        inputs.insert(path, bytes);
+    }
+    Ok(inputs)
+}
+
+pub fn verify_workflow_retirements(root: &Path) -> Result<(), String> {
+    if retired_workflow_inputs(root)?.values().any(Option::is_some) {
+        return Err("old Forge project Skills remain in .agents/skills; managed migration required".into());
+    }
+    Ok(())
+}
+
+/// Remove only empty parents of explicitly relocated files; never traverse user content.
+pub fn prune_workflow_directories(root: &Path) -> Vec<String> {
+    let mut parents = std::collections::BTreeSet::new();
+    for row in template_standard::skill_relocations() {
+        if let Some(relative) = row["previous_target"].as_str() {
+            let mut parent = Path::new(relative).parent();
+            while let Some(path) = parent.filter(|p|p.starts_with(".agents")) {
+                parents.insert(path.to_path_buf()); parent = path.parent();
+            }
+        }
+    }
+    let mut retained = Vec::new();
+    for relative in parents.into_iter().rev() {
+        let name = relative.to_string_lossy().replace('\\', "/");
+        let result = managed_paths::safe_join(root, &name, "empty workflow directory").and_then(|p| {
+            fs::remove_dir(p).map_err(|e|e.to_string())
+        });
+        if result.is_err() && root.join(&relative).exists() { retained.push(name); }
+    }
+    retained
+}
+
 pub fn json_paths(root: &Path) -> Result<Vec<String>, String> {
     let directory = managed_paths::safe_join(root, ".codex", "Codex directory")?;
     if !directory.exists() { return Ok(Vec::new()); }
@@ -80,6 +127,7 @@ pub fn verify_runtime(root: &Path) -> Result<(), String> {
 pub fn verify(root: &Path, runtime: bool) -> Result<Value, String> {
     let paths = json_paths(root)?;
     let factory = factory(root)?;
+    verify_workflow_retirements(root)?;
     // The factory owns its historical development records. This updater never
     // adopts the factory as a consumer or uses those records as online policy.
     if !factory && paths != [".codex/hooks.json"] { return Err(format!("Codex JSON must be exactly hooks.json; found: {}", paths.join(", "))); }
@@ -118,6 +166,11 @@ pub fn verify_index(root: &Path, runner: &dyn ProcessRunner) -> Result<Value, St
     let paths = entries.keys().filter(|p| p.starts_with(".codex/") && p.to_ascii_lowercase().ends_with(".json")).cloned().collect::<Vec<_>>();
     let factory = factory(root)?;
     if !factory && paths != [".codex/hooks.json"] { return Err(format!("staged Codex JSON must be exactly hooks.json; found: {}", paths.join(", "))); }
+    for relocation in template_standard::skill_relocations() {
+        if relocation["previous_target"].as_str().is_some_and(|p|entries.contains_key(p)) {
+            return Err("old Forge Skill remains in the staged tree".into());
+        }
+    }
     for asset in assets_for(root)? {
         if asset.rule["strategy"] == "seed" { continue; }
         let target = asset.rule["target"].as_str().ok_or("template target missing")?;

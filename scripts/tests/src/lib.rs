@@ -354,7 +354,7 @@ mod tests {
         assert!(!contract.contains(".py\""));
         assert!(contract.contains("codex.bridgeforge-cli"));
         assert!(contract.contains("codex.hooks"));
-        assert!(contract.contains(".agents/skills/git-sync/references/first-use.md"));
+        assert!(contract.contains(".codex/skills/git-sync/references/first-use.md"));
     }
 
     #[test]

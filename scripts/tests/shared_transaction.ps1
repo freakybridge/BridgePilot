@@ -187,7 +187,7 @@ New-Item -ItemType Directory -Path (Join-Path $fixtureProfile '.codex/skills') -
 # Synthesize a historical install catalog only for transaction compatibility fixtures.
 $assetManifest = ([IO.File]::ReadAllText((Join-Path $RepositoryRoot $ManifestName)) | ConvertFrom-Json).project_skeleton
 $legacyFixtureSkills = foreach ($name in @("autopilot", "confirm", "summary")) {
-    $prefix = ".agents/skills/$name/"
+    $prefix = ".codex/skills/$name/"
     $files = @($assetManifest.assets | Where-Object { $_.target.StartsWith($prefix) } | ForEach-Object {
         @{source=$_.source; target=$_.target.Substring($prefix.Length); sha256="sha256:$(Get-Sha256 -Path (Join-Path $RepositoryRoot $_.source))"}
     })

@@ -40,7 +40,7 @@ fn template_runtime_installation_rejects_unknown_or_modified_bytes() {
 fn project_workflow_ownership_distinguishes_current_history_and_conflicts() {
     let fixture = Fixture::new("workflow-ownership");
     let root = &fixture.0;
-    let target = ".agents/skills/develop/SKILL.md";
+    let target = ".codex/skills/develop/SKILL.md";
     let workflow = template_standard::assets().into_iter().find(|asset| asset.rule["target"] == target).unwrap();
     let mut rule = workflow.rule;
     rule["previous_sha256"] = json!([build_manifest::normalized_hash(b"previous\n")]);
@@ -50,16 +50,16 @@ fn project_workflow_ownership_distinguishes_current_history_and_conflicts() {
     assert!(verify_workflow_asset(target, &rule, Some(b"local edits")).unwrap_err().contains("preserved"));
 
     assert!(verify_workflow_root(root, target).is_ok());
-    let references = root.join(".agents/skills/develop/references");
+    let references = root.join(".codex/skills/develop/references");
     fs::create_dir_all(&references).unwrap();
     fs::write(references.join("private.md"), b"local").unwrap();
     assert!(verify_workflow_root(root, target).unwrap_err().contains("unowned nonempty"));
     fs::write(root.join(target), workflow.payload).unwrap();
     assert!(verify_workflow_root(root, target).is_ok());
-    let legacy = root.join(".codex/skills/develop/SKILL.md");
+    let legacy = root.join(".agents/skills/develop/SKILL.md");
     fs::create_dir_all(legacy.parent().unwrap()).unwrap();
     fs::write(&legacy, b"legacy private").unwrap();
-    assert!(verify_workflow_root(root, target).unwrap_err().contains("same-name"));
+    assert!(bridgeforge_skeleton::template::retired_workflow_inputs(root).unwrap_err().contains("preserved"));
     assert_eq!(fs::read(&legacy).unwrap(), b"legacy private");
 }
 
@@ -242,4 +242,48 @@ fn template_index_checks_staged_tree_without_mutating_real_or_fixture_index() {
     let before = fs::read(root.join(".git/index")).unwrap();
     let error = bridgeforge_skeleton::template::verify_index(root,&bridgeforge_core::SystemProcessRunner).unwrap_err();
     assert!(error.contains("staged Codex JSON")); assert_eq!(fs::read(root.join(".git/index")).unwrap(),before);
+}
+
+#[test]
+fn workflow_relocation_has_verified_hashes_preserves_custom_and_rolls_back() {
+    let fixture = Fixture::new("workflow-relocation"); let root = &fixture.0;
+    let assets=template_standard::assets();
+    let moving:Vec<_>=assets.iter().filter(|a|a.rule.get("relocation").is_some()).collect();
+    assert_eq!(moving.len(),35);
+    let mut writes=BTreeMap::new(); let mut before=BTreeMap::new();
+    for asset in &moving {
+        let old=root.join(asset.rule["relocation"]["previous_target"].as_str().unwrap());
+        let new=root.join(asset.rule["target"].as_str().unwrap());
+        fs::create_dir_all(old.parent().unwrap()).unwrap();fs::write(&old,&asset.payload).unwrap();
+        writes.insert(new.clone(),asset.payload.clone());before.insert(new,None);
+    }
+    let custom=root.join(".agents/skills/develop/references/custom.md");fs::write(&custom,b"custom").unwrap();
+    let private=root.join(".agents/skills/personal/SKILL.md");fs::create_dir_all(private.parent().unwrap()).unwrap();fs::write(&private,b"private").unwrap();
+    let old=bridgeforge_skeleton::template::retired_workflow_inputs(root).unwrap();
+    assert_eq!(old.len(),35);assert!(old.values().all(Option::is_some));
+    before.extend(old.clone());
+    let retired:BTreeMap<_,_>=old.iter().map(|(p,b)|(p.clone(),b.clone().unwrap())).collect();
+    let failed=crate::project_sync::install_template_transaction(root,&writes,&before,&BTreeSet::new(),&retired,||Err("injected verification failure".into()));
+    assert!(failed.unwrap_err().contains("rolled back"));
+    for (path,bytes) in &old {assert_eq!(&fs::read(path).unwrap(),bytes.as_ref().unwrap());}
+    for path in writes.keys() {assert!(!path.exists());}
+    crate::project_sync::install_template_transaction(root,&writes,&before,&BTreeSet::new(),&retired,||bridgeforge_skeleton::template::verify_workflow_retirements(root)).unwrap();
+    bridgeforge_skeleton::template::prune_workflow_directories(root);
+    assert_eq!(fs::read(custom).unwrap(),b"custom");assert_eq!(fs::read(private).unwrap(),b"private");
+    assert!(bridgeforge_skeleton::template::retired_workflow_inputs(root).unwrap().values().all(Option::is_none));
+}
+
+#[test]
+fn workflow_relocation_rejects_old_edits_and_tracks_absent_aliases() {
+    let fixture=Fixture::new("workflow-conflict");let root=&fixture.0;
+    let asset=template_standard::assets().into_iter().find(|a|a.rule["target"]==".codex/skills/develop/SKILL.md").unwrap();
+    let old=root.join(asset.rule["relocation"]["previous_target"].as_str().unwrap());
+    fs::create_dir_all(old.parent().unwrap()).unwrap();fs::write(&old,b"personal modified Skill").unwrap();
+    assert!(bridgeforge_skeleton::template::retired_workflow_inputs(root).unwrap_err().contains("preserved"));
+    assert_eq!(fs::read(&old).unwrap(),b"personal modified Skill");
+    fs::remove_file(&old).unwrap();
+    let snapshot=bridgeforge_skeleton::template::retired_workflow_inputs(root).unwrap();assert_eq!(snapshot[&old],None);
+    fs::write(&old,&asset.payload).unwrap();
+    assert_ne!(bridgeforge_skeleton::template::retired_workflow_inputs(root).unwrap(),snapshot);
+    assert!(bridgeforge_skeleton::template::verify_workflow_retirements(root).is_err());
 }
