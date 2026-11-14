@@ -58,7 +58,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-core"
-version = "11.5.0"
+version = "11.5.1"
 dependencies = [
  "chrono",
  "libc",

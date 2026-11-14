@@ -1,5 +1,15 @@
 # Changelog
 
+## [BP 2.6.1]
+
+- fix: 修复官方旧版 Skill 从 .agents 迁移时的识别阻断
+
+## [20.0.1] - 未发布
+
+- [product] 补齐 cleanup Skill 从 `.agents/skills/` 迁移到 `.codex/skills/` 所需的官方旧版哈希及精确 Git 来源，修复正常旧文件被误判为未知内容的升级阻断；继续保留本地修改与自定义内容保护。
+- [test] 增加真实旧版 cleanup 夹具，覆盖迁移成功、失败原字节回滚、自定义文件保留及旧文件修改后阻断。
+- [repo] BF 20.0.0 → 20.0.1、core 11.5.0 → 11.5.1；BP 主版本与其他组件版本不变，本次未发布。
+
 ## [BP 2.6.0]
 
 - feat: Forge 项目 Skill 统一迁回 .codex/skills，并提供保留自定义内容的受管迁移。

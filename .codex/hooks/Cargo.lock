@@ -58,7 +58,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-cli"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
@@ -72,7 +72,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-core"
-version = "11.5.0"
+version = "11.5.1"
 dependencies = [
  "chrono",
  "libc",

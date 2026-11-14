@@ -21,6 +21,11 @@
           "target": ".codex/skills/cleanup/SKILL.md",
           "known_hashes": [
             {
+              "sha256": "sha256:cbf06d481b5b42883fcd2825bc9a311f6de25ecf5401a7a3989e502615716d97",
+              "revision": "501537f62b8d7007a452473b54675ab471f08b81",
+              "source": "source/forge/templates/skills/cleanup/SKILL.md"
+            },
+            {
               "sha256": "sha256:a6a993c86ef55402a9b09f0030ce80bd54b4231393ab3cdf715ff5fab58c37af",
               "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
               "source": "source/forge/templates/skills/cleanup/SKILL.md"
@@ -3514,7 +3519,7 @@
         }
       ]
     },
-    "release_version": "20.0.0",
+    "release_version": "20.0.1",
     "release_model": "product-packages",
     "host": "codex",
     "stamp": ".codex/.bridgeforge_codex_version",
@@ -3546,6 +3551,11 @@
           "source": "source/forge/templates/skills/cleanup/SKILL.md",
           "target": ".codex/skills/cleanup/SKILL.md",
           "known_hashes": [
+            {
+              "sha256": "sha256:cbf06d481b5b42883fcd2825bc9a311f6de25ecf5401a7a3989e502615716d97",
+              "revision": "501537f62b8d7007a452473b54675ab471f08b81",
+              "source": "source/forge/templates/skills/cleanup/SKILL.md"
+            },
             {
               "sha256": "sha256:a6a993c86ef55402a9b09f0030ce80bd54b4231393ab3cdf715ff5fab58c37af",
               "revision": "e2fb7c0b7a2fe07a4b98ca9d2d5580c5414d117b",
@@ -4641,7 +4651,7 @@
         "source": "Cargo.lock",
         "target": ".codex/hooks/Cargo.lock",
         "strategy": "whole",
-        "current_sha256": "sha256:eb79894bac5f628fb5bb64d9985f566c5062d165921ee01dd9200ba7903252be",
+        "current_sha256": "sha256:c54460eafc86648ac4fe6146040b2707b05a27060552cc68b3e9a851700fa95d",
         "render": "public-runtime-lock"
       },
       {
@@ -4734,7 +4744,7 @@
         "source": "source/forge/cli/Cargo.toml",
         "target": ".codex/hooks/source/cli/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:ea2acc37e5df6d6fa767a78b30e822e3644f5714c5aea008c38692f52985c447"
+        "current_sha256": "sha256:6fcbef2a79281b02ffaf40b2837d008fafdcf41370567dbdecd4efcc6a26f185"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-cli-src-main-rs",
@@ -4769,7 +4779,7 @@
         "source": "source/forge/core/Cargo.toml",
         "target": ".codex/hooks/source/core/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:4c7d30db124031d25930f5583d076f794c6158dc8aeb12ecff7bc3a474264cee"
+        "current_sha256": "sha256:66f646c07872148f5ce9d8aaf823713225cbea8b0bbe86c0f3391d3157d5e5ae"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-core-src-artifact-cache-rs",
@@ -5007,7 +5017,7 @@
         "source": "source/forge/core/src/template_assets.rs",
         "target": ".codex/hooks/source/core/src/template_assets.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:bbabe1fe36cb03dda1da415dbae4f54a3efcc3c181f4dd4c74502be49dbdcff9"
+        "current_sha256": "sha256:a2b4beee97f12828744a4803ad76f625e5d2b2dab29a770f003b29d31897c90d"
       },
       {
         "id": "codex.hooks.source-core-src-template-standard-rs",
@@ -5621,15 +5631,15 @@
             "status": "ok",
             "build_identity": {
               "protocol": 1,
-              "source_tree_sha256": "sha256:85e0515976c95879673bc7dc17cc6000f2cad5d97900d59124b9f375554d34ce",
-              "lockfile_sha256": "sha256:eb79894bac5f628fb5bb64d9985f566c5062d165921ee01dd9200ba7903252be"
+              "source_tree_sha256": "sha256:b352529e768b135dc2c613a3bec3723c113db21a3f8a666de0498e0fbfda7053",
+              "lockfile_sha256": "sha256:c54460eafc86648ac4fe6146040b2707b05a27060552cc68b3e9a851700fa95d"
             }
           }
         },
-        "source_tree_sha256": "sha256:85e0515976c95879673bc7dc17cc6000f2cad5d97900d59124b9f375554d34ce",
-        "lockfile_sha256": "sha256:eb79894bac5f628fb5bb64d9985f566c5062d165921ee01dd9200ba7903252be",
+        "source_tree_sha256": "sha256:b352529e768b135dc2c613a3bec3723c113db21a3f8a666de0498e0fbfda7053",
+        "lockfile_sha256": "sha256:c54460eafc86648ac4fe6146040b2707b05a27060552cc68b3e9a851700fa95d",
         "build_recipe_sha256": "sha256:38f32bc9a727a88db971e8bcf9c71d1f9e3dc0cd9a68a6f560bcd48bda07c444",
-        "self_test_sha256": "sha256:468f3b57a63af5212847c2bc6fa55280f103bc8457dfbe95708f23f9eeb1d443",
+        "self_test_sha256": "sha256:28b6d7e02e7e6a839a58a1931415c3c47bc6edc325aa3391de4284ab25aa4f97",
         "source_projection": "public-runtime-v1"
       },
       {
@@ -5673,15 +5683,15 @@
             "status": "ok",
             "build_identity": {
               "protocol": 1,
-              "source_tree_sha256": "sha256:85e0515976c95879673bc7dc17cc6000f2cad5d97900d59124b9f375554d34ce",
-              "lockfile_sha256": "sha256:eb79894bac5f628fb5bb64d9985f566c5062d165921ee01dd9200ba7903252be"
+              "source_tree_sha256": "sha256:b352529e768b135dc2c613a3bec3723c113db21a3f8a666de0498e0fbfda7053",
+              "lockfile_sha256": "sha256:c54460eafc86648ac4fe6146040b2707b05a27060552cc68b3e9a851700fa95d"
             }
           }
         },
-        "source_tree_sha256": "sha256:85e0515976c95879673bc7dc17cc6000f2cad5d97900d59124b9f375554d34ce",
-        "lockfile_sha256": "sha256:eb79894bac5f628fb5bb64d9985f566c5062d165921ee01dd9200ba7903252be",
+        "source_tree_sha256": "sha256:b352529e768b135dc2c613a3bec3723c113db21a3f8a666de0498e0fbfda7053",
+        "lockfile_sha256": "sha256:c54460eafc86648ac4fe6146040b2707b05a27060552cc68b3e9a851700fa95d",
         "build_recipe_sha256": "sha256:cf5fb262a1e28cd8e05979b29b633143e52ae3cd1b62eeea56d9f55da70d1e5e",
-        "self_test_sha256": "sha256:2fb4dc46430cbef45dba4990f6b9f264ab4d6cb3bd9797e2f25701d7ac1b7295",
+        "self_test_sha256": "sha256:e88c860503da59293b515c76b6065917177c1e9a7fa54e991f352d6e5a903c83",
         "source_projection": "public-runtime-v1"
       }
     ],
@@ -5690,6 +5700,7 @@
         "id": "codex.project-workflow.cleanup.skill.md",
         "target": ".agents/skills/cleanup/SKILL.md",
         "known_hashes": [
+          "sha256:cbf06d481b5b42883fcd2825bc9a311f6de25ecf5401a7a3989e502615716d97",
           "sha256:a6a993c86ef55402a9b09f0030ce80bd54b4231393ab3cdf715ff5fab58c37af"
         ]
       },

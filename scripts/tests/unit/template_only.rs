@@ -274,6 +274,47 @@ fn workflow_relocation_has_verified_hashes_preserves_custom_and_rolls_back() {
 }
 
 #[test]
+fn workflow_relocation_accepts_published_legacy_cleanup_and_keeps_rollback() {
+    let fixture = Fixture::new("legacy-cleanup-relocation");
+    let root = &fixture.0;
+    let legacy = include_bytes!("../fixtures/workflow-relocation/legacy-cleanup.md");
+    let asset = template_standard::assets().into_iter()
+        .find(|asset| asset.rule["target"] == ".codex/skills/cleanup/SKILL.md").unwrap();
+    let old = root.join(".agents/skills/cleanup/SKILL.md");
+    let new = root.join(".codex/skills/cleanup/SKILL.md");
+    fs::create_dir_all(old.parent().unwrap()).unwrap();
+    fs::write(&old, legacy).unwrap();
+    let custom = old.parent().unwrap().join("custom.md");
+    fs::write(&custom, b"project-owned content\n").unwrap();
+
+    let inputs = bridgeforge_skeleton::template::retired_workflow_inputs(root).unwrap();
+    assert_eq!(inputs[&old].as_deref(), Some(legacy.as_slice()));
+    let mut before = inputs.clone();
+    before.insert(new.clone(), None);
+    let writes = BTreeMap::from([(new.clone(), asset.payload.clone())]);
+    let retired = BTreeMap::from([(old.clone(), legacy.to_vec())]);
+    let failed = crate::project_sync::install_template_transaction(
+        root, &writes, &before, &BTreeSet::new(), &retired,
+        || Err("injected legacy migration failure".into()));
+    assert!(failed.unwrap_err().contains("rolled back"));
+    assert_eq!(fs::read(&old).unwrap(), legacy);
+    assert!(!new.exists());
+
+    crate::project_sync::install_template_transaction(
+        root, &writes, &before, &BTreeSet::new(), &retired,
+        || bridgeforge_skeleton::template::verify_workflow_retirements(root)).unwrap();
+    bridgeforge_skeleton::template::prune_workflow_directories(root);
+    assert_eq!(fs::read(new).unwrap(), asset.payload);
+    assert!(!old.exists());
+    assert_eq!(fs::read(custom).unwrap(), b"project-owned content\n");
+
+    fs::write(&old, [legacy.as_slice(), b"\nlocal edit\n"].concat()).unwrap();
+    assert!(bridgeforge_skeleton::template::retired_workflow_inputs(root)
+        .unwrap_err().contains("preserved"));
+    assert!(fs::read(old).unwrap().ends_with(b"local edit\n"));
+}
+
+#[test]
 fn workflow_relocation_rejects_old_edits_and_tracks_absent_aliases() {
     let fixture=Fixture::new("workflow-conflict");let root=&fixture.0;
     let asset=template_standard::assets().into_iter().find(|a|a.rule["target"]==".codex/skills/develop/SKILL.md").unwrap();
