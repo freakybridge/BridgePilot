@@ -11,58 +11,6 @@ fn blocked(label: &str, error: impl std::fmt::Display) -> CommandOutcome {
     CommandOutcome::blocked(format!("[{label}] BLOCKED: {error}\n"))
 }
 
-#[cfg(test)]
-mod task_package_tests {
-    #[cfg(windows)]
-    #[test]
-    fn cleanup_factory_retains_all_six_current_products_and_removes_old_sibling() {
-        use std::{fs, time::{SystemTime, UNIX_EPOCH}};
-        struct Git;
-        impl super::ProcessRunner for Git {
-            fn run(&self, request: &bridgeforge_core::ProcessRequest) -> std::io::Result<bridgeforge_core::ProcessOutput> {
-                assert_eq!(request.program, "git");
-                Ok(bridgeforge_core::ProcessOutput { code: 0,
-                    stdout: if request.args.iter().any(|arg| arg == "rev-parse") { request.cwd.to_string_lossy().as_bytes().to_vec() } else { vec![] },
-                    stderr: vec![], timed_out: false })
-            }
-        }
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../.runtime/tests/cleanup-factory")
-            .join(format!("{}-{}", std::process::id(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
-        fs::create_dir_all(root.join(".build/bridgeforge/bin")).unwrap();
-        fs::write(root.join("Cargo.toml"), b"[workspace]\nmembers=[]\n").unwrap();
-        let mut products = Vec::new();
-        for (binary, receipt) in [("bridgeforge", "cli"), ("bridgeforge-hook", "hook"), ("bridgeforge-factory", "factory")] {
-            products.push(format!(".build/bridgeforge/bin/{binary}.exe"));
-            products.push(format!(".build/bridgeforge/bin/build-receipt-{receipt}.json"));
-        }
-        for product in &products { fs::write(root.join(product), b"current").unwrap(); }
-        fs::write(root.join(".build/bridgeforge/bin/old.exe"), b"old").unwrap();
-        let result = super::run_with_runner(&["cleanup".into(), "--root".into(), root.to_string_lossy().into_owned(),
-            "--products-reviewed".into(), "--evidence".into(), "Cargo.toml".into()], &Git);
-        assert_eq!(result.code, 0, "{:?}", result.receipt);
-        assert_eq!(result.receipt.unwrap()["deleted_files"], 1);
-        for product in products { assert_eq!(fs::read(root.join(product)).unwrap(), b"current"); }
-        assert!(!root.join(".build/bridgeforge/bin/old.exe").exists());
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn task_development_factory_rejects_malformed_selection_before_context() {
-        for flags in [
-            vec!["--preview", "--packages"],
-            vec!["--preview", "--packages", "a", "--packages"],
-            vec!["--preview", "--packages=a"],
-            vec!["--preview", "--packages", "a,a"],
-            vec!["--recover", "--packages", "a"],
-        ] {
-            let mut args = vec!["develop".to_string()];
-            args.extend(flags.into_iter().map(str::to_string));
-            let result = super::run(&args);
-            assert_ne!(result.code, 0);
-            assert!(result.stderr.contains("retired"), "{}", result.stderr);
-        }
-    }
-}
 fn value(args: &[String], flag: &str) -> Option<String> {
     args.windows(2)
         .find(|pair| pair[0] == flag)
@@ -272,34 +220,5 @@ pub fn run_with_runner(args: &[String], inner: &dyn ProcessRunner) -> CommandOut
             "factory",
             "usage: bridgeforge-factory <self-test|manifest|check|build-assets|git-sync|develop|cleanup>",
         ),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn factory_identity_reports_separate_package_and_product_versions() {
-        let outcome = self_test();
-        assert_eq!(outcome.code, 0, "{}", outcome.stderr);
-        let receipt = outcome.receipt.unwrap();
-        assert_eq!(receipt["name"], "bridgeforge-factory");
-        assert_eq!(receipt["version"], env!("CARGO_PKG_VERSION"));
-        let product = include_str!(env!("BRIDGEFORGE_PRODUCT_MANIFEST"))
-            .parse::<toml_edit::DocumentMut>()
-            .unwrap();
-        assert_eq!(
-            receipt["product_version"],
-            product["package"]["version"].as_str().unwrap()
-        );
-    }
-
-    #[test]
-    fn public_build_and_unknown_factory_commands_fail_before_execution() {
-        let outcome = run(&["build-assets".into(), "--project-root".into(), ".".into()]);
-        assert_eq!(outcome.code, crate::EXIT_BLOCKED);
-        assert!(outcome.stderr.contains("requires --factory"));
-        assert_eq!(run(&["unknown".into()]).code, crate::EXIT_BLOCKED);
     }
 }

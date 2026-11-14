@@ -782,7 +782,3 @@ fn memory_hook_notice(
         CommandOutcome::ok()
     })
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/cli_memory.rs"]
-mod tests;

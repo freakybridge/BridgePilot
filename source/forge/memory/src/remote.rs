@@ -393,9 +393,6 @@ fn restore_snapshot(
     result
 }
 
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_memory_remote.rs"]
-mod tests;
 
 fn baseline_path(state_dir: &Path) -> PathBuf {
     state_dir.join("last-synced-snapshot")

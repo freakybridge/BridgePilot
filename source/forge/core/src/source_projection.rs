@@ -520,7 +520,3 @@ pub fn projected(root: &Path, mode: &str) -> Result<BTreeMap<String, Vec<u8>>, S
         _ => Err("unknown source projection".into()),
     }
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_source_projection.rs"]
-mod tests;

@@ -449,7 +449,3 @@ pub fn render(
     };
     Ok(rendered)
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_project_sync_content.rs"]
-mod tests;

@@ -593,15 +593,7 @@ fn load(path: &Path) -> Result<Value, String> {
     Ok(value)
 }
 
-#[cfg(all(test, bridgeforge_factory_tests))]
-fn verify_gitattributes_read_only(payload: &[u8]) -> Result<(), String> {
-    crate::attributes::verify(payload, &serde_json::json!({}))
-}
 
-#[cfg(all(test, bridgeforge_factory_tests))]
-fn verify_gitattributes(payload: &[u8], project: Option<&Path>) -> Result<(), String> {
-    verify_gitattributes_asset(payload, project, &serde_json::json!({}))
-}
 
 struct AttributeSandbox(PathBuf);
 
@@ -1256,7 +1248,3 @@ pub fn verify_index(root: &Path, runner: &dyn ProcessRunner) -> Result<BaselineR
         details: serde_json::json!({"source": "index", "checked": checked, "skipped": skipped}),
     })
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_baseline.rs"]
-mod tests;

@@ -182,16 +182,6 @@ pub fn same_process(pid: u32, expected: &str) -> Result<bool> {
     }
 }
 
-#[cfg(all(test, windows))]
-mod identity_tests {
-    use super::*;
-    #[test]
-    fn birth_identity_distinguishes_a_reused_numeric_pid() {
-        let current = current_identity().unwrap().unwrap();
-        assert!(same_process(std::process::id(), &current).unwrap());
-        assert!(!same_process(std::process::id(), "win-filetime-0000000000000000").unwrap());
-    }
-}
 
 // Weak ownership never keeps a finished process tree alive. Killing uses the
 // original owned Job/process group, never a PID which might have been reused.

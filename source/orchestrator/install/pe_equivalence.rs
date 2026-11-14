@@ -88,7 +88,3 @@ pub(crate) fn equivalent(left: &[u8], right: &[u8]) -> bool {
     }
     left[start..] == right[start..]
 }
-
-#[cfg(test)]
-#[path = "../../../scripts/tests/orchestrator/pe_equivalence.rs"]
-mod tests;

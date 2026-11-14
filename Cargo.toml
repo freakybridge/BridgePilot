@@ -1,6 +1,6 @@
 [workspace]
 members = ["source/forge/core", "source/forge/skeleton", "source/forge/checks", "source/forge/workflow", "source/forge/factory", "source/forge/lifecycle", "source/forge/memory", "source/forge/cli", "source/forge/hook", "source/orchestrator/tasks", "source/orchestrator/storage", "source/orchestrator/execution", "source/orchestrator/transfer", "source/orchestrator/install", "source/orchestrator/cli"]
-exclude = [".codex/hooks", "scripts/tests"]
+exclude = [".codex/hooks"]
 default-members = ["source/forge/cli", "source/forge/hook", "source/forge/factory"]
 resolver = "3"
 

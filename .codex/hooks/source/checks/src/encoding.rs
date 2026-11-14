@@ -87,17 +87,8 @@ pub struct EncodingReport {
 
 /// Inspect an explicit caller-selected file set; no workspace traversal occurs.
 pub fn inspect_paths(root: &Path, paths: &[PathBuf]) -> Result<EncodingReport, String> {
-    inspect_paths_with_observer(root, paths, |_| {})
-}
-
-pub fn inspect_paths_with_observer(
-    root: &Path,
-    paths: &[PathBuf],
-    mut before_read: impl FnMut(&Path),
-) -> Result<EncodingReport, String> {
     let mut files = Vec::new();
     for path in paths.iter().cloned().collect::<BTreeSet<_>>() {
-        before_read(&path);
         files.push((
             path.clone(),
             fs::read(&path).map_err(|error| error.to_string())?,

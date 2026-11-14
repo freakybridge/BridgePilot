@@ -832,7 +832,3 @@ pub(super) fn publish(
     verify_files(plan, &files(root, runner, plan, commit)?, false)?;
     receipt(plan, commit, &value, reused)
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/native_release_gitlab.rs"]
-mod tests;

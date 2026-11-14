@@ -251,7 +251,3 @@ pub fn query(store: &Store) -> Result<Value> {
         "control":{"custody":s.custody,"wakeups":s.wakeups},"read_only":true}),
     )
 }
-
-#[cfg(test)]
-#[path = "../../../scripts/tests/orchestrator/status.rs"]
-mod tests;

@@ -1115,7 +1115,3 @@ pub fn edited(root: &Path, path: &str) -> StructureReport {
         },
     }
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_artifact_layout.rs"]
-mod tests;

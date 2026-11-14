@@ -172,7 +172,3 @@ fn eligible(root: &Path, runner: &dyn ProcessRunner) -> Result<(), String> {
     crate::git_sync::require_no_cleanup_commit_guard(root)?;
     Ok(())
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/workflow_artifact_cleanup.rs"]
-mod tests;

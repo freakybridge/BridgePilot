@@ -612,32 +612,6 @@ fn install_inner(
     preview: bool,
     rollback: bool,
 ) -> Result<Value> {
-    install_before_lock(
-        package_root,
-        home,
-        requested_workspace,
-        preview,
-        rollback,
-        || {},
-    )
-}
-#[cfg(feature = "test-fixtures")]
-pub fn install_with_before_lock(
-    package: &Path,
-    home: &Path,
-    workspace: Option<&Path>,
-    hook: impl FnOnce(),
-) -> Result<Value> {
-    install_before_lock(package, home, workspace, false, false, hook)
-}
-fn install_before_lock(
-    package_root: &Path,
-    home: &Path,
-    requested_workspace: Option<&Path>,
-    preview: bool,
-    rollback: bool,
-    before_lock: impl FnOnce(),
-) -> Result<Value> {
     if !home.is_absolute() {
         return Err("absolute installation home required".into());
     }
@@ -744,7 +718,6 @@ fn install_before_lock(
             && equivalent {
             if !preview {
                 fs::create_dir_all(home.join(".runtime/bridgepilot-install/locks")).map_err(|e| e.to_string())?;
-                before_lock();
                 let _lock = FileLock::acquire(&home.join(".runtime/bridgepilot-install/locks/writer.lock"))?;
                 recheck_reuse(package_root, home, &p, previous, skill_binding.as_deref(), &claimed_launcher)?;
                 return Ok(json!({"status":"installation_current","mode":"reused","home":home,"version":previous.current.version,"components":previous.current.components,"installation":previous,"writes":false}));
@@ -857,7 +830,6 @@ fn install_before_lock(
     }
     fs::create_dir_all(home.join(".runtime/bridgepilot-install/locks"))
         .map_err(|e| e.to_string())?;
-    before_lock();
     let _lock = FileLock::acquire(&home.join(".runtime/bridgepilot-install/locks/writer.lock"))?;
     if read_old(home)? != old
         || journal(home).exists()
@@ -1140,93 +1112,4 @@ pub fn launch() -> Result<i32> {
         .map_err(|e| e.to_string())?;
     let status = tree.child.wait().map_err(|e| e.to_string())?;
     Ok(status.code().unwrap_or(1))
-}
-
-#[cfg(test)]
-#[path = "../../../scripts/tests/orchestrator/version_identity.rs"]
-mod version_identity_tests;
-
-#[cfg(test)]
-#[path = "../../../scripts/tests/orchestrator/manifest_location.rs"]
-mod manifest_location_tests;
-
-#[cfg(test)]
-mod recovery_tests {
-    use super::*;
-    #[test]
-    fn renamed_source_recovery_restores_retired_bytes_and_preserves_external_edits() {
-        let legacy="source/orchestrator/skills/bridgeforge-update/SKILL.md";
-        let renamed="source/orchestrator/skills/bridgepilot-update/SKILL.md";
-        for retired in [false,true] {
-            let root=Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../.runtime/tests/bp-rename-recovery").join(crate::new_id("case"));
-            fs::create_dir_all(&root).unwrap();
-            let old=Installation{schema:1,product:"BridgePilot".into(),current:Version{version:"0.10.0".into(),components:None,executable:".build/core.exe".into(),sha256:"fixture".into()},previous:None,
-                files:vec![OwnedFile{id:"bp.controller.skill.forge-update".into(),target:legacy.into(),sha256:digest(b"legacy")}],launcher_sha256:"fixture".into()};
-            let mut new=old.clone();new.files[0].target=renamed.into();new.files[0].sha256=digest(b"candidate");
-            let j=Journal{schema:2,old:Some(old.clone()),new,changes:vec![Change{target:renamed.into(),old:None,new_hash:digest(b"candidate")}],retirements:std::collections::BTreeMap::from([(legacy.into(),b"legacy".to_vec())])};
-            persistence::atomic_write_json(&config(&root),&old).unwrap();
-            persistence::atomic_write_json(&journal(&root),&j).unwrap();
-            persistence::atomic_write(&root.join(renamed),b"candidate").unwrap();
-            if !retired {persistence::atomic_write(&root.join(legacy),b"legacy").unwrap();}
-            persistence::atomic_write(&root.join(legacy),b"external edit").unwrap();
-            assert!(recover(&root).is_err());
-            assert_eq!(fs::read(root.join(legacy)).unwrap(),b"external edit");
-            assert!(root.join(renamed).exists());
-            if retired {fs::remove_file(root.join(legacy)).unwrap();} else {persistence::atomic_write(&root.join(legacy),b"legacy").unwrap();}
-            assert_eq!(recover(&root).unwrap()["status"],"installation_rolled_back");
-            assert_eq!(fs::read(root.join(legacy)).unwrap(),b"legacy");
-            assert!(!root.join(renamed).exists());
-        }
-    }
-    #[test]
-    fn interrupted_asset_recovery_preserves_external_edits_and_restores_owned_bytes() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../.runtime/tests/bridgepilot-stage5/install-recovery")
-            .join(crate::new_id("case"));
-        fs::create_dir_all(root.join(".runtime/bridgepilot-install")).unwrap();
-        let asset = root.join("AGENTS.md");
-        let before = b"owned original";
-        let after = b"transaction candidate";
-        let new = Installation {
-            schema: 1,
-            product: "BridgePilot".into(),
-            current: Version {
-                version: "0.4.0".into(),
-                components: None,
-                executable: ".build/bridgepilot/versions/test/bp-core.exe".into(),
-                sha256: "fixture".into(),
-            },
-            previous: None,
-            files: Vec::new(),
-            launcher_sha256: "fixture".into(),
-        };
-        let j = Journal {
-            schema: 1,
-            old: None,
-            new,
-            changes: vec![Change {
-                target: "AGENTS.md".into(),
-                old: Some(before.to_vec()),
-                new_hash: digest(after),
-            }],
-            retirements: Default::default(),
-        };
-        persistence::atomic_write_json(&journal(&root), &j).unwrap();
-        fs::write(&asset, b"user edit after transaction began").unwrap();
-        assert!(!matches_bytes(&asset, Some(before)).unwrap());
-        assert!(recover(&root).is_err());
-        assert!(journal(&root).exists());
-        assert_eq!(
-            fs::read(&asset).unwrap(),
-            b"user edit after transaction began"
-        );
-        fs::write(&asset, after).unwrap();
-        assert_eq!(
-            recover(&root).unwrap()["status"],
-            "installation_rolled_back"
-        );
-        assert_eq!(fs::read(&asset).unwrap(), before);
-        assert!(!journal(&root).exists());
-        fs::remove_dir_all(root).unwrap();
-    }
 }

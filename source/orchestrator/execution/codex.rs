@@ -1301,7 +1301,3 @@ pub fn reconcile(store: &Store, id: &str, executable: &Path) -> Result<Value> {
     })?;
     Ok(receipt)
 }
-
-#[cfg(test)]
-#[path = "../../../scripts/tests/orchestrator/protocol.rs"]
-mod tests;

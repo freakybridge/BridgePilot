@@ -218,7 +218,3 @@ pub fn scan(root: &Path) -> Result<Vec<ArchiveCandidate>, String> {
     values.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(values)
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_archive_scan.rs"]
-mod tests;

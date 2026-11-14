@@ -137,7 +137,3 @@ pub fn plan(root: &Path, context: &SourceContext) -> Result<SourcePlan> {
     if after_notes != before_notes { edits.push(SourceEdit { path: "CHANGELOG.md".into(), before: before_notes, after: after_notes }); }
     Ok(SourcePlan { schema: 1, identity, edits, reuse_release: None, release_assets: vec![] })
 }
-
-#[cfg(test)]
-#[path = "../../../scripts/tests/orchestrator/release_source.rs"]
-mod tests;

@@ -141,7 +141,3 @@ pub struct AssetContract {
     #[serde(default)]
     pub document: Value,
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_lib.rs"]
-mod tests;

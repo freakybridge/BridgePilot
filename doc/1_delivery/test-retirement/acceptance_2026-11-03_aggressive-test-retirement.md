@@ -5,11 +5,13 @@ validation_status: passed
 
 # 旧测试链路激进退役验收
 
+本文件分别保留 2026-11-03 的选择性退役与 [2026-11-15 全部测试清理验收](#all-tests-retired-2026-11-15)；两次授权和统计独立，后一次明确授权覆盖本仓库剩余测试代码。
+
 ## 用户验收2026-11-03
 
 2026-11-03，用户要求分析 `scripts/tests/` 中可永久退役的测试，随后明确采用“清理更激进，非必要不保留”的原则，并在清单迁移任务结束后授权实施。交付后用户显式调用 `summary accept`，确认本轮交付符合需求；同时调用 `git-sync release`，另行授权本仓库本轮指定改动的完整发布。
 
-验收范围为旧配置化 develop/release、开发收口账本、旧 cleanup 成功流程及其独占辅助代码、fixture 和基准退役，保留当前功能与安全回归。后续关于整体删除测试目录的问答仅解释可行性和代价，没有授权删除剩余目录或停用全部自动化测试。
+本节 2026-11-03 的验收范围为旧配置化 develop/release、开发收口账本、旧 cleanup 成功流程及其独占辅助代码、fixture 和基准退役，保留当前功能与安全回归。当时关于整体删除测试目录的问答仅解释可行性和代价，没有授权删除剩余目录或停用全部自动化测试；2026-11-15 的新授权与实际删除另见文末。
 
 本主题此前没有正式需求卡或唯一匹配的 TODO；本次直接保存实际验收决定，不补造需求访谈、编号，不结算其它主题的 TODO。发布状态与工程验证、用户验收分别管理，最终发布结果以本轮受管 CLI 收据为准。
 
@@ -70,3 +72,39 @@ cargo test --locked --manifest-path scripts/tests/Cargo.toml --target-dir .build
 其后用户已明确授权修复 CLI release 接续并继续原发布，按 BP 1.1.1 准备新候选；修复过程和验证独立记录于[原生发布主题](../native-release/requirements_2026-11-03_single-entry-release.md#2026-11-03-提交前失败恢复修复)。本验收仍对应上文测试退役范围，不将后续 CLI 修复计入原始删减统计。
 
 未执行完整 workspace 运行回归、真实下游 smoke、用户级安装或物理跨机验证；不将当前定向结果扩张为这些场景已通过。历史失败日志与恢复现场保留在本机测试目录。没有因为用户验收而自动修改规则、AGENTS、Hook、Memory 或归档历史资料。
+
+<a id="all-tests-retired-2026-11-15"></a>
+
+## 全部测试清理验收（2026-11-15）
+
+### 用户决定与授权范围
+
+用户明确要求“scripts/tests 我需要全部删除”“source 内有无测试代码，我也需要全部删除”，完成交付后再次确认：“本次测试代码清理验收通过，执行 summary accept，然后 git-sync release。”本节记录对全部测试清理的用户验收；提交、推送和正式发布由随后独立授权的受管发布入口处理。
+
+本次为当前仓库的一次性清理，覆盖长期回归测试，不将此前 `summary accept` 默认保留长期回归测试的通用规则改成自动删除全部测试。产品运行时 `self-test`、测试收据处理及下游测试布局检查仍属于生产能力，保留其行为。本次不授权真实下游写入或用户环境安装。
+
+### 实际成果及已有证据
+
+- `scripts/tests/` 整个目录已删除，含 122 个受跟踪文件；删除前核对真实 Git 根及绝对路径为 `D:/Quant/BridgePilot/scripts/tests`，确认没有链接条目后在同一 PowerShell 内执行删除。
+- 以 Rust 语法树定位并删除 69 个源码文件内 93 处测试条件块、测试模块、测试函数、夹具入口与专用辅助代码，语法删除阶段共 59,877 字节。另清理失效注册、Cargo 测试/夹具 target、`test-fixtures` feature、仅用于测试的编码观察回调和安装锁前回调、夹具可执行文件白名单，以及工厂锁生命周期对照分支。现有生产路径和运行时自检保留。
+- 同步移除工厂针对独立测试 workspace 的锁文件投影、构建输入登记，以及根 AGENTS 项目区失效测试命令。公共 AGENTS 模板和 summary 通用规则未改。临时清理程序源码及可执行文件已移除。
+- 清理交付时相对基线 `e217e15c8e321e2a2dcad7b8396159c14cdfe6ce` 的总差异为 272 文件、增加 131 行、删除 39,478 行，净减少 39,347 行；含源码、测试、版本、锁文件、dogfood 和清单，不含本次随后新增的验收正文及索引。
+- `cargo check --locked --offline --manifest-path Cargo.toml --target-dir .build/bridgeforge/test-retirement --workspace --all-targets` 通过；Cargo metadata 显示 15 个包、0 个显式测试/夹具 target。源码语法复查不再发现待删测试条件块；`source/` 和 `.codex/hooks/source/` 的 `#[test]`、测试 cfg、`test-fixtures`、工厂测试 cfg 及夹具入口标记复查为 0。`scripts/tests` 不存在，`git diff --check` 通过。
+- 锁定 Cargo 的受管准备返回 `status=prepared`、`prepared=3`、`self_test_executed=true`、`written_files=67`，完成 CLI、Hook、factory 构建、自检和自身镜像同步；本机入口收据为 `.build/bridgeforge/public-ready.json`。
+- 最终零写入 `build-assets --factory --project-root . --check` 返回 `status=current`、`reused=3`、`built=0`；`manifest --root . --check` 返回 `status=ok`、`changed=false`；`template-standard --root . --check` 返回 `status=current`；`check factory-version --root .` 返回 `healthy=true`，原生和合同版本均为 `20.1.1`。
+
+验证复用上述开发阶段结果，本次验收不补跑构建或测试。编译仍有改动前已存在的 Hook `codex_root` 未使用告警；增量缓存硬链接失败时 Cargo 复制文件继续，检查退出码为 0。真实下游、用户环境安装及业务运行未验证；删除全部回归测试后不存在可据此宣称通过的回归测试集。
+
+### 原生版本与发布边界
+
+本次适用包均按测试退役维护变更升 patch：Forge 20.1.0 → 20.1.1，core 11.5.2 → 11.5.3、checks 0.3.0 → 0.3.1、skeleton 0.9.0 → 0.9.1、lifecycle 0.8.7 → 0.8.8、workflow 0.16.0 → 0.16.1、memory 0.2.0 → 0.2.1、hook 17.2.0 → 17.2.1、factory 0.14.0 → 0.14.1；BP 子包 tasks 0.1.0 → 0.1.1、storage 0.1.1 → 0.1.2、execution 0.2.0 → 0.2.1、transfer 0.1.0 → 0.1.1、install 0.10.2 → 0.10.3、orchestrator 0.18.0 → 0.18.1。BP 主版本在开发交付时为 2.7.0，正式组合发布版本由原生适配器确定，不在验收中预报发布成功。
+
+TODO 总表没有与本次全部测试清理唯一对应的条目，不补造编号、不结算无关 TODO；旧选择性退役记录保持历史语义。未额外发现需要登记的独立问题。正式发布必须取得受管 CLI 的 `status=released` 且 `publication_verified=true` 收据，提交、tag、Release URL 及资产核验结果以该收据为准。
+
+### 本次发布尝试与接续状态
+
+同一轮受管 `git-sync release --publication-required` 已由原生适配器确定 BP 2.7.1 并完成发布前准备，但在 `source-push` 阶段提交前失败，收据为 `status=incomplete`、`pause_category=required_condition_failed`。具体为活动文档 `../gpt6-skeleton-upgrade/requirements_2026-09-05_block4.md` 两处 Markdown 链接指向已删除的 `scripts/tests/fixtures/gpt6-behavior-cases.json`，项目结构检查以 `dead-doc-reference` 阻断。
+
+CLI 已回滚自动提交阶段和暂存区，没有产生本次提交、推送或正式 Release。原生接续状态 `.runtime/bridgeforge-codex/native-release/current.json` 为 `blocked-before-commit`，候选版本 2.7.1 及恢复现场保留。已将两处失效链接改为历史路径和清理前 Git 版本说明，不恢复测试、不修改用户数据、不删除或手改发布状态。修复后 `check project-structure --root . --pre-commit` 退出码为 0、errors 为 0；`git diff --check` 通过，暂存区为空，测试目录仍不存在。
+
+按 git-sync 运行边界，外层不自动重启整个同步；等待用户明确重试后以同一受管入口接续，复用合理候选，不再次升版或覆盖已发布资产。此次验收成立，正式发布尚未完成。

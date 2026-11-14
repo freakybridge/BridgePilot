@@ -674,7 +674,3 @@ fn same_root(left: &std::path::Path, right: &std::path::Path) -> bool {
         left == right
     }
 }
-
-#[cfg(test)]
-#[path = "../../../scripts/tests/orchestrator/domain.rs"]
-mod tests;

@@ -4,7 +4,7 @@ pub use bridgeforge_core::build_manifest::{
 };
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
@@ -591,13 +591,6 @@ pub(crate) fn render_targets(root: &Path) -> Result<Vec<(PathBuf, Vec<u8>)>, Str
                 .map(|(p, b)| (root.join(".codex/hooks").join(p), b)),
         );
     }
-    if crate::source_projection::available(root) && root.join("scripts/tests/Cargo.toml").is_file()
-    {
-        targets.push((
-            root.join("scripts/tests/Cargo.lock"),
-            consumer_lock(root, &BTreeMap::new())?,
-        ));
-    }
     Ok(targets)
 }
 
@@ -777,76 +770,6 @@ pub fn development_projection(
     outputs.insert(bridgeforge_core::product_manifest::FILE.into(), render_product_manifest(root, native)?);
     outputs.extend(factory_entrypoints(root)?);
 
-    if root.join("scripts/tests/Cargo.toml").is_file() {
-        outputs.insert(
-            "scripts/tests/Cargo.lock".into(),
-            consumer_lock(root, native)?,
-        );
-    }
     outputs.retain(|p, b| fs::read(root.join(p)).ok().as_ref() != Some(b));
     Ok(outputs)
 }
-
-fn consumer_lock(root: &Path, native: &BTreeMap<String, Vec<u8>>) -> Result<Vec<u8>, String> {
-    use toml_edit::{DocumentMut, Item};
-    let parse = |bytes: &[u8]| -> Result<DocumentMut, String> {
-        std::str::from_utf8(bytes)
-            .map_err(|e| e.to_string())?
-            .parse::<DocumentMut>()
-            .map_err(|e| e.to_string())
-    };
-    let bytes = native
-        .get("Cargo.lock")
-        .cloned()
-        .map(Ok)
-        .unwrap_or_else(|| fs::read(root.join("Cargo.lock")).map_err(|e| e.to_string()))?;
-    let mut combined = parse(&bytes)?;
-    let consumer =
-        parse(&fs::read(root.join("scripts/tests/Cargo.lock")).map_err(|e| e.to_string())?)?;
-    let manifest =
-        parse(&fs::read(root.join("scripts/tests/Cargo.toml")).map_err(|e| e.to_string())?)?;
-    let name = manifest["package"]["name"]
-        .as_str()
-        .ok_or("test harness package name missing")?
-        .to_owned();
-    let key = |t: &toml_edit::Table| -> Result<(String, String, Option<String>), String> {
-        Ok((
-            t["name"].as_str().ok_or("lock name missing")?.into(),
-            t["version"].as_str().ok_or("lock version missing")?.into(),
-            t.get("source").and_then(Item::as_str).map(str::to_owned),
-        ))
-    };
-    let entries = combined
-        .get_mut("package")
-        .and_then(Item::as_array_of_tables_mut)
-        .ok_or("native lock packages missing")?;
-    for entry in consumer
-        .get("package")
-        .and_then(Item::as_array_of_tables)
-        .ok_or("consumer lock packages missing")?
-        .iter()
-    {
-        let candidate = key(entry)?;
-        let existing = entries.iter().map(&key).collect::<Result<Vec<_>, _>>()?;
-        // Canonical native versions and local dependency edges replace consumers.
-        if candidate.2.is_none() && existing.iter().any(|k| k.0 == candidate.0 && k.2.is_none()) {
-            continue;
-        }
-        if !existing.contains(&candidate) {
-            entries.push(entry.clone());
-        }
-    }
-    // Cloned tables retain positions from a different document. Normalize them
-    // before serialization so reading our own projection cannot reorder it.
-    for (position, entry) in entries.iter_mut().enumerate() {
-        entry.set_position(position.try_into().map_err(|_| "too many lock packages")?);
-    }
-    crate::source_projection::lock_dependency_closure(
-        combined.to_string().as_bytes(),
-        &BTreeSet::from([name]),
-    )
-}
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_manifest.rs"]
-mod tests;

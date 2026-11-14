@@ -399,7 +399,3 @@ fn add_fingerprint_input(
     inputs.insert(relative.into(), sha256_hex(&fs::read(path)?));
     Ok(())
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_memory_migration.rs"]
-mod tests;

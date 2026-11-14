@@ -1150,7 +1150,3 @@ fn sync_impl(
         ..CommandOutcome::default()
     }
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_git_sync.rs"]
-mod tests;

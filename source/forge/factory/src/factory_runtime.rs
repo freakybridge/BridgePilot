@@ -291,7 +291,3 @@ fn prepare_inner(root: &Path, check: bool, runner: &dyn ProcessRunner) -> Result
         "prepared":rebuilt,"written_files":written_files,"public_artifacts":public_receipt,"retired_files":retirements.len(),"retained_directories":retained_directories,"build_policy":"verified-cache-or-locked-cargo"}),
     )
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_factory_runtime.rs"]
-mod tests;

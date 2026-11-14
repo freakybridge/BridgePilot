@@ -434,7 +434,3 @@ pub fn run(args: Vec<String>) -> i32 {
     }
     lifecycle(event, parse_payload(&raw).ok().as_ref())
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/hook.rs"]
-mod tests;

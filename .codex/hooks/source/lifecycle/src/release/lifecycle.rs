@@ -98,22 +98,6 @@ pub(super) fn matches(identity: &Identity, package: &NativePackage) -> bool {
             .is_none_or(|root| root == &package.workspace)
 }
 
-#[cfg(test)]
-pub(super) fn next_ids(id: &str, transitions: &[Transition]) -> BTreeSet<String> {
-    let mut result = BTreeSet::from([id.to_owned()]);
-    for transition in transitions {
-        let sources = transition
-            .from
-            .iter()
-            .map(|p| p.id.clone())
-            .collect::<BTreeSet<_>>();
-        if !result.is_disjoint(&sources) {
-            result.retain(|p| !sources.contains(p));
-            result.extend(transition.to.iter().map(|p| p.id.clone()));
-        }
-    }
-    result
-}
 
 /// Validate a forward snapshot. Declarations may be committed after the business
 /// change; every declaration must still match one real consecutive state.
@@ -213,7 +197,3 @@ pub(super) fn validate_step(
     }
     Ok(order)
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../../scripts/tests/unit/core_release_lifecycle.rs"]
-mod tests;

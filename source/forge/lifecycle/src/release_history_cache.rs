@@ -67,12 +67,6 @@ fn immutable(revision: &str) -> bool {
 }
 
 impl<'a> Reader<'a> {
-    #[cfg(all(test, bridgeforge_factory_tests))]
-    pub(super) fn uncached(root: &'a Path, runner: &'a dyn ProcessRunner) -> Self {
-        let mut reader = Self::new(root, runner);
-        reader.enabled = false;
-        reader
-    }
 
     pub(super) fn new(root: &'a Path, runner: &'a dyn ProcessRunner) -> Self {
         let state = state(root, runner).ok();

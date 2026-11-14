@@ -421,7 +421,3 @@ pub fn observe(root: &Path, home: &Path, payload: &Value) -> Result<Option<Strin
     crate::persistence::atomic_write(&path, &bytes).map_err(|e| e.to_string())?;
     Ok(notify.then(|| format!("高耗能提醒：本对话已连续 {} 轮使用 GPT-6 Astra＋High 或更高强度，或 Fast。请检查是否仍需要当前设置；模型、强度和速度均未自动更改。", state.streak)))
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_high_cost.rs"]
-mod tests;

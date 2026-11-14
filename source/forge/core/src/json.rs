@@ -83,7 +83,3 @@ pub fn parse_unique_json(payload: &[u8], label: &str) -> Result<Value, String> {
         .map(|value| value.0)
         .map_err(|error| format!("{label} is invalid JSON: {error}"))
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_json.rs"]
-mod tests;

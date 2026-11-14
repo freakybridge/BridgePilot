@@ -51,7 +51,3 @@ pub(super) fn plan(
     }
     Ok(())
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/source_retirement.rs"]
-mod tests;

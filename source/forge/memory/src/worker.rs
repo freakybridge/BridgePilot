@@ -395,9 +395,6 @@ fn process_identity(_pid: u32) -> Option<u64> {
     None
 }
 
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_memory_worker.rs"]
-mod tests;
 
 pub fn try_acquire_reconcile_lock(state_dir: &Path) -> MemoryResult<Option<ReconcileLock>> {
     Ok(try_lock_file(&state_dir.join("reconcile.lock"))?.map(|file| ReconcileLock { _file: file }))

@@ -398,15 +398,6 @@ impl Store {
         Ok((snapshot, result))
     }
 
-    #[cfg(test)]
-    fn transact_inner<T>(
-        &self,
-        expected: u64,
-        change: impl FnOnce(&mut State) -> Result<T>,
-        before_commit: impl FnOnce() -> Result<()>,
-    ) -> Result<(Snapshot, T)> {
-        self.transact_sql_inner(expected, |s, _| change(s), before_commit)
-    }
 
     pub fn update<T>(&self, mut change: impl FnMut(&mut State) -> Result<T>) -> Result<T> {
         for _ in 0..20 {
@@ -462,9 +453,6 @@ impl Store {
     }
 }
 
-#[cfg(test)]
-#[path = "../../../scripts/tests/orchestrator/store.rs"]
-mod tests;
 
 /// Read archive state and permanent task numbers from the same SQLite snapshot.
 pub fn status_snapshot(store: &Store) -> Result<(Snapshot, BTreeMap<String, u64>)> {

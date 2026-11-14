@@ -397,7 +397,3 @@ pub fn legacy_files(files: &BTreeMap<String, Vec<u8>>) -> Result<(Snapshot, Head
     }
     Ok((latest.ok_or("empty legacy transport")?, head))
 }
-
-#[cfg(test)]
-#[path = "../../../scripts/tests/orchestrator/migration.rs"]
-mod tests;

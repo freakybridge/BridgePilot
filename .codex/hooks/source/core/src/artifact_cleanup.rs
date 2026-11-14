@@ -1028,7 +1028,3 @@ mod windows {
         }
     }
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_artifact_cleanup.rs"]
-mod tests;

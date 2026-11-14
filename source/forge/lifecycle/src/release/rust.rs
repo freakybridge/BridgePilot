@@ -1,7 +1,5 @@
 //! Pure Rust release adapter. All filesystem access is supplied by the caller.
 use super::SemVer;
-#[cfg(test)]
-use super::model::PackageChange;
 use super::model::{Language, LanguageSnapshot, NativeDependency, NativePackage, Writes};
 use regex::Regex;
 use serde::Deserialize;
@@ -1114,10 +1112,6 @@ fn load_with_lock_scope(
 }
 
 impl Workspace {
-    #[cfg(test)]
-    pub(super) fn inputs(&self) -> &BTreeMap<String, Option<Vec<u8>>> {
-        &self.inputs
-    }
 
     pub(super) fn validate_baseline(&self, old: &Workspace) -> Result<(), String> {
         self.validate_transition(old, old)
@@ -1941,7 +1935,3 @@ fn updated_requirement(raw: &str, version: SemVer) -> Result<String, String> {
     };
     Ok(format!("{prefix}{version}"))
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../../scripts/tests/unit/core_release_rust.rs"]
-mod tests;

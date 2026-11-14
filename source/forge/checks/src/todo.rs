@@ -417,7 +417,3 @@ pub fn blockers(report: &TodoReport, path: &Path) -> Result<Vec<String>, String>
         .map(|entry| entry.id.clone())
         .collect())
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_todo.rs"]
-mod tests;

@@ -111,7 +111,3 @@ fn append_argument(line: &mut Vec<u16>, arg: &OsString) -> io::Result<()> {
     line.push(34);
     Ok(())
 }
-
-#[cfg(all(test, windows, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_memory_background.rs"]
-mod tests;

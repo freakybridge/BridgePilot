@@ -11,9 +11,6 @@ pub struct BuildMetrics {
     pub cache_misses: BTreeMap<String, usize>,
 }
 
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_build_metrics.rs"]
-mod tests;
 
 pub struct Observed<'a> {
     pub runner: &'a dyn ProcessRunner,

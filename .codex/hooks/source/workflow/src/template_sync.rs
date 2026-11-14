@@ -388,7 +388,3 @@ pub fn apply(plan: Plan, fingerprint: &str, confirmed_risk: bool, prepared: &Pat
         "aggregate_fingerprint":fingerprint,"retired":plan.report["retired"],
         "written":writes.len(),"recovery":recovery,"retained_directories":retained_directories,"release_installation":crate::project_release::verify_driver(&plan.root)?,"baseline":bridgeforge_skeleton::template::verify(&plan.root, true)?}))
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/template_only.rs"]
-mod tests;

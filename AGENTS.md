@@ -121,7 +121,7 @@
 - `source/forge/**`：工厂 Rust workspace 的唯一维护源，公共八包投影到 `.codex/hooks/source/`，factory 只用于本仓库。
 - `source/orchestrator/**`：BP 私有总管，含 tasks（任务模型与规则）、storage（SQLite 与事务）、execution（执行、调度与核验）、transfer（同步换机）、install（安装恢复）、cli（命令组合）六个独立包及本地交互 Skill；与 `source/forge/` 平行，无额外 `src/`。包依赖向 tasks/storage 收敛，transfer 可调用 execution 的必要查询；只依赖 Forge core，不进入公共源码投影或共享 Skill 分发。Forge 不依赖 orchestrator。
 - `source/forge/templates/skills/**`：通用 Skill 的维护源，作为骨架投影到项目 `.codex/skills/`；`source/forge/templates/maintenance/**` 随骨架投影内部维护手册与准备入口。
-- `scripts/**`：Windows 用户级迁移入口、独立辅助工具及 `scripts/tests/**` 自动测试；工厂 Rust 命令由 `source/forge/factory/` 实现。
+- `scripts/**`：Windows 用户级迁移入口与独立辅助工具；工厂 Rust 命令由 `source/forge/factory/` 实现。
 - `.codex/**`：本仓库 dogfood 镜像与本仓库配置；legacy 项目 Memory 仅在迁移完成前保留，不再作为运行时设施。
 - `doc/**`、`README.md`、`CHANGELOG.md`：架构、交付、Bug、参考资料与发布说明。
 
@@ -150,8 +150,7 @@ cleanup 使用固定范围、当前原生依据及精确保留路径，不读取
 ```powershell
 cargo run --locked --release --manifest-path Cargo.toml --target-dir .build/bridgeforge/cargo/local --bin bridgeforge-factory -- build-assets --factory --project-root .
 cargo build --locked --release --manifest-path Cargo.toml --target-dir .build/bridgeforge/cargo/local
-cargo test --locked --config scripts/tests/factory-cargo.toml --manifest-path Cargo.toml --target-dir .build/bridgeforge/test-target --workspace
-cargo test --locked --manifest-path scripts/tests/Cargo.toml --target-dir .build/bridgeforge/integration-target
+cargo check --locked --manifest-path Cargo.toml --target-dir .build/bridgeforge/check-target --workspace --all-targets
 .build\bridgeforge\bin\bridgeforge-factory.exe manifest --root . --check
 .build\bridgeforge\bin\bridgeforge-factory.exe check factory-version --root .
 ```

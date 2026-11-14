@@ -1367,7 +1367,3 @@ fn replace_directory(stage: &Path, destination: &Path) -> MemoryResult<()> {
     remove_directory_if_present(&old)?;
     Ok(())
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/memory/persistence_contract.rs"]
-mod persistence_contract_tests;

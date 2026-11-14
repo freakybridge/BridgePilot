@@ -404,7 +404,3 @@ pub fn image_cleanup_selections(
     }
     Ok(candidates)
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_runtime.rs"]
-mod tests;

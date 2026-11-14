@@ -1,2 +1,0 @@
-[build]
-rustflags = ["--cfg", "bridgeforge_factory_tests"]

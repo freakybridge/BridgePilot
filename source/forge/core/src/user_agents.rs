@@ -132,7 +132,3 @@ pub fn stage(root: &Path, profile: &Path, operation: &str) -> Result<Value, Stri
         "override_present": home.join("AGENTS.override.md").exists()
     }))
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_user_agents.rs"]
-mod tests;

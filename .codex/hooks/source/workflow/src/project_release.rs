@@ -1009,7 +1009,3 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value, String> {
     plan.validate(&root)?;
     serde_json::to_value(plan).map_err(|e| e.to_string())
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/project_release.rs"]
-mod tests;

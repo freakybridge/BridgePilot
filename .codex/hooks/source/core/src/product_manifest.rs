@@ -47,7 +47,3 @@ pub fn project_bytes(root: &Path) -> Result<Vec<u8>, String> {
     bytes.push(b'\n');
     Ok(bytes)
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/product_manifest_location.rs"]
-mod tests;

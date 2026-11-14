@@ -179,7 +179,3 @@ pub fn legacy_runtime_with_owned(
     let _ = additional;
     Err("automatic legacy binary fingerprint migration is retired; preserve .codex/bin and review it explicitly".into())
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_artifact_migration.rs"]
-mod tests;

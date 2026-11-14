@@ -3,21 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-#[cfg(all(test, bridgeforge_factory_tests))]
-thread_local! { static LEGACY_REFERENCE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) }; }
 
-#[cfg(all(test, bridgeforge_factory_tests))]
-pub(super) fn with_legacy_reference<T>(run: impl FnOnce() -> T) -> T {
-    struct Reset;
-    impl Drop for Reset {
-        fn drop(&mut self) {
-            LEGACY_REFERENCE.set(false);
-        }
-    }
-    LEGACY_REFERENCE.set(true);
-    let _reset = Reset;
-    run()
-}
 
 pub(super) struct WritePlan {
     pub generated_reused: usize,
@@ -108,10 +94,6 @@ impl WritePlan {
                 }
             }
             paths.insert(crate::source_projection::template_relative(root, "templates/hooks/.gitignore"));
-            if root.join("scripts/tests/Cargo.toml").is_file() {
-                paths.insert("scripts/tests/Cargo.toml".into());
-                paths.insert("scripts/tests/Cargo.lock".into());
-            }
             plan.source_inventory = crate::source_projection::render(root, false)?
                 .into_keys()
                 .collect();
@@ -249,22 +231,10 @@ impl WritePlan {
         }
         // Complete one group's cache lifecycle before acquiring the next group.
         // A held lock protects both the final cache and its stable Cargo slot.
-        #[cfg(all(test, bridgeforge_factory_tests))]
-        let reference = LEGACY_REFERENCE.get();
-        #[cfg(not(all(test, bridgeforge_factory_tests)))]
-        let reference = false;
-        // Test-only reference reproduces the former two-lock lifetime and
-        // transient Cargo workspaces against exactly the same candidate bytes.
-        let mut reference_locks = Vec::new();
         for (private, assets) in groups {
             let started = std::time::Instant::now();
             let source = source_root(&temporary.0, &assets[0])?;
-            let opened = crate::artifact_cache::Cache::open_project(root, &source, runner);
-            let mut cache = if reference {
-                opened.ok().flatten()
-            } else {
-                opened?
-            };
+            let mut cache = crate::artifact_cache::Cache::open_project(root, &source, runner)?;
             let mut pending = Vec::new();
             for asset in &assets {
                 if let Some((payload, receipt)) = cache.as_mut().and_then(|c| c.load(asset, runner))
@@ -294,7 +264,7 @@ impl WritePlan {
             }
             if !pending.is_empty() {
                 let fallback;
-                let inputs = if let Some(cache) = cache.as_ref().filter(|_| !reference) {
+                let inputs = if let Some(cache) = cache.as_ref() {
                     crate::build_inputs::BuildInputs::capture_persistent(
                         &source,
                         &bridgeforge_core::artifact_paths::cargo_slot(root, private),
@@ -368,9 +338,6 @@ impl WritePlan {
                 if private { "factory" } else { "public" },
                 started.elapsed().as_millis(),
             );
-            if reference {
-                reference_locks.push(cache);
-            }
         }
         plan.writes = writes;
         plan.verify_unchanged(root)?;

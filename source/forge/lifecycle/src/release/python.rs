@@ -717,7 +717,3 @@ pub(super) fn render_versions(
     }
     Ok(writes)
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../../scripts/tests/unit/core_release_python.rs"]
-mod tests;

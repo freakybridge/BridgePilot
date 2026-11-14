@@ -954,7 +954,3 @@ fn run_inner(
         }
     }
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/native_release.rs"]
-mod tests;

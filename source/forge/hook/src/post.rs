@@ -13,16 +13,6 @@ use crate::util::{
     tool_input,
 };
 
-// Factory-test counters only; no production telemetry or persisted state.
-#[cfg(all(test, bridgeforge_factory_tests))]
-pub static ENCODING_FILES_READ: std::sync::atomic::AtomicUsize =
-    std::sync::atomic::AtomicUsize::new(0);
-#[cfg(all(test, bridgeforge_factory_tests))]
-pub static INSTRUCTION_SCANS: std::sync::atomic::AtomicUsize =
-    std::sync::atomic::AtomicUsize::new(0);
-#[cfg(all(test, bridgeforge_factory_tests))]
-pub static INSTRUCTION_ENTRIES: std::sync::atomic::AtomicUsize =
-    std::sync::atomic::AtomicUsize::new(0);
 pub fn encoding(payloads: &[Value]) -> StepResult {
     let root = repo_root();
     let mut edited = BTreeSet::new();
@@ -45,10 +35,7 @@ pub fn encoding(payloads: &[Value]) -> StepResult {
     }
     let paths = edited.into_iter().collect::<Vec<PathBuf>>();
     let report =
-        match bridgeforge_checks::encoding::inspect_paths_with_observer(&root, &paths, |_path| {
-            #[cfg(all(test, bridgeforge_factory_tests))]
-            ENCODING_FILES_READ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        }) {
+        match bridgeforge_checks::encoding::inspect_paths(&root, &paths) {
             Ok(report) => report,
             Err(error) => return StepResult::failed("encoding", error),
         };
@@ -322,11 +309,7 @@ pub fn edit_requires_instruction_check(payloads: &[Value]) -> bool {
 }
 
 pub fn instruction_source(_payload: &Value) -> StepResult {
-    #[cfg(all(test, bridgeforge_factory_tests))]
-    INSTRUCTION_SCANS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let report = bridgeforge_checks::instructions::inspect(&repo_root());
-    #[cfg(all(test, bridgeforge_factory_tests))]
-    INSTRUCTION_ENTRIES.fetch_add(report.entries_visited, std::sync::atomic::Ordering::Relaxed);
     StepResult {
         code: 0,
         stdout: String::new(),

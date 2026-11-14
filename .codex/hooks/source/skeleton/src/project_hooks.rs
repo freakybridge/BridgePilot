@@ -319,7 +319,3 @@ pub fn legacy_artifacts(root: &Path) -> Result<BTreeMap<PathBuf, Vec<u8>>, Strin
     }
     Ok(owned)
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_project_hooks.rs"]
-mod tests;

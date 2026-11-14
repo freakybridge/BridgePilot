@@ -407,30 +407,3 @@ pub fn run(values: Vec<String>) -> Result<Value> {
         _ => Err(format!("unknown command {command}; use bp help")),
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn parser_rejects_duplicate_or_missing_values() {
-        assert!(args(vec!["status".into(), "--workspace".into()]).is_err());
-        assert!(
-            args(vec![
-                "status".into(),
-                "--workspace".into(),
-                "a".into(),
-                "--workspace".into(),
-                "b".into()
-            ])
-            .is_err()
-        );
-        assert!(
-            args(vec![
-                "pause".into(),
-                "--project".into(),
-                "wrong-scope".into()
-            ])
-            .is_err()
-        );
-    }
-}

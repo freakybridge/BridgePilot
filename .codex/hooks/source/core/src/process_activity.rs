@@ -136,7 +136,3 @@ pub fn images() -> Result<Vec<(u32, std::path::PathBuf)>, String> {
 pub fn images() -> Result<Vec<(u32, std::path::PathBuf)>, String> {
     Err("process activity inspection is unavailable on this platform".into())
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_process_activity.rs"]
-mod tests;

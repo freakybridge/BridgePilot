@@ -189,7 +189,3 @@ pub(super) fn rows(path: &Path, session: &str) -> Result<Vec<String>, String> {
     }
     Ok(output)
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_high_cost_windows.rs"]
-mod tests;

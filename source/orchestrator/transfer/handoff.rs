@@ -237,9 +237,7 @@ pub fn legacy_server_probe(
         .file_name()
         .and_then(|s| s.to_str())
         .ok_or("Codex executable name missing")?;
-    if !expected.eq_ignore_ascii_case("codex.exe")
-        && !(cfg!(feature = "test-fixtures") && expected == "bp-rpc-fixture.exe")
-    {
+    if !expected.eq_ignore_ascii_case("codex.exe") {
         return Err("legacy source must be the actual Codex executable".into());
     }
     verify_launch_evidence(store, run, executable, launch, supervisor)?;

@@ -27,9 +27,6 @@ mod python;
 mod python_dependencies;
 mod python_lock;
 mod python_metadata;
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_release_python_native.rs"]
-mod python_native_tests;
 mod rust;
 pub mod schema4;
 pub mod setup;
@@ -681,14 +678,6 @@ fn contract_assets(
     Ok((by_target, by_id))
 }
 
-#[cfg(test)]
-fn head_payload(
-    root: &Path,
-    relative: &str,
-    runner: &dyn ProcessRunner,
-) -> Result<Option<Vec<u8>>, String> {
-    revision_payload(root, "HEAD", relative, runner)
-}
 
 fn revision_payload(
     root: &Path,
@@ -743,34 +732,7 @@ fn revision_payload(
     Ok(Some(output.stdout))
 }
 
-#[cfg(test)]
-fn classify(
-    root: &Path,
-    changed: &[String],
-    runner: &dyn ProcessRunner,
-) -> Result<ReleaseKind, String> {
-    if root.join(bridgeforge_core::product_manifest::FILE).is_file() {
-        return Ok(ReleaseKind::Factory);
-    }
-    let contract_path = root.join(".codex/managed-skeleton.json");
-    let current_bytes = fs::read(&contract_path).map_err(|_| "current-only baseline is missing")?;
-    classify_payloads(
-        changed,
-        &current_bytes,
-        |path| head_payload(root, path, runner),
-        |path| release_input(&root.join(path)),
-    )
-}
 
-#[cfg(test)]
-fn classify_payloads(
-    changed: &[String],
-    current_bytes: &[u8],
-    before: impl Fn(&str) -> Result<Option<Vec<u8>>, String>,
-    after: impl Fn(&str) -> Result<Option<Vec<u8>>, String>,
-) -> Result<ReleaseKind, String> {
-    PayloadClassifier::new(current_bytes, &before)?.classify(changed, before, after)
-}
 
 struct PayloadClassifier {
     current_by_target: BTreeMap<String, Value>,
@@ -1105,7 +1067,3 @@ pub fn verify_release_inputs(inputs: &BTreeMap<PathBuf, Option<Vec<u8>>>) -> Res
     }
     Ok(())
 }
-
-#[cfg(all(test, bridgeforge_factory_tests))]
-#[path = "../../../../scripts/tests/unit/core_release.rs"]
-mod tests;

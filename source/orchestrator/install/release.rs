@@ -103,7 +103,3 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value> {
     plan.validate(&root)?;
     serde_json::to_value(plan).map_err(|e| e.to_string())
 }
-
-#[cfg(test)]
-#[path = "../../../scripts/tests/orchestrator/native_release.rs"]
-mod tests;
