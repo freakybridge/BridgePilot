@@ -1,5 +1,14 @@
 # Changelog
 
+## [BP 2.7.0]
+
+- feat: 验收通过后清理有明确依据的临时测试
+
+## [20.1.0] - 未发布
+
+- [product] `summary accept` 验收通过后，删除 `scripts/tests/**` 和 `source/**` 中与本次验收相关、有明确依据的临时测试及其专属引用；保留长期回归测试，用途无法确定时保留并报告依据与原因。普通 summary、switch 和只读调用不清理测试。
+- [repo] 同步共享 Skill 的自身 dogfood 与内置 Template 资产；BF 20.0.1 → 20.1.0 为兼容新增，core 11.5.1 → 11.5.2 更新内置规则，BP 与其他组件版本不变，本次未发布。
+
 ## [BP 2.6.1]
 
 - fix: 修复官方旧版 Skill 从 .agents 迁移时的识别阻断

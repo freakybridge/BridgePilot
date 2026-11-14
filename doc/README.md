@@ -4,6 +4,8 @@ delivery_layout: flat
 
 # BridgePilot Documents
 
+- 已验收：[summary accept 临时测试清理](1_delivery/forge-simplification/plan_2026-10-28_command-paths.md#summary-accept-temporary-tests)（2026-11-15；清理本次已验收事项在 scripts/tests 与 source 中有明确依据的临时测试，保留长期回归及用途不明代码并报告。三项受管产物、自检、镜像、模板、版本与 Skill 元数据检查通过；本次无可删除临时测试，真实删除流程及下游未验证。已授权正式发布，以 CLI 收据为准）。
+
 - 已完成工程与发布：[Forge 项目 Skill 迁回 .codex/skills](1_delivery/forge-skill-layout/requirements_2026-11-11_codex-skills.md)（BP2.6.0／Forge20.0.0正式发布，四仓每仓35文件受管迁移、20项Forge Skill实际唯一发现及正式发布全部核验；Library0.74.6、CRS3.8.1、Holdem0.49.5、Stratus7.0.1；自定义与stash保留，主仓其他改动未提交）。
 
 - 修复验证通过、发布接续中：[Git 作者身份修正后的发布接续](1_delivery/native-release/handoff_2026-11-11_author-identity-recovery.md)（2026-11-11；Forge 显式恢复精确重建旧配置哈希并归档原 attempt，39 项针对性测试及独立复核通过，受管工具与 dogfood 一致；BP 修复发布、Holdem 更新和接续进行中；CRS 3.8.0／Library 0.74.5／Stratus 7.0.0 不重复发布）。

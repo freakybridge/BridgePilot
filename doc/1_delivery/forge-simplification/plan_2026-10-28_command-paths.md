@@ -405,4 +405,32 @@ TODO 总表没有与本计划唯一对应的既有条目，故本次不新增编
 
 发布使用已安装 factory 工具的聚合预检，接入远端后再按实际累计范围生成 product 分析。主程序与累计子包公告、提交及真实推送目标以最终受管收据为准，不将计划版本或已验收状态当作发布成功。
 
+<a id="summary-accept-temporary-tests"></a>
+
+## 17. summary accept 临时测试清理验收（2026-11-15）
+
+用户先明确授权修改规则：“删除有明确依据的临时测试，保留长期回归测试，无法确定的保留并报告，覆盖 scripts/tests 和 source 中的相关测试”；本轮通过 `$summary accept` 确认交付符合需求，并独立调用 `$git-sync release` 授权本次变更的正式提交、推送和发布。该增量以本节为验收记录，不改写前述历史决定。
+
+### 交付与验收范围
+
+- 通用产品行为维护在 `source/forge/templates/skills/summary/SKILL.md` 和 `references/acceptance-mode.md`，同步自身 `.codex/skills/summary/` 镜像、内置 Template 规则、分发摘要及历史哈希。适用范围包括 `scripts/tests/**` 的独立测试和 `source/**` 的源码内联测试，仅处理本次已验收事项。
+- 验收通过且未要求只读时，依据对话、记录、代码用途及调用关系删除明确的一次性临时测试；仅凭目录、文件名、本次新增或未接入 CI，不能判定可删。长期回归测试和共享辅助代码保留，用途或删除影响不明时保留并报告。
+- 删除仅连同专属注册、引用及辅助文件处理；混合文件只删明确的临时测试部分，不改业务行为。普通 summary、switch、只读调用及未通过验收时不执行清理。仅做必要静态一致性检查，不把既有通过记录称为删除后重新验证通过。
+
+### 已有工程证据
+
+复用本轮开发完成后的实际结果，验收阶段不补跑构建、测试或 smoke：
+
+- 锁定 Cargo 的工厂准备入口返回 `status=prepared`、`prepared=3`、`self_test_executed=true`、`written_files=15`，完成 CLI、Hook、factory 的受管构建及自检。本机产物入口为 `.build/bridgeforge/public-ready.json`。
+- `bridgeforge-factory.exe build-assets --factory --project-root . --check` 返回 `status=current`、`read_only=true`、`reused=3`、`built=0`。
+- `manifest --root . --check` 返回 `status=ok`、`changed=false`；`template-standard --root . --check` 返回 `status=current`；`check factory-version --root .` 返回 `healthy=true`，版本与合同均为 `20.1.0`。
+- `bridgeforge.exe check skill-metadata --root .` 返回空 issues/warnings；summary 四份模板与镜像逐文件 SHA256 相同，`git diff --check` 通过。
+- 原生候选 BF `20.0.1 → 20.1.0`，兼容新增验收清理能力；core `11.5.1 → 11.5.2`，更新内置规则。开发阶段 BP 维持 `2.6.1`，正式组合发布版本由原生发布适配器依据累计差异确定。
+
+### 本次临时测试清理及限制
+
+本次开发没有新增或修改测试实现；`scripts/tests/` 只有受管生成的 `Cargo.lock` 版本同步，`source/` 变更为共享 Skill、内置资产和原生版本。结合本轮对话和实际差异，没有识别出属于本次事项且有明确删除依据的临时测试，实际删除 0 项；现有回归测试保留，不扩大扫描或清理无关历史测试。
+
+验收通过的是上述规则交付及本地工程验证。真实下游传播、实际验收删除流程和用户环境安装未验证，也不由本次发布授权推导相应写入权限。TODO 总表没有与本次增量唯一对应的条目，不新增编号或改动其他 TODO；TODO-001、TODO-002 不由此次验收结算。正式发布以受管 CLI 的 `status=released` 且 `publication_verified=true` 收据为准。
+
 
