@@ -728,7 +728,7 @@ fn level(message: &str) -> Result<u8, String> {
     match kind.trim_end_matches('!').split('(').next().unwrap() {
         "feat" => Ok(if breaking { 3 } else { 2 }),
         "fix" | "perf" | "refactor" | "chore" | "build" | "test" | "ci" | "style" | "revert"
-        | "docs" => Ok(if breaking { 3 } else { 1 }),
+        | "docs" | "merge" => Ok(if breaking { 3 } else { 1 }),
         _ => Err("unknown native release change classification".into()),
     }
 }
@@ -1153,16 +1153,16 @@ artifacts = []
         repo.git(&["checkout", "main"]);
         repo.write("source/main.rs", "main\n");
         repo.commit("feat!: duplicate subject\n\nmain body");
-        repo.git(&["merge", "--no-ff", "side", "-m", "fix: merge both paths"]);
+        repo.git(&["merge", "--no-ff", "side", "-m", "merge: merge both paths"]);
         repo.write("doc/notes.md", "documentation only\n");
         repo.commit("unclassified documentation only");
         let range = format!("{}..HEAD", repo.baseline);
         let all = repo.compare_history(&range, &["source/main.rs", "source/side.rs"]);
         let main = repo.compare_history(&range, &["source/main.rs"]);
         let side = repo.compare_history(&range, &["source/side.rs"]);
-        assert!(String::from_utf8_lossy(&all).contains("fix: merge both paths"));
-        assert!(!String::from_utf8_lossy(&main).contains("fix: merge both paths"));
-        assert!(!String::from_utf8_lossy(&side).contains("fix: merge both paths"));
+        assert!(String::from_utf8_lossy(&all).contains("merge: merge both paths"));
+        assert!(!String::from_utf8_lossy(&main).contains("merge: merge both paths"));
+        assert!(!String::from_utf8_lossy(&side).contains("merge: merge both paths"));
         let plan = repo.plan(None);
         assert_eq!(plan.identity.version, "2.0.0");
         let notes = &plan
@@ -1298,6 +1298,15 @@ artifacts = []
     fn source_preserves_classification_and_existing_candidates() {
         for (message, expected, package) in [
             ("fix: patch", "1.0.1", "0.4.1"),
+            ("merge: combine branches", "1.0.1", "0.4.1"),
+            ("merge(config): combine branches", "1.0.1", "0.4.1"),
+            ("merge!: changed contract", "2.0.0", "0.5.0"),
+            ("merge(config)!: changed contract", "2.0.0", "0.5.0"),
+            (
+                "merge: combine branches\n\nBREAKING CHANGE: contract",
+                "2.0.0",
+                "0.5.0",
+            ),
             ("feat: minor", "1.1.0", "0.5.0"),
             ("refactor!: major", "2.0.0", "0.5.0"),
             (
@@ -1356,5 +1365,12 @@ artifacts = []
             .unwrap_err()
             .contains("native source query failed")
         );
+    }
+
+    #[test]
+    fn merge_classification_does_not_accept_other_unknown_messages() {
+        assert!(level("maintenance: unknown type").is_err());
+        assert!(level("Merge branch 'side'").is_err());
+        assert_eq!(level("merge: ordinary integration"), Ok(1));
     }
 }

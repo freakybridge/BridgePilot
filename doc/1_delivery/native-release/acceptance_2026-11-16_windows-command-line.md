@@ -62,3 +62,33 @@ cargo run --locked --offline --release --manifest-path Cargo.toml --target-dir .
 | runtime 发布接续 | 新 CLI 的隔离版本分析入口通过；真实下游 release 接续未验证 |
 
 先前的下游升级批次记录及其索引不属于本次修复；发布期间仅作精确备份隔离，完成或暂停后恢复，不纳入本次提交。
+
+<a id="merge-classification-acceptance"></a>
+## merge 分类补充修复验收（2026-11-16）
+
+长路径修复后的真实只读分析越过 206，随后被历史提交 `4a36c2c076c81f200e1292d84db4a7d6291dfbaa` 的 `merge: 合并远端 Config 与基础依赖独立提交` 阻断。原因是分类白名单缺少 `merge`，不是 Git 合并失败。用户明确授权修复 BridgePilot 并再次对 StratusAgent 做只读预演，随后显式调用 `summary accept` 确认本轮交付，并另行授权 `git-sync release`。
+
+本轮修改 Forge 通用适配器 `source/forge/workflow/src/project_release.rs` 与 BP 私有适配器 `source/orchestrator/install/release_source.rs`，不把 BP 私有实现下沉到公共模板。两处均接受 `merge:` 和带 scope 的形式，普通合并按 patch；`!` 和各自原有正文破坏性标记沿用原规则，0.x 的破坏性变化仍升 minor，累计历史仍取最高档位。其他未知类型和缺少分类的消息继续阻断，不忽略整个合并提交，也不重写历史。
+
+工程候选为 Forge `20.1.2 → 20.1.3`、workflow `0.16.2 → 0.16.3`、BP install `0.10.3 → 0.10.4`，均为兼容修复；原生锁文件、CHANGELOG 及自身 dogfood 已同步。工程交付时 BP 主版本仍为 `2.7.2`，本次正式发布版本由原生适配器确定。
+
+定向验证命令：
+
+```powershell
+cargo test --locked --offline --manifest-path Cargo.toml --target-dir .build/bridgeforge/cargo/local -p bridgeforge-workflow -p bridgepilot-install release -- --test-threads=2
+```
+
+结果为 workflow 7 项、install 3 项全部通过。覆盖普通及带 scope 的 merge、前缀与各适配器原有正文破坏性标记、0.x 升版、累计最高档位、未知分类继续失败；保留并通过真实合并历史、消息顺序、已有候选复用及长路径等既有回归。
+
+沿用前文受管准备命令，实际返回三工具 `prepared`、`written_files=12`；最终 `build-assets --factory --check` 返回 `current`、`reused=3`、`built=0`，manifest 无漂移，factory-version 为 `20.1.3` 且 healthy=true。`git diff --check` 通过。没有把本次验证扩展为完整业务回归。
+
+真实 StratusAgent 预演使用 BP 本仓库构建的候选公共 CLI `20.1.3`，没有安装到下游。当前工具不提供完整 `--dry-run`，实际执行的是零写入 `git-sync release --preflight --publication-required --root .` 和 `project-release source --project-root . --input .runtime/bridgeforge-codex/native-release/source-input.json`：
+
+- 首轮受限沙箱中子进程分别报 109 和“必须在工作树中运行”；直接 Git 可识别工作树。放宽沙箱后相同只读调用成功，不修改 ACL、配置或工具安装。
+- 预检为 `ready`、`readiness_scope=git-only`、`remote_state=not_fetched`、`publication_status=not_verified`。
+- 沿用原失败输入的 `v7.1.0`／`a225d05b2fb8d03ac6bbbce1cb1ff686e9ece831` 基线及分类消息，分析实际预演时的 HEAD `a93ff7df4562812c135c55bf355662cd31df855a`；版本选定为 `7.2.6`，生成 `source/Cargo.lock`、`source/common/process/Cargo.toml`、`CHANGELOG.md` 三项拟编辑，未应用。
+- 候选工具构建等待期间观察到下游 Git 状态变化，因此不把整个等待窗口称为冻结；紧邻实际预演前后重新核对，56 个原生版本与锁、Git index/HEAD、接续输入与记录、已安装工具及发布驱动文件的摘要全部一致。
+
+源码、公共候选产物、自身 dogfood、10 项回归、真实下游只读入口和上述 runtime 分析入口均有本轮证据。真实下游工具升级、业务构建、远端发布及完整 release 接续未执行或验证；不能将本次预演描述为完整发布通过。
+
+本轮新增或扩充的源码内联测试固定了 merge 分类契约及防回退行为，全部作为长期回归保留；没有可确认删除的一次性测试源码、注册或专属辅助文件。未发现总表中同项 TODO，不补造编号或改写无关状态。正式发布是否成功继续以 CLI 的 `released`／`publication_verified=true` 收据为准。

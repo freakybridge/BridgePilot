@@ -30,7 +30,7 @@ fn change_level(message: &str) -> Result<u8> {
     let kind = kind.trim_end_matches('!').split('(').next().unwrap();
     match kind {
         "feat" => Ok(if breaking { 3 } else { 2 }),
-        "fix" | "perf" | "refactor" | "docs" | "test" | "build" | "ci" | "chore" | "style" | "revert" => Ok(if breaking { 3 } else { 1 }),
+        "fix" | "perf" | "refactor" | "docs" | "test" | "build" | "ci" | "chore" | "style" | "revert" | "merge" => Ok(if breaking { 3 } else { 1 }),
         _ => Err(format!("unclassified release change: {subject}")),
     }
 }
@@ -136,4 +136,50 @@ pub fn plan(root: &Path, context: &SourceContext) -> Result<SourcePlan> {
     if selected != current { edits.push(SourceEdit { path: "VERSION".into(), before: before_version, after: format!("{selected}\n") }); }
     if after_notes != before_notes { edits.push(SourceEdit { path: "CHANGELOG.md".into(), before: before_notes, after: after_notes }); }
     Ok(SourcePlan { schema: 1, identity, edits, reuse_release: None, release_assets: vec![] })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn merge_and_scoped_merge_are_patch_changes() {
+        for message in ["merge: combine branches", "merge(config): combine branches"] {
+            assert_eq!(change_level(message), Ok(1));
+            assert_eq!(
+                increment("1.2.3".parse().unwrap(), change_level(message).unwrap())
+                    .unwrap()
+                    .to_string(),
+                "1.2.4"
+            );
+        }
+    }
+
+    #[test]
+    fn merge_preserves_existing_breaking_markers_and_zero_major_policy() {
+        for message in [
+            "merge!: changed contract",
+            "merge(config)!: changed contract",
+            "merge: combine branches\n\nBREAKING CHANGE: contract",
+            "merge: combine branches\n\nBREAKING-CHANGE: contract",
+        ] {
+            let level = change_level(message).unwrap();
+            assert_eq!(level, 3);
+            for (base, expected) in [("1.2.3", "2.0.0"), ("0.4.9", "0.5.0")] {
+                assert_eq!(
+                    increment(base.parse().unwrap(), level).unwrap().to_string(),
+                    expected
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn merge_keeps_highest_change_level_and_unknown_types_still_fail() {
+        let messages = ["feat: new behavior", "merge: combine branches", "fix: correction"];
+        let levels = messages.iter().map(|m| change_level(m)).collect::<Result<Vec<_>>>().unwrap();
+        assert_eq!(levels.into_iter().max(), Some(2));
+        assert!(change_level("maintenance: unknown type").is_err());
+        assert!(change_level("Merge branch 'side'").is_err());
+    }
 }

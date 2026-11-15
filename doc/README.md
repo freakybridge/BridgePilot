@@ -4,6 +4,8 @@ delivery_layout: flat
 
 # BridgePilot Documents
 
+- 已验收：[merge 提交分类及 StratusAgent 只读发布预演](1_delivery/native-release/acceptance_2026-11-16_windows-command-line.md#merge-classification-acceptance)（2026-11-16；Forge 与 BP 两处分类器接受 merge，10 项回归及受管产物与 dogfood 检查通过；Forge20.1.3／workflow0.16.3／install0.10.4。Stratus 预检及版本分析通过、3 项拟编辑未应用、56 个保护文件前后摘要一致；保留长期回归，已授权正式发布。未安装下游工具，业务构建及完整发布接续未验证）。
+
 - 已验收：[原生发布版本分析的 Windows 命令行超长修复](1_delivery/native-release/acceptance_2026-11-16_windows-command-line.md)（2026-11-16；完整路径集合单次历史查询，6 项回归、独立复核、新 CLI 长路径验证及受管产物与 dogfood 检查通过；Forge20.1.2／workflow0.16.2，保留长期回归。已授权正式发布，以 CLI 收据为准；真实下游及其发布接续未验证）。
 
 - 已验收、正式发布待接续：[本仓库全部测试代码清理](1_delivery/test-retirement/acceptance_2026-11-03_aggressive-test-retirement.md#all-tests-retired-2026-11-15)（2026-11-15；scripts/tests 全目录 122 文件及 source 内测试代码、夹具、注册和插桩已删除，dogfood 同步；workspace 全 target 编译检查、三工具构建自检及零写入一致性检查通过。运行时 self-test 保留，本次明确授权覆盖长期回归测试，summary 通用默认规则不变。BP2.7.1 在提交前被两处历史夹具死链接阻断，引用已修正，未提交推送或发布，等待明确接续；真实下游和业务运行未验证）。
