@@ -58,7 +58,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-cli"
-version = "20.1.1"
+version = "20.1.2"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
@@ -150,7 +150,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-workflow"
-version = "0.16.1"
+version = "0.16.2"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",

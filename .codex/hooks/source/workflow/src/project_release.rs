@@ -322,8 +322,13 @@ pub fn verify_driver(root: &Path) -> Result<Value, String> {
 }
 
 fn git(root: &Path, args: &[&str]) -> Result<Vec<u8>, String> {
+    git_with_stdin(root, args, Vec::new())
+}
+
+fn git_with_stdin(root: &Path, args: &[&str], stdin: Vec<u8>) -> Result<Vec<u8>, String> {
     let mut q = ProcessRequest::new("git", root);
     q.args = args.iter().map(Into::into).collect();
+    q.stdin = stdin;
     q.timeout = Duration::from_secs(60);
     q.env.insert("GIT_OPTIONAL_LOCKS".into(), "0".into());
     let out = SystemProcessRunner.run(&q).map_err(|e| e.to_string())?;
@@ -334,6 +339,24 @@ fn git(root: &Path, args: &[&str]) -> Result<Vec<u8>, String> {
         ));
     }
     Ok(out.stdout)
+}
+
+fn history(root: &Path, range: &str, paths: &BTreeSet<&str>) -> Result<Vec<u8>, String> {
+    // Keep the complete pathspec in one history walk: batching paths can change
+    // Git's merge simplification, commit order and therefore release notes.
+    let mut args = vec!["log", "--format=%B%x00", range, "--stdin", "--"];
+    let mut stdin = b"--\n".to_vec();
+    for path in paths {
+        // --stdin reads raw lines and strips CRLF. Preserve unusual historical
+        // names through argv instead of splitting or changing their pathspecs.
+        if path.contains('\n') || path.ends_with('\r') {
+            args.push(path);
+        } else {
+            stdin.extend_from_slice(path.as_bytes());
+            stdin.push(b'\n');
+        }
+    }
+    git_with_stdin(root, &args, stdin)
 }
 
 fn inventory(root: &Path, r: &Recipe) -> Result<Vec<String>, String> {
@@ -794,10 +817,8 @@ pub fn source(root: &Path, context: Option<&SourceContext>) -> Result<Value, Str
         let mut messages = Vec::new();
         if let Some(b) = &context.baseline {
             let range = format!("{}..HEAD", b.commit);
-            let mut args = vec!["log", "--format=%B%x00", range.as_str(), "--"];
-            args.extend(code_paths.iter().copied());
             messages.extend(
-                String::from_utf8(git(root, &args)?)
+                String::from_utf8(history(root, &range, &code_paths)?)
                     .map_err(|e| e.to_string())?
                     .split('\0')
                     .map(str::trim)
@@ -1008,4 +1029,332 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value, String> {
     };
     plan.validate(&root)?;
     serde_json::to_value(plan).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bridgeforge_core::native_release::PublishedVersion;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
+
+    struct Repo {
+        root: PathBuf,
+        baseline: String,
+    }
+
+    impl Repo {
+        fn new() -> Self {
+            let workspace = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .ancestors()
+                .find(|p| p.join(".git").exists())
+                .expect("test checkout root");
+            let root = workspace.join(format!(
+                ".runtime/tests/project-release-history/{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            fs::create_dir_all(&root).unwrap();
+            let mut repo = Self {
+                root,
+                baseline: String::new(),
+            };
+            repo.git(&["-c", "init.templateDir=", "init", "--initial-branch=main"]);
+            for (key, value) in [
+                ("user.name", "Release Test"),
+                ("user.email", "release-test@example.invalid"),
+                ("commit.gpgsign", "false"),
+                ("core.hooksPath", "disabled-hooks"),
+                ("core.autocrlf", "false"),
+            ] {
+                repo.git(&["config", key, value]);
+            }
+            repo.write("VERSION", "1.0.0\n");
+            repo.write("CHANGELOG.md", "# Changelog\n\n## [1.0.0]\n\n- baseline\n");
+            repo.write(
+                "source/pkg/Cargo.toml",
+                "[package]\nname = \"sample\"\nversion = \"0.4.0\"\n",
+            );
+            repo.write("source/pkg/lib.rs", "baseline\n");
+            repo.write(
+                "Cargo.toml",
+                r#"[workspace]
+members = []
+[workspace.metadata.bridgeforge.project-release]
+schema = 1
+product = "Sample"
+repository = "example/sample"
+version-file = "VERSION"
+changelog = "CHANGELOG.md"
+tag-prefix = "v"
+include = ["VERSION", "CHANGELOG.md", "Cargo.toml", "source", "doc"]
+build = []
+artifacts = []
+"#,
+            );
+            repo.commit("chore: baseline");
+            repo.baseline = repo.git(&["rev-parse", "HEAD"]).trim().into();
+            repo
+        }
+
+        fn git(&self, args: &[&str]) -> String {
+            String::from_utf8(git(&self.root, args).unwrap()).unwrap()
+        }
+
+        fn write(&self, path: &str, content: &str) {
+            let path = self.root.join(path);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, content).unwrap();
+        }
+
+        fn commit(&self, message: &str) {
+            self.git(&["add", "--all"]);
+            self.git(&["commit", "-m", message]);
+        }
+
+        fn context(&self, message: Option<&str>) -> SourceContext {
+            SourceContext {
+                schema: 1,
+                identity: identity(&self.root).unwrap(),
+                baseline: Some(PublishedVersion {
+                    version: "1.0.0".into(),
+                    commit: self.baseline.clone(),
+                }),
+                message: message.map(str::to_owned),
+            }
+        }
+
+        fn plan(&self, message: Option<&str>) -> SourcePlan {
+            serde_json::from_value(source(&self.root, Some(&self.context(message))).unwrap())
+                .unwrap()
+        }
+
+        fn compare_history(&self, range: &str, paths: &[&str]) -> Vec<u8> {
+            let paths = paths.iter().copied().collect::<BTreeSet<_>>();
+            let mut legacy = vec!["log", "--format=%B%x00", range, "--"];
+            legacy.extend(paths.iter().copied());
+            let expected = git(&self.root, &legacy).unwrap();
+            let actual = history(&self.root, range, &paths).unwrap();
+            assert_eq!(
+                actual, expected,
+                "history must match the original query byte for byte"
+            );
+            actual
+        }
+    }
+
+    #[test]
+    fn history_preserves_merge_simplification_and_message_order() {
+        let repo = Repo::new();
+        repo.git(&["checkout", "-b", "side"]);
+        repo.write("source/side.rs", "side\n");
+        repo.commit("feat!: duplicate subject\n\nside body");
+        repo.git(&["checkout", "main"]);
+        repo.write("source/main.rs", "main\n");
+        repo.commit("feat!: duplicate subject\n\nmain body");
+        repo.git(&["merge", "--no-ff", "side", "-m", "fix: merge both paths"]);
+        repo.write("doc/notes.md", "documentation only\n");
+        repo.commit("unclassified documentation only");
+        let range = format!("{}..HEAD", repo.baseline);
+        let all = repo.compare_history(&range, &["source/main.rs", "source/side.rs"]);
+        let main = repo.compare_history(&range, &["source/main.rs"]);
+        let side = repo.compare_history(&range, &["source/side.rs"]);
+        assert!(String::from_utf8_lossy(&all).contains("fix: merge both paths"));
+        assert!(!String::from_utf8_lossy(&main).contains("fix: merge both paths"));
+        assert!(!String::from_utf8_lossy(&side).contains("fix: merge both paths"));
+        let plan = repo.plan(None);
+        assert_eq!(plan.identity.version, "2.0.0");
+        let notes = &plan
+            .edits
+            .iter()
+            .find(|e| e.path == "CHANGELOG.md")
+            .unwrap()
+            .after;
+        assert_eq!(notes.matches("feat!: duplicate subject").count(), 2);
+        assert!(!notes.contains("unclassified"));
+    }
+
+    #[test]
+    fn history_preserves_raw_paths_and_pathspec_magic() {
+        let repo = Repo::new();
+        for name in ["source/空 格.rs", "source/-dash.rs", "source/[ab].rs"] {
+            repo.write(name, name);
+            repo.commit("fix: selected path");
+        }
+        repo.write("source/a.rs", "glob also selects this\n");
+        repo.commit("feat: wildcard match");
+        let range = format!("{}..HEAD", repo.baseline);
+        repo.compare_history(&range, &["source/空 格.rs", "source/-dash.rs"]);
+        repo.compare_history(&range, &["source/[ab].rs"]);
+        repo.compare_history(&range, &[":(literal)source/[ab].rs"]);
+        repo.compare_history(&range, &["source", ":(exclude)source/a.rs"]);
+    }
+
+    #[test]
+    fn history_preserves_newline_carriage_return_and_quoted_historical_names() {
+        let repo = Repo::new();
+        // Use tree plumbing: Windows cannot check these names out, but deleted
+        // paths from cross-platform history can still occur in the pathspec.
+        let blob = String::from_utf8(
+            git_with_stdin(
+                &repo.root,
+                &["hash-object", "-w", "--stdin"],
+                b"body".to_vec(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let mut entries = Vec::new();
+        let paths = [
+            "line\nbreak.rs",
+            "trailing\r",
+            "middle\rname.rs",
+            "tab\tname.rs",
+            "ctrl\u{1a}name.rs",
+            "quote\"name.rs",
+            "back\\slash.rs",
+            "ordinary.rs",
+        ];
+        for path in paths {
+            entries.extend_from_slice(format!("100644 blob {}\t{path}\0", blob.trim()).as_bytes());
+        }
+        let tree =
+            String::from_utf8(git_with_stdin(&repo.root, &["mktree", "-z"], entries).unwrap())
+                .unwrap();
+        let commit = repo.git(&[
+            "commit-tree",
+            tree.trim(),
+            "-p",
+            &repo.baseline,
+            "-m",
+            "fix: unusual historical names",
+        ]);
+        let range = format!("{}..{}", repo.baseline, commit.trim());
+        for path in paths {
+            repo.compare_history(&range, &[path]);
+        }
+        repo.compare_history(&range, &paths);
+    }
+
+    #[test]
+    fn source_handles_more_than_windows_command_limit_without_changing_versions() {
+        let repo = Repo::new();
+        let paths = (0..1000)
+            .map(|i| format!("source/pkg/changed_{i:04}_{}.rs", "x".repeat(45)))
+            .collect::<Vec<_>>();
+        assert!(
+            paths
+                .iter()
+                .map(|p| p.encode_utf16().count() + 1)
+                .sum::<usize>()
+                > 32767
+        );
+        for path in &paths {
+            repo.write(path, "changed\n");
+        }
+        repo.commit("fix: many changed paths");
+        let range = format!("{}..HEAD", repo.baseline);
+        let pathspecs = paths.iter().map(String::as_str).collect::<BTreeSet<_>>();
+        #[cfg(windows)]
+        {
+            let mut legacy = vec!["log", "--format=%B%x00", range.as_str(), "--"];
+            legacy.extend(pathspecs.iter().copied());
+            assert!(git(&repo.root, &legacy).unwrap_err().contains("206"));
+        }
+        assert_eq!(
+            history(&repo.root, &range, &pathspecs).unwrap(),
+            git(
+                &repo.root,
+                &["log", "--format=%B%x00", &range, "--", "source/pkg"]
+            )
+            .unwrap()
+        );
+        repo.write("doc/notes.md", "documentation\n");
+        repo.commit("feat!: docs must not affect versions");
+        let plan = repo.plan(None);
+        assert_eq!(plan.identity.version, "1.0.1");
+        assert!(plan.reuse_release.is_none());
+        assert!(
+            plan.edits
+                .iter()
+                .any(|e| e.path == "source/pkg/Cargo.toml" && e.after.contains("0.4.1"))
+        );
+        let notes = &plan
+            .edits
+            .iter()
+            .find(|e| e.path == "CHANGELOG.md")
+            .unwrap()
+            .after;
+        assert_eq!(notes.matches("fix: many changed paths").count(), 1);
+        assert!(!notes.contains("docs must not affect"));
+        assert!(
+            repo.git(&["status", "--porcelain"]).is_empty(),
+            "source planning must remain read-only"
+        );
+    }
+
+    #[test]
+    fn source_preserves_classification_and_existing_candidates() {
+        for (message, expected, package) in [
+            ("fix: patch", "1.0.1", "0.4.1"),
+            ("feat: minor", "1.1.0", "0.5.0"),
+            ("refactor!: major", "2.0.0", "0.5.0"),
+            (
+                "fix: body marker\n\nBREAKING CHANGE: contract",
+                "2.0.0",
+                "0.5.0",
+            ),
+        ] {
+            let repo = Repo::new();
+            repo.write("source/pkg/lib.rs", "changed\n");
+            repo.commit(message);
+            let plan = repo.plan(None);
+            assert_eq!(plan.identity.version, expected);
+            assert!(
+                plan.edits
+                    .iter()
+                    .any(|e| e.path == "source/pkg/Cargo.toml" && e.after.contains(package))
+            );
+            repo.write("VERSION", "3.0.0\n");
+            let candidate = repo.plan(Some("fix: pending candidate"));
+            assert_eq!(candidate.identity.version, "3.0.0");
+            assert!(!candidate.edits.iter().any(|e| e.path == "VERSION"));
+        }
+    }
+
+    #[test]
+    fn source_preserves_reuse_dirty_input_and_failure_behavior() {
+        let repo = Repo::new();
+        repo.write("doc/notes.md", "documentation\n");
+        repo.commit("unclassified documentation only");
+        let reuse = repo.plan(None);
+        assert_eq!(reuse.reuse_release.unwrap().commit, repo.baseline);
+        assert!(reuse.edits.is_empty());
+        repo.write("source/pkg/lib.rs", "pending\n");
+        assert!(
+            source(&repo.root, Some(&repo.context(None)))
+                .unwrap_err()
+                .contains("classified message")
+        );
+        assert_eq!(
+            repo.plan(Some("feat: pending code")).identity.version,
+            "1.1.0"
+        );
+        repo.commit("unclassified code");
+        assert!(
+            source(&repo.root, Some(&repo.context(None)))
+                .unwrap_err()
+                .contains("classified commit")
+        );
+        assert!(
+            history(
+                &repo.root,
+                "missing-reference..HEAD",
+                &BTreeSet::from(["source/pkg/lib.rs"])
+            )
+            .unwrap_err()
+            .contains("native source query failed")
+        );
+    }
 }
