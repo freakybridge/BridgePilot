@@ -4,6 +4,10 @@ delivery_layout: flat
 
 # BridgePilot Documents
 
+- 升级完成：[BP 2.7.3 与四个登记下游 Forge 20.1.3 升级](1_delivery/bridgepilot-update/batch_2026-11-16_forge-20.1.3.md)（2026-11-16；本机 BP 与四个专用 Skills 已核验，固定官方 20b5202；四仓各写 10 项、无退役，公共 baseline clean、发布入口 ready。HEAD、stash、业务版本、项目定制及 Stratus 五篇文档原样保留；Library 私有 vault Hook 仍缺失，两仓原始应用日志缺失及补充核验如实记录。未提交推送发布，业务运行未验证）。
+
+- 升级完成：[BP 2.7.1 与四个登记下游 Forge 20.1.1 升级](1_delivery/bridgepilot-update/batch_2026-11-15_forge-20.1.1.md)（2026-11-15；本机 BP 与专用 Skills 已核验，固定官方 d7215bf；四仓安装 succeeded、baseline clean，分别写入 68/70/68/68 文件，退役 0。HEAD、stash 和项目定制区保留；Stratus 指纹漂移已核对接续，另有两篇写集外业务文档继续变化并记录。本轮未提交、推送或发布，业务运行未验证）。
+
 - 已验收：[merge 提交分类及 StratusAgent 只读发布预演](1_delivery/native-release/acceptance_2026-11-16_windows-command-line.md#merge-classification-acceptance)（2026-11-16；Forge 与 BP 两处分类器接受 merge，10 项回归及受管产物与 dogfood 检查通过；Forge20.1.3／workflow0.16.3／install0.10.4。Stratus 预检及版本分析通过、3 项拟编辑未应用、56 个保护文件前后摘要一致；保留长期回归，已授权正式发布。未安装下游工具，业务构建及完整发布接续未验证）。
 
 - 已验收：[原生发布版本分析的 Windows 命令行超长修复](1_delivery/native-release/acceptance_2026-11-16_windows-command-line.md)（2026-11-16；完整路径集合单次历史查询，6 项回归、独立复核、新 CLI 长路径验证及受管产物与 dogfood 检查通过；Forge20.1.2／workflow0.16.2，保留长期回归。已授权正式发布，以 CLI 收据为准；真实下游及其发布接续未验证）。
