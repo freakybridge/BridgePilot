@@ -1,5 +1,15 @@
 # Changelog
 
+## [BP 3.0.1]
+
+- fix: 修复发布分类说明与 Windows PowerShell 构建模块路径
+
+## [21.0.1] - 未发布
+
+- fix: 在 Windows PowerShell 构建子进程中排除 PowerShell 7 随附的模块目录，保留自定义模块路径，修复发布构建中找不到 `Get-FileHash` 的问题。
+- fix: 发布入口首次调用前根据待提交代码生成分类说明。已有代码提交、仅文档待提交时，原生发布器沿用代码提交的分类。
+- [repo] Forge 21.0.0 → 21.0.1，workflow 0.16.3 → 0.16.4。
+
 ## [BP 3.0.0]
 
 - feat: 统一代码清理入口并退役旧过度防御 Skill

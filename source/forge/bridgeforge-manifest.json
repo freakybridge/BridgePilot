@@ -3528,7 +3528,7 @@
         }
       ]
     },
-    "release_version": "21.0.0",
+    "release_version": "21.0.1",
     "release_model": "product-packages",
     "host": "codex",
     "stamp": ".codex/.bridgeforge_codex_version",
@@ -4061,10 +4061,11 @@
         "source": "source/forge/templates/skills/git-sync/SKILL.md",
         "target": ".codex/skills/git-sync/SKILL.md",
         "strategy": "whole",
-        "current_sha256": "sha256:8910de659f1a604d56fc7cc8d741b5fb52f2a4d53e23886a3e7249ed26c68e35",
+        "current_sha256": "sha256:2fef31c2eaf2e3adc8ae0d87445ab429f1a469d16da0a1c5612d68b5c336be3a",
         "previous_sha256": [
           "sha256:cc88742d4e1e71082815365040c27067eda3b77ef6b4b549f4c3dfc1d977048a",
-          "sha256:82c645eece6261c6be3f81b7f968801ea43aa05266428be93fb3ac3d3193aeef"
+          "sha256:82c645eece6261c6be3f81b7f968801ea43aa05266428be93fb3ac3d3193aeef",
+          "sha256:8910de659f1a604d56fc7cc8d741b5fb52f2a4d53e23886a3e7249ed26c68e35"
         ],
         "relocation": {
           "id": "codex.project-workflow.git-sync.skill.md",
@@ -4653,7 +4654,7 @@
         "source": "Cargo.lock",
         "target": ".codex/hooks/Cargo.lock",
         "strategy": "whole",
-        "current_sha256": "sha256:5e47fea13c33929f06971e454e7fb5f11b3e45dc53a66a0692698ad1bee560c5",
+        "current_sha256": "sha256:526c2b2ebdd41855380a22601428b09871b31b764a4d2e962a4d64b48039264f",
         "render": "public-runtime-lock"
       },
       {
@@ -4746,7 +4747,7 @@
         "source": "source/forge/cli/Cargo.toml",
         "target": ".codex/hooks/source/cli/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:7d53d32377efdf2531b03f2ba9e033ec0ddaed2c515ca9d089d2ed9c16fddec2"
+        "current_sha256": "sha256:67c6fb8286379a3eff5a1f08160dac570ecd6d1570aa4887807d85d56f8b0fb2"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-cli-src-main-rs",
@@ -5019,7 +5020,7 @@
         "source": "source/forge/core/src/template_assets.rs",
         "target": ".codex/hooks/source/core/src/template_assets.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:2e78be1918837dcdd6b97693ec5b266da2e92d70a78da6405762a35fbf38f7e2"
+        "current_sha256": "sha256:37e02efb9b37a3c7bb67a1d0472e940ca40e39e8913f5ca8e91ed7a9e9316c94"
       },
       {
         "id": "codex.hooks.source-core-src-template-standard-rs",
@@ -5439,7 +5440,7 @@
         "source": "source/forge/workflow/Cargo.toml",
         "target": ".codex/hooks/source/workflow/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:12df22e3a3c31cdc9a2e9010f7ce724c7545c5d902769ea7f0e836f2a13b1f45"
+        "current_sha256": "sha256:2851ff8617f5026135d485a12d26c32485f381fa2e0c315c7f924b98c8fce982"
       },
       {
         "id": "codex.hooks.source-workflow-src-artifact-cleanup-rs",
@@ -5544,7 +5545,7 @@
         "source": "source/forge/workflow/src/project_release.rs",
         "target": ".codex/hooks/source/workflow/src/project_release.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:6371d3e085633481309c0b05276ab732dfe2e280fe13cd87d64dfeefa09d5608"
+        "current_sha256": "sha256:23d8b8c1ba88d09f0e453c04d910140fba2b2c4f90d38c46314edebb7db36d09"
       },
       {
         "id": "codex.hooks.source-workflow-src-project-release-archive-rs",
@@ -5633,15 +5634,15 @@
             "status": "ok",
             "build_identity": {
               "protocol": 1,
-              "source_tree_sha256": "sha256:60f07c8ef7876d4557866ac2243a89d0f5924a4d3b29bcd9365a016fba1b825e",
-              "lockfile_sha256": "sha256:5e47fea13c33929f06971e454e7fb5f11b3e45dc53a66a0692698ad1bee560c5"
+              "source_tree_sha256": "sha256:d5da5d5fc69b726bf6fe2f15bf1097ad682e49bd6e0920c56e5823688b3c5047",
+              "lockfile_sha256": "sha256:526c2b2ebdd41855380a22601428b09871b31b764a4d2e962a4d64b48039264f"
             }
           }
         },
-        "source_tree_sha256": "sha256:60f07c8ef7876d4557866ac2243a89d0f5924a4d3b29bcd9365a016fba1b825e",
-        "lockfile_sha256": "sha256:5e47fea13c33929f06971e454e7fb5f11b3e45dc53a66a0692698ad1bee560c5",
+        "source_tree_sha256": "sha256:d5da5d5fc69b726bf6fe2f15bf1097ad682e49bd6e0920c56e5823688b3c5047",
+        "lockfile_sha256": "sha256:526c2b2ebdd41855380a22601428b09871b31b764a4d2e962a4d64b48039264f",
         "build_recipe_sha256": "sha256:38f32bc9a727a88db971e8bcf9c71d1f9e3dc0cd9a68a6f560bcd48bda07c444",
-        "self_test_sha256": "sha256:cc358768d44cb85a2ac7a2c45a68daf3c4e95d0fbad89ff961b58e96c02cec61",
+        "self_test_sha256": "sha256:530f6ae76d3156b884e67e73f8336bfc4c8bfcbcee2f90edf0cad2bbd678f5d5",
         "source_projection": "public-runtime-v1"
       },
       {
@@ -5685,15 +5686,15 @@
             "status": "ok",
             "build_identity": {
               "protocol": 1,
-              "source_tree_sha256": "sha256:60f07c8ef7876d4557866ac2243a89d0f5924a4d3b29bcd9365a016fba1b825e",
-              "lockfile_sha256": "sha256:5e47fea13c33929f06971e454e7fb5f11b3e45dc53a66a0692698ad1bee560c5"
+              "source_tree_sha256": "sha256:d5da5d5fc69b726bf6fe2f15bf1097ad682e49bd6e0920c56e5823688b3c5047",
+              "lockfile_sha256": "sha256:526c2b2ebdd41855380a22601428b09871b31b764a4d2e962a4d64b48039264f"
             }
           }
         },
-        "source_tree_sha256": "sha256:60f07c8ef7876d4557866ac2243a89d0f5924a4d3b29bcd9365a016fba1b825e",
-        "lockfile_sha256": "sha256:5e47fea13c33929f06971e454e7fb5f11b3e45dc53a66a0692698ad1bee560c5",
+        "source_tree_sha256": "sha256:d5da5d5fc69b726bf6fe2f15bf1097ad682e49bd6e0920c56e5823688b3c5047",
+        "lockfile_sha256": "sha256:526c2b2ebdd41855380a22601428b09871b31b764a4d2e962a4d64b48039264f",
         "build_recipe_sha256": "sha256:cf5fb262a1e28cd8e05979b29b633143e52ae3cd1b62eeea56d9f55da70d1e5e",
-        "self_test_sha256": "sha256:2a9520bc45e5db05a421077136bb000c11d4e5c1cbbbf0936b2a90593f2ead93",
+        "self_test_sha256": "sha256:32c1b0b334611e7f8c16d7ffa4ef6582e50d3555dd8c5e357640a6c5ace32d6b",
         "source_projection": "public-runtime-v1"
       }
     ],

@@ -5,6 +5,20 @@ validation_status: verified
 
 # 单入口完整发布修复
 
+## 2026-11-24 用户验收发布分类与 Windows PowerShell 构建修复
+
+用户通过 `summary accept` 验收 TODO-054 单入口发布的本次增量，并授权发布 BridgePilot。Forge 从 21.0.0 升至 21.0.1，workflow 从 0.16.3 升至 0.16.4。
+
+| 场景 | 验收依据 |
+|---|---|
+| 有待提交代码 | 公共 Skill 要求首次受管调用携带根据实际差异生成的分类说明。隔离仓使用真实 CLI 和本地托管服务替身，`feat:` 说明从消息文件到达原生适配器，候选版本从 1.0.0 升至 1.1.0。测试在查询该标签时按设计终止，推送和上传均为零。 |
+| 代码已提交，仅文档待提交 | 修复前可复现分类说明缺失。修复后沿用代码提交的分类。workflow 的 9 项库测试全部通过，包括暂存、未暂存和未跟踪变更，以及已有候选版本的行为。 |
+| Windows PowerShell 5.1 构建 | 同一隔离仓和同一配方下，21.0.0 加载 PowerShell 7 的 Utility 模块后找不到 `Get-FileHash`。21.0.1 在子进程中排除随 `pwsh.exe` 分发的模块目录，保留自定义模块路径。版本文件摘要与独立计算一致，三项打包产物的 SHA-256 核验通过。 |
+
+公共模板和源码已投影至工厂自身镜像，Skill 与 workflow 源文件的两组哈希分别一致。受管构建准备了三项产物并执行自检，随后 `build-assets --factory --project-root . --check` 返回 `current`，manifest 与版本检查通过。两项新增的内联测试保留为长期回归。本机打包与分类收据位于 `.runtime/tests/release-module-path/case-01/.runtime/` 下的 `fixture-prepare.json` 和 `fixture-first-call.json`。
+
+验收覆盖上游源码、骨架分发、自身镜像及 Windows 隔离仓的真实驱动。StratusAgent 的新版安装和业务发布未验证。BridgePilot 的正式发布结果以本次受管发布收据为准。
+
 ## 无代码变动不升版修复验收2026-11-03
 
 用户明确纠正发布规则：`git-sync release` 时没有代码变动，应保持版本号并完成发布，而不是因为验收文档变化自动生成 patch。用户授权实施后，本轮显式调用 `summary accept`，确认此项 TODO-054 增量修复符合需求，并另行授权当前 BP 的完整发布。原 BP 1.2.1 确因纯验收文档被错误升版而发布，历史标签和资产保留，不倒退或覆盖。

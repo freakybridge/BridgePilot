@@ -759,6 +759,13 @@ fn code(path: &str) -> bool {
     path.starts_with("source/") || path.starts_with(".codex/") || !path.ends_with(".md")
 }
 
+fn code_paths(paths: &[u8]) -> impl Iterator<Item = &str> {
+    paths
+        .split(|c| *c == 0)
+        .filter_map(|p| std::str::from_utf8(p).ok())
+        .filter(|p| !p.is_empty() && code(p))
+}
+
 pub fn source(root: &Path, context: Option<&SourceContext>) -> Result<Value, String> {
     let mut id = identity(root)?;
     let Some(context) = context else {
@@ -790,24 +797,17 @@ pub fn source(root: &Path, context: Option<&SourceContext>) -> Result<Value, Str
         .as_ref()
         .map(|b| b.commit.as_str())
         .unwrap_or("HEAD");
-    let mut changed = git(
+    let changed = git(
         root,
         &["diff", "--no-renames", "--name-only", "-z", reference, "--"],
     )?;
-    changed.extend(git(
-        root,
-        &["ls-files", "--others", "--exclude-standard", "-z"],
-    )?);
-    let code_paths = changed
-        .split(|c| *c == 0)
-        .filter_map(|p| std::str::from_utf8(p).ok())
-        .filter(|p| !p.is_empty() && code(p))
-        .collect::<BTreeSet<_>>();
+    let untracked = git(root, &["ls-files", "--others", "--exclude-standard", "-z"])?;
+    let changed_code: BTreeSet<_> = code_paths(&changed).chain(code_paths(&untracked)).collect();
     let mut reuse = None;
     let mut selected = current;
     let mut message = String::new();
     let mut package_changes = Vec::new();
-    if code_paths.is_empty() {
+    if changed_code.is_empty() {
         if let Some(b) = &context.baseline {
             if current == b.version.parse::<SemVer>()? {
                 reuse = Some(b.clone());
@@ -818,7 +818,7 @@ pub fn source(root: &Path, context: Option<&SourceContext>) -> Result<Value, Str
         if let Some(b) = &context.baseline {
             let range = format!("{}..HEAD", b.commit);
             messages.extend(
-                String::from_utf8(history(root, &range, &code_paths)?)
+                String::from_utf8(history(root, &range, &changed_code)?)
                     .map_err(|e| e.to_string())?
                     .split('\0')
                     .map(str::trim)
@@ -826,8 +826,15 @@ pub fn source(root: &Path, context: Option<&SourceContext>) -> Result<Value, Str
                     .map(str::to_owned),
             );
         }
-        let dirty = git(root, &["status", "--porcelain"])?;
-        if !dirty.is_empty() {
+        let pending = git(
+            root,
+            &["diff", "--no-renames", "--name-only", "-z", "HEAD", "--"],
+        )?;
+        if code_paths(&pending)
+            .chain(code_paths(&untracked))
+            .next()
+            .is_some()
+        {
             messages.push(
                 context
                     .message
@@ -850,7 +857,7 @@ pub fn source(root: &Path, context: Option<&SourceContext>) -> Result<Value, Str
                 .map(|s| format!("- {}", s.lines().next().unwrap_or("")))
                 .collect::<Vec<_>>()
                 .join("\n");
-            let (edits, notes) = package_edits(root, &r, reference, &code_paths, bump)?;
+            let (edits, notes) = package_edits(root, &r, reference, &changed_code, bump)?;
             package_changes = edits;
             if !notes.is_empty() {
                 message.push_str("\n\nNative package versions:\n");
@@ -913,6 +920,39 @@ pub fn source(root: &Path, context: Option<&SourceContext>) -> Result<Value, Str
     .map_err(|e| e.to_string())
 }
 
+#[cfg(windows)]
+fn windows_powershell_modules(
+    request: &mut ProcessRequest,
+    inherited: &std::ffi::OsStr,
+) -> Result<(), String> {
+    let program = Path::new(&request.program)
+        .file_name()
+        .and_then(|s| s.to_str());
+    if !program.is_some_and(|s| {
+        s.eq_ignore_ascii_case("powershell") || s.eq_ignore_ascii_case("powershell.exe")
+    }) {
+        return Ok(());
+    }
+    // PowerShell 7 ships edition-specific modules in the Modules directory beside pwsh.exe.
+    let mut paths: Vec<_> = std::env::split_paths(inherited).collect();
+    let original_len = paths.len();
+    paths.retain(|path| {
+        !(path
+            .file_name()
+            .is_some_and(|s| s.eq_ignore_ascii_case(std::ffi::OsStr::new("Modules")))
+            && path.parent().is_some_and(|p| p.join("pwsh.exe").is_file()))
+    });
+    if paths.len() != original_len {
+        if paths.iter().all(|p| p.as_os_str().is_empty()) {
+            request.env_remove.push("PSModulePath".into());
+        } else {
+            let value = std::env::join_paths(paths).map_err(|e| e.to_string())?;
+            request.env.insert("PSModulePath".into(), value);
+        }
+    }
+    Ok(())
+}
+
 pub fn prepare(root: &Path, output: &Path) -> Result<Value, String> {
     verify_driver(root)?;
     let supplied = std::path::absolute(root).map_err(|e| e.to_string())?;
@@ -947,6 +987,10 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value, String> {
         let mut q = ProcessRequest::new(&argv[0], &root);
         q.args = argv[1..].iter().map(Into::into).collect();
         q.timeout = Duration::from_secs(3600);
+        #[cfg(windows)]
+        if let Some(paths) = std::env::var_os("PSModulePath") {
+            windows_powershell_modules(&mut q, &paths)?;
+        }
         let out = SystemProcessRunner.run(&q).map_err(|e| e.to_string())?;
         if out.code != 0 || out.timed_out {
             return Err(format!(
@@ -1329,6 +1373,64 @@ artifacts = []
             let candidate = repo.plan(Some("fix: pending candidate"));
             assert_eq!(candidate.identity.version, "3.0.0");
             assert!(!candidate.edits.iter().any(|e| e.path == "VERSION"));
+        }
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn isolate_bundled_pwsh_modules_only_for_windows_powershell_builds() {
+        let repo = Repo::new();
+        repo.write("edition/pwsh.exe", "");
+        let bundled = repo.root.join("edition/modules");
+        let custom = repo.root.join("custom/Modules");
+        let inherited = std::env::join_paths([&bundled, &custom]).unwrap();
+        for program in [
+            "powershell",
+            r"C:\Windows\System32\WindowsPowerShell\v1.0\PowerShell.EXE",
+        ] {
+            let mut req = ProcessRequest::new(program, &repo.root);
+            windows_powershell_modules(&mut req, custom.as_os_str()).unwrap();
+            assert!(req.env.is_empty() && req.env_remove.is_empty());
+            windows_powershell_modules(&mut req, &inherited).unwrap();
+            assert_eq!(
+                req.env[std::ffi::OsStr::new("PSModulePath")],
+                custom.as_os_str()
+            );
+        }
+        for program in ["pwsh.exe", "cargo"] {
+            let mut req = ProcessRequest::new(program, &repo.root);
+            windows_powershell_modules(&mut req, &inherited).unwrap();
+            assert!(req.env.is_empty() && req.env_remove.is_empty());
+        }
+        let mut req = ProcessRequest::new("powershell.exe", &repo.root);
+        windows_powershell_modules(&mut req, bundled.as_os_str()).unwrap();
+        assert_eq!(req.env_remove, [std::ffi::OsString::from("PSModulePath")]);
+    }
+
+    #[test]
+    fn source_classifies_only_pending_code_changes() {
+        let repo = Repo::new();
+        repo.write("source/pkg/lib.rs", "committed fix\n");
+        repo.commit("fix: committed code");
+        repo.write("doc/pending.md", "work in progress\n");
+        assert_eq!(repo.plan(None).identity.version, "1.0.1");
+        repo.git(&["add", "doc/pending.md"]);
+        assert_eq!(repo.plan(Some("feat: unrelated")).identity.version, "1.0.1");
+
+        repo.write("source/pkg/new.rs", "pending code\n");
+        for staged in [false, true] {
+            if staged {
+                repo.git(&["add", "source/pkg/new.rs"]);
+            }
+            assert!(
+                source(&repo.root, Some(&repo.context(None)))
+                    .unwrap_err()
+                    .contains("classified message")
+            );
+            assert_eq!(
+                repo.plan(Some("feat: pending code")).identity.version,
+                "1.1.0"
+            );
         }
     }
 
