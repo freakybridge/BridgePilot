@@ -1,5 +1,14 @@
 # Changelog
 
+## [BP 3.0.0]
+
+- feat: 统一代码清理入口并退役旧过度防御 Skill
+
+## [21.0.0] - 未发布
+
+- [product] 公共代码清理统一使用 `code-cleanup`，支持单独清理本对话或指定改动中的临时测试、过度防御代码和冗余注释。develop D3 直接调用，summary accept 复用临时测试规则。原 `avoid-overdefensive-programming` 调用名退役；升级时核对两个历史安装位置，仅移除已知官方文件。
+- [repo] Forge 20.1.3 → 21.0.0。core 11.5.3 → 11.6.0、skeleton 0.9.1 → 0.10.0、factory 0.14.1 → 0.15.0 支持分发、校验和生成 Skill 退役规则。
+
 ## [BP 2.7.3]
 
 - fix: 支持发布版本分析中的 merge 提交分类

@@ -39,3 +39,9 @@ validation_status: passed
 本机完整命令、补丁、会话事件及结果位于 `.runtime/tests/causis-d3-replay-20261107/`。关键收据为 `seed.json`、`A-replay.json`、`B-replay.json`、`A-pytest.json`、`B-pytest.json`、`B-probe.json`、`skill-load-evidence.json` 和 `main-isolation.json`。CausisRiskSuite 主工作区的 HEAD、暂存区、差异和状态指纹核对一致。试验 worktree 因被客户端识别为当前对话主检出目录而未能归档，现场保留。
 
 本次验收覆盖源码、产品传播、本仓库镜像、隔离样例及真实下游历史任务的离线重放。真实交易所、AM 上传、用户环境安装、其他项目升级及普遍收益尚未验证。正式发布以受管 CLI 的 `status=released` 与 `publication_verified=true` 收据为准。
+
+## 通用代码清理与旧入口退役（2026-11-24）
+
+用户通过 `summary accept` 验收本轮交付。开发时由 D3 直接调用 `code-cleanup`，也可单独调用，处理本对话或指定改动中的临时测试、过度防御代码和冗余注释。`summary accept` 只复用临时测试规则。原 `avoid-overdefensive-programming` 入口整体退役。本次验收属于 TODO-046 的工程清理增量。[公共 Skill](../../../source/forge/templates/skills/code-cleanup/SKILL.md)
+
+Forge 21.0.0 的三个工厂产物通过受管构建和自检。模板、分发清单、版本及 Skill 元数据检查通过，本仓库镜像已同步。隔离升级使用 Git 历史中的官方旧文件，实际移除了 `.agents/skills/` 和 `.codex/skills/` 中的两个旧入口并安装新入口。同目录自定义文件按原字节保留；修改过的旧入口触发预览阻断并保留原文。成功升级后再次预览无变更。本机收据位于 `.runtime/tests/retire-code-skill/plan.json` 和 `.runtime/tests/retire-code-skill/applied.json`。真实下游项目升级及新 Skill 在实际业务任务中的清理效果未验证。

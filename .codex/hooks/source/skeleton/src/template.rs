@@ -24,15 +24,11 @@ pub fn verify_factory_identity(root: &Path, identity: &Value) -> Result<(), Stri
 
 /// Exact historical files only. Unknown content is preserved and blocks migration.
 pub fn retired_workflow_inputs(root: &Path) -> Result<BTreeMap<std::path::PathBuf, Option<Vec<u8>>>, String> {
-    let rows = template_standard::skill_relocations();
-    let retired = crate::baseline::retired_assets_from_history(&json!({"schema":1,"format":"bridgeforge-asset-history-v1","relocations":rows,"retirements":[]}))?;
     let mut inputs = BTreeMap::new();
-    for item in retired.as_array().ok_or("workflow retirements missing")? {
-        let relative = item["target"].as_str().ok_or("workflow retirement target missing")?;
-        let path = managed_paths::safe_join(root, relative, "workflow relocation")?;
+    for &(relative, hashes) in template_standard::RETIRED_SKILL_FILES {
+        let path = managed_paths::safe_join(root, relative, "workflow retirement")?;
         let bytes = managed_paths::read_metadata(&path, 32 * 1024 * 1024)?;
-        if bytes.as_ref().is_some_and(|b|!item["known_hashes"].as_array().is_some_and(|known|
-            known.iter().any(|h|h.as_str() == Some(build_manifest::normalized_hash(b).as_str())))) {
+        if bytes.as_ref().is_some_and(|b| !hashes.contains(&build_manifest::normalized_hash(b).as_str())) {
             return Err(format!("modified or unowned old project Skill is preserved: {relative}"));
         }
         inputs.insert(path, bytes);
@@ -42,20 +38,20 @@ pub fn retired_workflow_inputs(root: &Path) -> Result<BTreeMap<std::path::PathBu
 
 pub fn verify_workflow_retirements(root: &Path) -> Result<(), String> {
     if retired_workflow_inputs(root)?.values().any(Option::is_some) {
-        return Err("old Forge project Skills remain in .agents/skills; managed migration required".into());
+        return Err("retired Forge project Skill files remain; managed migration required".into());
     }
     Ok(())
 }
 
-/// Remove only empty parents of explicitly relocated files; never traverse user content.
+/// Remove empty historical workflow directories, preserving the active Skill root.
 pub fn prune_workflow_directories(root: &Path) -> Vec<String> {
     let mut parents = std::collections::BTreeSet::new();
-    for row in template_standard::skill_relocations() {
-        if let Some(relative) = row["previous_target"].as_str() {
-            let mut parent = Path::new(relative).parent();
-            while let Some(path) = parent.filter(|p|p.starts_with(".agents")) {
-                parents.insert(path.to_path_buf()); parent = path.parent();
+    for &(relative, _) in template_standard::RETIRED_SKILL_FILES {
+        for parent in Path::new(relative).ancestors().skip(1) {
+            if parent == Path::new(".codex/skills") || parent.as_os_str().is_empty() {
+                break;
             }
+            parents.insert(parent.to_path_buf());
         }
     }
     let mut retained = Vec::new();
@@ -166,8 +162,8 @@ pub fn verify_index(root: &Path, runner: &dyn ProcessRunner) -> Result<Value, St
     let paths = entries.keys().filter(|p| p.starts_with(".codex/") && p.to_ascii_lowercase().ends_with(".json")).cloned().collect::<Vec<_>>();
     let factory = factory(root)?;
     if !factory && paths != [".codex/hooks.json"] { return Err(format!("staged Codex JSON must be exactly hooks.json; found: {}", paths.join(", "))); }
-    for relocation in template_standard::skill_relocations() {
-        if relocation["previous_target"].as_str().is_some_and(|p|entries.contains_key(p)) {
+    for &(relative, _) in template_standard::RETIRED_SKILL_FILES {
+        if entries.contains_key(relative) {
             return Err("old Forge Skill remains in the staged tree".into());
         }
     }

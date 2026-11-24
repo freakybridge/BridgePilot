@@ -218,6 +218,14 @@ fn skill_relocation(row: &Value) -> bool {
             .is_some_and(|(old,new)|!old.is_empty() && old == new)
 }
 
+fn skill_entry_retirement(row: &Value) -> bool {
+    let Some(target) = row["target"].as_str() else { return false };
+    let relative = target.strip_prefix(".codex/skills/").or_else(|| target.strip_prefix(".agents/skills/"));
+    let Some(name) = relative.and_then(|path| path.strip_suffix("/SKILL.md")) else { return false };
+    !name.is_empty() && name.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+        && row["id"] == format!("codex.project-workflow.{name}.skill.md")
+}
+
 /// Derive the executable retirement list from traceable asset history.
 pub fn retired_assets_from_history(history: &Value) -> Result<Value, String> {
     exact_keys(
@@ -256,7 +264,9 @@ pub fn retired_assets_from_history(history: &Value) -> Result<Value, String> {
             let target = row[path_key].as_str().ok_or("asset history path missing")?;
             if !row["id"].as_str().is_some_and(|id| id_pattern.is_match(id))
                 || !safe_relative_string(&row[path_key])
-                || !(target.starts_with(".codex/hooks/") || (section == "relocations" && skill_relocation(row)))
+                || !(target.starts_with(".codex/hooks/")
+                    || (section == "relocations" && skill_relocation(row))
+                    || (section == "retirements" && skill_entry_retirement(row)))
                 || !paths.insert(target.to_ascii_lowercase())
             {
                 return Err("invalid or duplicate asset history identity".into());
@@ -369,7 +379,10 @@ pub fn validate_contract(value: &Value) -> Result<(), String> {
                 .as_str()
                 .is_some_and(|id| id_pattern.is_match(id))
                 || !safe_relative_string(&item["target"])
-                || !(target.starts_with(".codex/hooks/") || value["asset_history"]["relocations"].as_array().is_some_and(|rows|
+                || !(target.starts_with(".codex/hooks/") || (skill_entry_retirement(item)
+                    && value["asset_history"]["retirements"].as_array().is_some_and(|rows|
+                        rows.iter().any(|r| r["target"] == target && r["id"] == item["id"])))
+                    || value["asset_history"]["relocations"].as_array().is_some_and(|rows|
                     rows.iter().any(|r|r["previous_target"] == target && r["id"] == item["id"] && skill_relocation(r))))
                 || target
                     .strip_prefix(".codex/hooks/")

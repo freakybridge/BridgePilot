@@ -567,6 +567,14 @@ pub fn render_template_standard(root: &Path) -> Result<Vec<u8>, String> {
             serde_json::to_string(&payload).map_err(|e| e.to_string())?));
     }
     output.push_str("] }\n");
+    output.push_str("pub const RETIRED_SKILL_FILES: &[(&str, &[&str])] = &[\n");
+    for row in contract["retired_assets"].as_array().ok_or("retired assets missing")? {
+        let target = row["target"].as_str().ok_or("retired target missing")?;
+        if target.starts_with(".agents/skills/") || target.starts_with(".codex/skills/") {
+            output.push_str(&format!("    ({}, &{}),\n", row["target"], row["known_hashes"]));
+        }
+    }
+    output.push_str("];\n");
     Ok(output.into_bytes())
 }
 
