@@ -97,10 +97,10 @@ pub fn inspect(root: &Path, requested: Option<&Recipe>) -> Result<Installation, 
     })
 }
 
-pub fn payloads(recipe: &Recipe, cli: &[u8]) -> Result<BTreeMap<String, Vec<u8>>, String> {
+pub fn payloads(recipe: &Recipe, cli: &[u8], bp_version: &str) -> Result<BTreeMap<String, Vec<u8>>, String> {
     let identity = bridgeforge_core::build_identity::require()?;
     let proof = json!({"schema":1,"owner":OWNER,"binary_sha256":raw_sha(cli),"build_identity":identity,
-        "recipe_sha256":raw_sha(&serde_json::to_vec(recipe).map_err(|e|e.to_string())?)});
+        "recipe_sha256":raw_sha(&serde_json::to_vec(recipe).map_err(|e|e.to_string())?),"bp_product_version":bp_version});
     Ok(BTreeMap::from([
         (PROGRAM.into(), cli.to_vec()),
         (

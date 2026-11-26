@@ -32,7 +32,7 @@ impl Components {
 }
 
 pub fn compiled() -> Result<Components> {
-    SemVer::from_str(BP_VERSION.trim())?;
+    BP_VERSION.parse::<bridgeforge_core::native_release::ProductVersion>()?;
     let forge = bridgeforge_core::product_version::explicit(include_str!("../../forge/cli/Cargo.toml"))?;
     let manifest = include_str!("../cli/Cargo.toml").parse::<toml_edit::DocumentMut>()
         .map_err(|e| e.to_string())?;

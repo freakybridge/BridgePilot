@@ -147,15 +147,24 @@ pub struct Plan {
     prepared: PathBuf,
     binaries: BTreeSet<PathBuf>,
     source_inputs: String,
+    bp_version_hash: String,
+}
+
+fn bp_version(product: &Path) -> Result<(String, String), String> {
+    let bytes = managed_paths::read_metadata(&product.join("VERSION"), 1024)?
+        .ok_or("BP product VERSION missing from installation source")?;
+    let version: bridgeforge_core::native_release::ProductVersion =
+        std::str::from_utf8(&bytes).map_err(|e| e.to_string())?.parse()?;
+    Ok((version.bp_base()?.to_string(), hash(&bytes)))
 }
 
 fn aggregate(root:&Path,product:&Path,product_bytes:&[u8],before:&BTreeMap<PathBuf,Option<Vec<u8>>>,writes:&BTreeMap<PathBuf,Vec<u8>>,
-    json_paths:&[String],recipe:Option<&crate::project_release::Recipe>,release_target:&Value,source_inputs:&str)->Result<String,String> {
+    json_paths:&[String],recipe:Option<&crate::project_release::Recipe>,release_target:&Value,source_inputs:&str,bp_version_hash:&str)->Result<String,String> {
     let records=before.iter().map(|(p,b)|json!({"path":p.strip_prefix(root).unwrap().to_string_lossy().replace('\\',"/"),"sha256":b.as_ref().map(|b|hash(b))})).collect::<Vec<_>>();
     let desired=writes.iter().map(|(p,b)|json!({"path":p.strip_prefix(root).unwrap().to_string_lossy().replace('\\',"/"),"sha256":hash(b)})).collect::<Vec<_>>();
     build_manifest::canonical_sha(&json!({"schema":1,"model":"template-only-v1","root":root,"product":product,"product_sha256":hash(product_bytes),
         "identity":build_identity::require()?,"json_paths":json_paths,"inputs":records,"desired":desired,"release_recipe":recipe,
-        "release_target":release_target,"source_inputs":source_inputs}))
+        "release_target":release_target,"source_inputs":source_inputs,"bp_version_hash":bp_version_hash}))
 }
 
 /// Retire the previous distribution by exact identity. The normal transaction
@@ -217,9 +226,10 @@ fn revalidate(plan:&Plan)->Result<(),String> {
     let product=managed_paths::read_metadata(&plan.product.join(product_manifest::FILE),32*1024*1024)?.ok_or("product manifest disappeared")?;
     let contract=product_manifest::parse(&product)?;
     let mut runtime=crate::public_artifacts::read(&plan.prepared,&contract["project_skeleton"])?;
+    let (bp_version, bp_version_hash) = bp_version(&plan.product)?;
     if let Some(recipe)=&plan.release_recipe {
         let cli=runtime.get(&format!("{}/bridgeforge{}",bridgeforge_core::artifact_paths::PROJECT_BIN,std::env::consts::EXE_SUFFIX)).ok_or("prepared CLI missing")?;
-        let release=crate::project_release_install::payloads(recipe,cli)?;runtime.extend(release);
+        let release=crate::project_release_install::payloads(recipe,cli,&bp_version)?;runtime.extend(release);
     }
     for (relative,bytes) in runtime {
         let path=plan.root.join(relative);
@@ -230,7 +240,7 @@ fn revalidate(plan:&Plan)->Result<(),String> {
     let before=plan.before.keys().map(|path|Ok((path.clone(),crate::project_sync::transaction_file_state(path)?))).collect::<Result<BTreeMap<_,_>,String>>()?;
     let json_paths=bridgeforge_skeleton::template::json_paths(&plan.root)?;
     let target=plan.release_recipe.as_ref().map(|r|crate::native_release::installation_target(&plan.root,&r.repository,r.gitlab_origin.as_deref())).transpose()?.unwrap_or(Value::Null);
-    if aggregate(&plan.root,&plan.product,&product,&before,&plan.writes,&json_paths,plan.release_recipe.as_ref(),&target,&source)?!=plan.fingerprint {
+    if aggregate(&plan.root,&plan.product,&product,&before,&plan.writes,&json_paths,plan.release_recipe.as_ref(),&target,&source,&bp_version_hash)?!=plan.fingerprint {
         return Err("project or product drifted; regenerate plan".into());
     }
     Ok(())
@@ -258,6 +268,7 @@ pub fn plan_with_artifacts(root: &Path, product: &Path, requested:Option<&crate:
     require_no_pending_development(&root)?;
     let product_bytes = managed_paths::read_metadata(&product.join(product_manifest::FILE), 32 * 1024 * 1024)?
         .ok_or("official product manifest missing")?;
+    let (bp_version, bp_version_hash) = bp_version(&product)?;
     let product_value = product_manifest::parse(&product_bytes)?;
     let contract = &product_value["project_skeleton"];
     let identity = build_identity::require()?;
@@ -335,7 +346,7 @@ pub fn plan_with_artifacts(root: &Path, product: &Path, requested:Option<&crate:
     let mut runtime=crate::public_artifacts::read(&prepared,contract)?;
     if let Some(recipe)=&installation.recipe {
         let cli=runtime.get(&format!("{}/bridgeforge{}",bridgeforge_core::artifact_paths::PROJECT_BIN,std::env::consts::EXE_SUFFIX)).ok_or("prepared CLI missing")?;
-        let release=crate::project_release_install::payloads(recipe,cli)?;runtime.extend(release);
+        let release=crate::project_release_install::payloads(recipe,cli,&bp_version)?;runtime.extend(release);
     }
     let mut binaries=BTreeSet::new();
     for (relative,bytes) in runtime {
@@ -344,15 +355,15 @@ pub fn plan_with_artifacts(root: &Path, product: &Path, requested:Option<&crate:
         if relative.ends_with(std::env::consts::EXE_SUFFIX) && !relative.ends_with(".json") {binaries.insert(path.clone());}
         if old.as_deref()!=Some(bytes.as_slice()) {changed.push(relative);writes.insert(path,bytes);}
     }
-    let fingerprint=aggregate(&root,&product,&product_bytes,&before,&writes,&json_paths,installation.recipe.as_ref(),&installation.report["target"],&source_inputs)?;
+    let fingerprint=aggregate(&root,&product,&product_bytes,&before,&writes,&json_paths,installation.recipe.as_ref(),&installation.report["target"],&source_inputs,&bp_version_hash)?;
     let retired = retirements.keys().map(|p| p.strip_prefix(&root).unwrap().to_string_lossy().replace('\\', "/")).collect::<Vec<_>>();
     let risk = changed.iter().filter(|p| before[&root.join(p)].is_some()).cloned().chain(retired.iter().cloned()).collect::<Vec<_>>();
     let safe = changed.iter().filter(|p| before[&root.join(p)].is_none()).cloned().collect::<Vec<_>>();
     let report = json!({"schema":1,"status":"planned","model":"template-only-v1",
         "aggregate_fingerprint":fingerprint,"safe":safe,"risk":risk,"retired":retired,"gaps":installation.gaps,"blockers":[],"release_installation":installation.report,
-        "target_json_paths":["hooks.json"],"version":contract["release_version"],
+        "target_json_paths":["hooks.json"],"version":contract["release_version"],"bp_product_version":bp_version,
         "public_installation":"receipt-bound; current tool bytes are included in aggregate_fingerprint"});
-    Ok(Plan {root, product, product_bytes, before, writes, retirements, fingerprint, report,release_recipe:installation.recipe,prepared,binaries,source_inputs})
+    Ok(Plan {root, product, product_bytes, before, writes, retirements, fingerprint, report,release_recipe:installation.recipe,prepared,binaries,source_inputs,bp_version_hash})
 }
 
 fn backup(plan: &Plan, snapshots: &BTreeMap<PathBuf, Option<Vec<u8>>>) -> Result<PathBuf, String> {
@@ -388,7 +399,7 @@ pub fn apply(plan: Plan, fingerprint: &str, confirmed_risk: bool, prepared: &Pat
     let recovery = backup(&plan, snapshots)?;
     crate::project_sync::install_template_transaction(&plan.root, writes, snapshots,
         &plan.binaries, &plan.retirements, || {
-            if fs::read(plan.product.join(product_manifest::FILE)).map_err(|e| e.to_string())? != plan.product_bytes {
+            if bp_version(&plan.product)?.1 != plan.bp_version_hash || fs::read(plan.product.join(product_manifest::FILE)).map_err(|e| e.to_string())? != plan.product_bytes {
                 return Err("product changed during installation".into());
             }
             if bridgeforge_core::source_projection::input_fingerprint(&plan.product,true)?!=plan.source_inputs {return Err("product source changed during installation".into());}

@@ -4,6 +4,10 @@ delivery_layout: flat
 
 # BridgePilot Documents
 
+- [产品四段版本与 BP 组合来源](1_delivery/git-sync-performance/plan_2026-11-26_product-version.md)（本地验证通过，待用户验收）。
+
+- [BP 4.0.0 与四个登记项目的 Forge 22.0.0 升级](1_delivery/bridgepilot-update/batch_2026-11-26_forge-22.0.0.md)（四仓安装与重复规划通过，StratusAgent 保留项目自有提交检查）。
+
 - 待用户验收：[git-sync 检查退役](1_delivery/git-sync-performance/plan_2026-11-26_check-retirement.md)（Forge 22.0.0，提交前 Hook 整体退役，release 仅保留 R1、R9；两平台 14 个离线场景及三类安装／升级通过）。
 
 - 已撤回实现：[git-sync 原优化计划](1_delivery/git-sync-performance/plan_2026-11-25_pre-commit-scope.md)（2026-11-25，后续逐项选择并直接退役检查）。

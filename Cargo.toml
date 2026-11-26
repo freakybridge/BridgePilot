@@ -14,6 +14,7 @@ factory-members = ["source/forge/core", "source/forge/skeleton", "source/forge/c
 public-members = ["source/forge/core", "source/forge/skeleton", "source/forge/checks", "source/forge/workflow", "source/forge/memory", "source/forge/cli", "source/forge/hook"]
 
 [workspace.metadata.bridgeforge.native-release]
+version-source = "bp-product"
 build = ["cargo", "build", "--locked", "--offline", "--release", "--manifest-path", "Cargo.toml", "--target-dir", ".build/bridgepilot/cargo", "-p", "bridgepilot-orchestrator", "--bin", "bp", "--bin", "bp-launcher"]
 program = ".build/bridgepilot/cargo/release/bp.exe"
 args = ["release-prepare"]

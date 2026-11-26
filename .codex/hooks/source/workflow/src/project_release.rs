@@ -1,8 +1,6 @@
 //! Project-owned native recipe interpreted by the installed, provenance-bound Rust driver.
 //! Versions stay in native files; this recipe never stores a version ledger.
-use bridgeforge_core::native_release::{
-    Asset, Plan, raw_sha,
-};
+use bridgeforge_core::native_release::{Asset, Plan, ProductVersion, raw_sha};
 use bridgeforge_core::{
     ProcessRequest, ProcessRunner, SemVer, SystemProcessRunner, managed_paths, persistence,
 };
@@ -186,7 +184,7 @@ pub fn validate(root: &Path, r: &Recipe) -> Result<(), String> {
     }
     let version =
         fs::read_to_string(source_path(root, &r.version_file)?).map_err(|e| e.to_string())?;
-    version.trim().parse::<SemVer>()?;
+    version.parse::<ProductVersion>()?;
     Ok(())
 }
 
@@ -294,8 +292,13 @@ pub fn manifest(root: &Path, r: &Recipe) -> Result<Vec<u8>, String> {
 }
 
 pub fn verify_driver(root: &Path) -> Result<Value, String> {
-    bridgeforge_core::build_identity::require()?;
     let r = recipe(root)?.ok_or("project release recipe missing")?;
+    let bp = installed_bp_version(root, &r)?;
+    Ok(json!({"schema":1,"status":"ready","product":r.product,"repository":r.repository,"gitlab_origin":r.gitlab_origin,"program":PROGRAM,"bp_product_version":bp.to_string()}))
+}
+
+fn installed_bp_version(root: &Path, r: &Recipe) -> Result<SemVer, String> {
+    let identity = bridgeforge_core::build_identity::require()?;
     let bin = managed_paths::read_metadata(
         &managed_paths::safe_join(root, PROGRAM, "release driver")?,
         512 * 1024 * 1024,
@@ -310,16 +313,36 @@ pub fn verify_driver(root: &Path) -> Result<Value, String> {
     if proof["schema"] != 1
         || proof["owner"] != OWNER
         || proof["binary_sha256"] != raw_sha(&bin)
-        || proof["build_identity"] != bridgeforge_core::build_identity::identity()
-        || proof["recipe_sha256"] != raw_sha(&serde_json::to_vec(&r).map_err(|e| e.to_string())?)
+        || proof["build_identity"] != identity
+        || proof["recipe_sha256"] != raw_sha(&serde_json::to_vec(r).map_err(|e| e.to_string())?)
     {
         return Err(
             "project release driver or recipe changed; repair through skeleton installation".into(),
         );
     }
-    Ok(
-        json!({"schema":1,"status":"ready","product":r.product,"repository":r.repository,"gitlab_origin":r.gitlab_origin,"program":PROGRAM}),
-    )
+    proof["bp_product_version"].as_str().ok_or("BP version missing in installed driver receipt; run the managed project update")?.parse()
+}
+
+pub(super) fn product_version(root: &Path, self_version: bool, write: bool) -> Result<(String, ProductVersion), String> {
+    let (relative, bp) = if self_version {
+        ("VERSION".to_owned(), None)
+    } else {
+        let recipe = recipe(root)?.ok_or("release requires a project recipe and its BP installation receipt")?;
+        let bp = installed_bp_version(root, &recipe)?;
+        (recipe.version_file, Some(bp))
+    };
+    let path = source_path(root, &relative)?;
+    let before = fs::read_to_string(&path).map_err(|e| format!("{relative}: {e}"))?;
+    let current: ProductVersion = before.parse()?;
+    let next = current.with_bp(bp.unwrap_or(current.base))?;
+    if write && current != next {
+        let after = before.replacen(before.trim(), &next.to_string(), 1);
+        if fs::read(&path).map_err(|e| e.to_string())? != before.as_bytes() {
+            return Err(format!("{relative} changed during version preparation"));
+        }
+        persistence::atomic_write(&path, after.as_bytes()).map_err(|e| e.to_string())?;
+    }
+    Ok((relative, next))
 }
 
 fn git(root: &Path, args: &[&str]) -> Result<Vec<u8>, String> {
@@ -478,7 +501,8 @@ fn windows_powershell_modules(
 }
 
 pub fn prepare(root: &Path, output: &Path) -> Result<Value, String> {
-    verify_driver(root)?;
+    let r = recipe(root)?.ok_or("project release recipe missing")?;
+    installed_bp_version(root, &r)?;
     let supplied = std::path::absolute(root).map_err(|e| e.to_string())?;
     let root = root.canonicalize().map_err(|e| e.to_string())?;
     let relative = output
@@ -495,7 +519,6 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value, String> {
     if output.exists() {
         return Err("release output already exists; preserve previous artifact".into());
     }
-    let r = recipe(&root)?.unwrap();
     let version = fs::read_to_string(source_path(&root, &r.version_file)?).map_err(|e| e.to_string())?;
     let version = version.trim();
     let input = inventory(&root, &r)?;
@@ -539,13 +562,7 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value, String> {
     persistence::atomic_write(&output.join("SHA256SUMS.txt"), sums.as_bytes())
         .map_err(|e| e.to_string())?;
     let notes = fs::read_to_string(source_path(&root, &r.changelog)?).map_err(|e| e.to_string())?;
-    let heading = format!("## [{}]", version);
-    let at = notes.find(&heading).ok_or("native release notes missing")?;
-    let rest = &notes[at..];
-    let end = rest[heading.len()..]
-        .find("\n## ")
-        .map(|n| n + heading.len())
-        .unwrap_or(rest.len());
+    let notes = version.parse::<ProductVersion>()?.notes(&notes, "")?;
     let assets = ["source.tar", "versions.json", "SHA256SUMS.txt"].into_iter()
         .map(|name| Asset { name:name.into(), path:format!("{relative}/{name}") }).collect();
     let plan = Plan {
@@ -556,7 +573,7 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value, String> {
         gitlab_origin: r.gitlab_origin,
         tag: format!("{}{}", r.tag_prefix, version),
         title: format!("{} {}", r.product, version),
-        notes: rest[..end].trim().into(),
+        notes,
         assets,
     };
     serde_json::to_value(plan).map_err(|e| e.to_string())

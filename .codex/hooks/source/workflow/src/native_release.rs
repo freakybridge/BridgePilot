@@ -84,6 +84,7 @@ mod platform;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Driver {
+    self_version: bool,
     build: Vec<String>,
     program: String,
     args: Vec<String>,
@@ -154,6 +155,7 @@ fn driver(root: &Path) -> Result<Driver, Stop> {
             "program",
             "args",
             "source-args",
+            "version-source",
             "prepare-timeout-seconds",
         ]
         .contains(&key)
@@ -174,6 +176,11 @@ fn driver(root: &Path) -> Result<Driver, Stop> {
             .collect()
     };
     let d = Driver {
+        self_version: match table.get("version-source").map(|v| v.as_str()) {
+            None => false,
+            Some(Some("bp-product")) => true,
+            _ => return Err(decision("unknown native release version-source")),
+        },
         build: array("build")?,
         args: array("args")?,
         prepare_timeout_seconds: table
@@ -204,13 +211,17 @@ fn driver(root: &Path) -> Result<Driver, Stop> {
 }
 
 pub fn preflight(root: &Path, runner: &dyn ProcessRunner) -> CommandOutcome {
-    let result = driver(root)
-        .and_then(|_| require_idle_git(root, runner))
-        .and_then(|_| anchor(root, runner));
+    let result = (|| -> Result<_, Stop> {
+        let native = driver(root)?;
+        require_idle_git(root, runner)?;
+        let target = anchor(root, runner)?;
+        let (_, version) = crate::project_release::product_version(root, native.self_version, false).map_err(condition)?;
+        Ok((target, version))
+    })();
     match result {
-        Ok(target) => CommandOutcome::with_receipt(
+        Ok((target,version)) => CommandOutcome::with_receipt(
             json!({"schema":1,"operation":"native-release","status":"ready",
-            "release_requested":true,"branch":target.branch,"head":target.head,"push_target":target.push_ref,"publication_verified":false}),
+            "release_requested":true,"version":version.to_string(),"branch":target.branch,"head":target.head,"push_target":target.push_ref,"publication_verified":false}),
         ),
         Err(error) => stopped("preflight", error),
     }
@@ -417,9 +428,15 @@ fn run_inner(
         )
         .map_err(conflict)?;
         let target = anchor(root, runner)?;
+        stage = "product-version";
+        let (version_path, version) = crate::project_release::product_version(root, native.self_version, true).map_err(condition)?;
+        let version = version.to_string();
         stage = "source-commit";
         git(root, runner, &["add", "."])?;
         let tree = git(root, runner, &["write-tree"])?;
+        if git(root, runner, &["show", &format!("{tree}:{version_path}")])? != version {
+            return Err(conflict("staged product version changed during release preparation"));
+        }
         if tree != git(root, runner, &["rev-parse", "HEAD^{tree}"])? {
             let message = match (options.message_file, options.message) {
                 (Some(path), _) => {
@@ -463,6 +480,7 @@ fn run_inner(
             native.prepare_timeout_seconds.unwrap_or(300),
         )?;
         let plan: Plan = serde_json::from_str(&prepared).map_err(|e| condition(e.to_string()))?;
+        if plan.version != version { return Err(conflict("package version differs from the committed product version")); }
         if !bridgeforge_core::native_release::identifier(&plan.tag) {
             return Err(condition("invalid tag in project release output"));
         }

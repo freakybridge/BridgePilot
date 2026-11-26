@@ -347,7 +347,6 @@ pub fn bundle(output: &Path, core: &Path, launcher: &Path) -> Result<Value> {
         .as_str()
         .ok_or("core version missing")?
         .to_owned();
-    SemVer::from_str(&version)?;
     let launcher_protocol = protocol["launcher_protocol"].as_u64().ok_or("launcher protocol missing")? as u32;
     if status["program"] != "bridgepilot" || !matches!(launcher_protocol, 1 | 2) {
         return Err("portable binaries have incompatible identity".into());
@@ -386,11 +385,10 @@ pub fn bundle(output: &Path, core: &Path, launcher: &Path) -> Result<Value> {
     )
 }
 fn validate_product_identity(schema: u32, version: &str, components: Option<&Components>) -> Result<()> {
-    let version = SemVer::from_str(version)?;
-    let first_bp = SemVer::from_str("1.0.0")?;
+    let version: bridgeforge_core::native_release::ProductVersion = version.parse()?;
     match (schema, components) {
-        (1, None) if version < first_bp => Ok(()),
-        (2, Some(components)) if version >= first_bp => components.validate(),
+        (1, None) if version.bp.is_none() && version.base.major == 0 => Ok(()),
+        (2, Some(components)) if version.base.major >= 1 => { version.bp_base()?; components.validate() }
         _ => Err("package schema and product version namespace disagree".into()),
     }
 }
@@ -406,10 +404,13 @@ fn validate_transition(old: &Installation, candidate: &Version, rollback: bool) 
         }
         (Some(_), None) => return Err("legacy core cannot read product-version installation metadata; cross-namespace rollback is blocked".into()),
         _ => {
-            let before = SemVer::from_str(&old.current.version)?;
-            let after = SemVer::from_str(&candidate.version)?;
+            let before = old.current.version.parse::<bridgeforge_core::native_release::ProductVersion>()?;
+            let after = candidate.version.parse::<bridgeforge_core::native_release::ProductVersion>()?;
             if after < before && !approved_rollback || after == before && old.current != *candidate {
                 return Err("installation cannot downgrade or reuse a version for different program bytes or components".into());
+            }
+            if !approved_rollback && before.base == after.base && old.current.components != candidate.components {
+                return Err("changed components require a new BP base version".into());
             }
             if let (Some(before), Some(after)) = (&old.current.components, &candidate.components) {
                 if !approved_rollback && (SemVer::from_str(&after.orchestrator.version)? < SemVer::from_str(&before.orchestrator.version)?
@@ -420,6 +421,32 @@ fn validate_transition(old: &Installation, candidate: &Version, rollback: bool) 
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod product_version_transition_tests {
+    use super::*;
+    #[test]
+    fn retained_three_part_package_upgrades_and_rolls_back_exactly() {
+        let components = crate::versions::compiled().unwrap();
+        let version = |n:&str| Version {version:n.into(),components:Some(components.clone()),executable:"bp.exe".into(),sha256:n.into()};
+        let mut old = Installation {schema:2,product:"BridgePilot".into(),current:version("4.0.0"),
+            previous:None,files:vec![],launcher_sha256:String::new()};
+        let new = version("4.0.0.4000");
+        assert!(validate_product_identity(2,&new.version,new.components.as_ref()).is_ok());
+        assert!(validate_transition(&old,&new,false).is_ok());
+        let mut conflict = new.clone();
+        conflict.components.as_mut().unwrap().forge.version = "77.0.0".into();
+        assert!(validate_transition(&old,&conflict,false).is_err());
+        let previous = std::mem::replace(&mut old.current,new);
+        old.previous = Some(previous.clone());
+        assert!(validate_transition(&old,&previous,false).is_err());
+        assert!(validate_transition(&old,&previous,true).is_ok());
+        assert!(validate_transition(&old,&version("4.0.1.4001"),false).is_ok());
+        assert!(validate_product_identity(1,"0.5.0",None).is_ok());
+        assert!(validate_product_identity(1,"0.5.0.4000",None).is_err());
+        assert!(validate_product_identity(2,"4.0.0.4100",old.current.components.as_ref()).is_err());
+    }
 }
 
 // Prove a no-op using actual files, never version strings or a stale source

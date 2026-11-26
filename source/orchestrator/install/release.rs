@@ -69,16 +69,7 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value> {
         })
         .collect();
     let changelog = fs::read_to_string(root.join("CHANGELOG.md")).map_err(|e| e.to_string())?;
-    let heading = format!("## [BP {}]", package.version);
-    let start = changelog
-        .find(&heading)
-        .ok_or("BP release notes are missing for the native version")?;
-    let notes = &changelog[start..];
-    let end = notes[heading.len()..]
-        .find("\n## [BP ")
-        .map(|i| i + heading.len())
-        .unwrap_or(notes.len());
-    let notes = notes[..end].trim();
+    let notes = package.version.parse::<bridgeforge_core::native_release::ProductVersion>()?.notes(&changelog, "BP ")?;
     if notes.len() > 100_000 {
         return Err("BP release notes exceed the publication limit".into());
     }
