@@ -314,12 +314,6 @@ pub fn validate_contract(value: &Value) -> Result<(), String> {
         "compatibility_baseline",
         "generated_assets",
     ];
-    if value.get("release_model").is_some() {
-        if value["release_model"] != "product-packages" {
-            return Err("unsupported managed release_model".into());
-        }
-        keys.push("release_model");
-    }
     if value.get("retired_assets").is_some() {
         keys.push("retired_assets");
     }

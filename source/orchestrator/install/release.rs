@@ -1,6 +1,6 @@
 //! BP native package adapter. Forge owns fixed-commit publication and transport.
 use crate::{Result, install, versions};
-use bridgeforge_core::native_release::{Asset, Plan, raw_sha};
+use bridgeforge_core::native_release::{Asset, Plan};
 use serde_json::Value;
 use std::{fs, path::Path};
 
@@ -54,7 +54,6 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value> {
         .into_iter()
         .map(|path| {
             crate::store::ordinary(&path)?;
-            let bytes = fs::read(&path).map_err(|e| e.to_string())?;
             Ok(Asset {
                 name: path
                     .file_name()
@@ -66,8 +65,6 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value> {
                     .map_err(|e| e.to_string())?
                     .to_string_lossy()
                     .replace('\\', "/"),
-                sha256: raw_sha(&bytes),
-                size: bytes.len() as u64,
             })
         })
         .collect();
@@ -100,6 +97,5 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value> {
         ),
         assets: assets?,
     };
-    plan.validate(&root)?;
     serde_json::to_value(plan).map_err(|e| e.to_string())
 }

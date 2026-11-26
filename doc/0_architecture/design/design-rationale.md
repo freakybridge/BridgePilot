@@ -7,7 +7,7 @@
 
 bridgeforge-codex 只维护 Codex 协作骨架：
 
-- `source/` 是 Rust 唯一维护源，公共八包经生成器投影到下游 `.codex/hooks/source/`；
+- `source/` 是 Rust 唯一维护源，公共七包经生成器投影到下游 `.codex/hooks/source/`；
 - `templates/` 保存下游公共骨架资产，`templates/skills/` 是用户级通用 Skill 的唯一来源；
 - `scripts/` 只放工厂发布、同步和校验工具；
 - `.codex/` 是工厂自身的 dogfood 投影，不是第二份产品源。

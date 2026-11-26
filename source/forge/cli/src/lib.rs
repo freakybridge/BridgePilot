@@ -297,7 +297,7 @@ fn git_sync(args: &[String]) -> CommandOutcome {
 fn template_project_sync(args: &[String]) -> CommandOutcome {
     let result = (|| -> Result<Value, String> {
         for arg in args {
-            if matches!(arg.split('=').next(), Some("--preserve-project-asset" | "--delete-project-asset" |
+            if matches!(arg.split('=').next(), Some("--recover-author-identity" | "--preserve-project-asset" | "--delete-project-asset" |
                 "--asset-migration-manifest" | "--confirmed-asset-migration")) {
                 return Err("legacy preservation/migration arguments are retired".into());
             }
@@ -317,7 +317,7 @@ fn template_project_sync(args: &[String]) -> CommandOutcome {
             Some(path) => PathBuf::from(path),
             None => bridgeforge_workflow::public_artifacts::prepared_for_product(&product)?,
         };
-        let plan = bridgeforge_workflow::template_sync::plan_with_identity_recovery(&path_value(args, "--project-root")?, &product,specification.as_ref(),Some(&prepared),has(args,"--recover-author-identity"))?;
+        let plan = bridgeforge_workflow::template_sync::plan_with_artifacts(&path_value(args, "--project-root")?, &product,specification.as_ref(),Some(&prepared))?;
         if !has(args, "--apply") { return Ok(plan.report); }
         bridgeforge_workflow::template_sync::apply(plan,
             &value(args, "--plan-fingerprint").ok_or("--apply requires --plan-fingerprint")?,
@@ -339,12 +339,8 @@ pub fn run(args: &[String]) -> CommandOutcome {
             let root=path_value(args,"--project-root")?;
             match args.get(1).map(String::as_str) {
                 Some("check")=>bridgeforge_workflow::project_release::verify_driver(&root),
-                Some("source")=>{
-                    let input=match value(args,"--input") {Some(path)=>Some(serde_json::from_slice::<bridgeforge_core::native_release::SourceContext>(&std::fs::read(path).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?),None=>None};
-                    bridgeforge_workflow::project_release::source(&root,input.as_ref())
-                },
                 Some("prepare")=>bridgeforge_workflow::project_release::prepare(&root,&path_value(args,"--output")?),
-                _=>Err("expected project-release check/source/prepare".into()),
+                _=>Err("expected project-release check/prepare".into()),
             }
         })();
         return match result {Ok(value)=>CommandOutcome::with_receipt(value),Err(error)=>blocked("project-release",error)};

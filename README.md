@@ -107,7 +107,6 @@ $refactor-scan 扫描当前项目，允许现有定向测试和离线性能基�
 - `.codex/hooks/`、`.build/bridgeforge/bin/bridgeforge-hook.exe` 与 `.build/bridgeforge/bin/bridgeforge.exe`：受管 Rust
   源码与编译产物；`init`、`adopt`、`update` 按需构建，工厂先按 [运行时准备](INSTALL.md#工厂本地运行时准备)维护当前产物，再检查能力或执行获授权的 `$git-sync`。日常入口不启动脚本解释器。项目自有 Hook 继续使用
   `.codex/hooks/project_*/` 扩展目录，不与受管 Rust 源码混写。
-- `.githooks/pre-commit`：执行提交前机器检查。
 - `doc/`：以 `doc/README.md` 为索引的六层文档结构，包含项目自有知识库。
 - 项目自己的嵌套 `AGENTS.md`、项目规则和明确保留的定制资产仍归项目所有。
 - 旧项目的 `.codex/rules/*.md` 与 `.codex/memory/`：不再运行或语义迁移；兼容更新保留，重建时按普通项目自有资产确认保留或删除，不影响原生 Memory。
@@ -129,7 +128,7 @@ BridgePilot/
 ├── source/
 │   ├── forge/               # 九个工程包的唯一维护源
 │   │   ├── bridgeforge-manifest.json # Forge 用户指令、共享 Skills 与项目骨架的唯一源清单
-│   │   ├── core/skeleton/lifecycle/workflow/memory/checks/factory/cli/hook
+│   │   ├── core/skeleton/workflow/memory/checks/factory/cli/hook
 │   │   └── templates/       # 分发资产与通用 Skills
 │   └── orchestrator/        # 总管，与 forge 平行，无 src 中间层
 │       ├── tasks/ storage/ execution/

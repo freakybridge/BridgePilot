@@ -44,15 +44,6 @@ pub struct ProcessOutput {
 
 pub trait ProcessRunner {
     fn run(&self, request: &ProcessRequest) -> std::io::Result<ProcessOutput>;
-    fn factory_transaction(
-        &self,
-        _root: &std::path::Path,
-        _writes: BTreeMap<PathBuf, Vec<u8>>,
-        _release_inputs: BTreeMap<PathBuf, Option<Vec<u8>>>,
-        _executor: &dyn ProcessRunner,
-    ) -> Result<crate::factory_bridge::FactoryTransaction, String> {
-        Err("factory transaction adapter is unavailable; use the factory entry point".into())
-    }
     /// A verified cache load, after byte, receipt, self-test and environment checks.
     fn cache_hit(&self) {}
     fn cache_miss(&self, _reason: &'static str) {}

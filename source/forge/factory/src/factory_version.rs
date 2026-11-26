@@ -1,4 +1,4 @@
-use crate::release::SemVer;
+use bridgeforge_core::SemVer;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;

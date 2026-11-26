@@ -11,7 +11,7 @@ validation_status: in_progress
 
 ```text
 source/
-├─ forge/                         # 九包、模板、通用工程流程
+├─ forge/                         # 八包、模板、通用工程流程
 └─ orchestrator/                  # BP 六包，与 forge 平行，无 src 中间层
    ├─ tasks/                     # 项目、任务、授权、控制权、唤醒与进度类型和规则
    ├─ storage/                   # SQLite 实体、历史、CAS、事件及本机同步事务
@@ -23,7 +23,7 @@ source/
 scripts/tests/orchestrator/       # 域、存储、子进程夹具与故障测试
 ```
 
-依赖方向：storage → tasks；execution → storage/tasks；transfer → execution/storage/tasks；install → storage/tasks；cli 组合各服务。BP 对 Forge 仅依赖 forge/core，Forge 不依赖总管。CLI 包延续 bridgepilot-orchestrator 原生名称和 orchestrator 身份，其余包分别登记私有独立版本。包登记不赋予公共分发资格；六包均不进入 public-members。拆分进展和实际证据见 [六包拆分记录](../../1_delivery/bridgepilot-package-split/plan_2026-11-02_package-split.md)。公共安装只投影原公共八包，factory 九包单独准备；orchestrator 不进入公共模板、共享 Skill 或 `.codex/hooks/source/`。通用 core 变化只公开既有 ProcessTree API，复用 Windows 无控制台、启动时 Job 归属及 Drop 停止机制。
+依赖方向：storage → tasks；execution → storage/tasks；transfer → execution/storage/tasks；install → storage/tasks；cli 组合各服务。BP 对 Forge 仅依赖 forge/core，Forge 不依赖总管。CLI 包延续 bridgepilot-orchestrator 原生名称和 orchestrator 身份，其余包分别登记私有独立版本。包登记不赋予公共分发资格；六包均不进入 public-members。拆分进展和实际证据见 [六包拆分记录](../../1_delivery/bridgepilot-package-split/plan_2026-11-02_package-split.md)。公共安装只投影公共七包，factory 八包单独准备；orchestrator 不进入公共模板、共享 Skill 或 `.codex/hooks/source/`。通用 core 变化只公开既有 ProcessTree API，复用 Windows 无控制台、启动时 Job 归属及 Drop 停止机制。
 
 ## 2. 用户工作流与执行接入
 

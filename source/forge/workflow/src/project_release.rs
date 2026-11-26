@@ -1,7 +1,7 @@
 //! Project-owned native recipe interpreted by the installed, provenance-bound Rust driver.
 //! Versions stay in native files; this recipe never stores a version ledger.
 use bridgeforge_core::native_release::{
-    Asset, Plan, SourceContext, SourceEdit, SourceIdentity, SourcePlan, raw_sha,
+    Asset, Plan, raw_sha,
 };
 use bridgeforge_core::{
     ProcessRequest, ProcessRunner, SemVer, SystemProcessRunner, managed_paths, persistence,
@@ -9,7 +9,7 @@ use bridgeforge_core::{
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
     time::Duration,
@@ -241,10 +241,11 @@ pub fn manifest(root: &Path, r: &Recipe) -> Result<Vec<u8>, String> {
     ]);
     native["program"] = value(PROGRAM);
     native["args"] = array(&["project-release".into(), "prepare".into()]);
-    native["source-args"] = array(&["project-release".into(), "source".into()]);
     native["prepare-timeout-seconds"] = value((r.build.len() as i64) * 3600 + 300);
     if let Some(old) = metadata.get("native-release").and_then(Item::as_table) {
-        if old.len() != native.len()
+        let legacy = old.contains_key("source-args");
+        if old.len() != native.len() + usize::from(legacy)
+            || (legacy && strings(old, "source-args")? != ["project-release", "source"])
             || old.get("program").and_then(Item::as_str) != Some(PROGRAM)
             || old
                 .get("prepare-timeout-seconds")
@@ -252,7 +253,7 @@ pub fn manifest(root: &Path, r: &Recipe) -> Result<Vec<u8>, String> {
                 != native
                     .get("prepare-timeout-seconds")
                     .and_then(Item::as_integer)
-            || ["build", "args", "source-args"]
+            || ["build", "args"]
                 .iter()
                 .any(|key| strings(old, key).ok() != strings(&native, key).ok())
         {
@@ -322,13 +323,8 @@ pub fn verify_driver(root: &Path) -> Result<Value, String> {
 }
 
 fn git(root: &Path, args: &[&str]) -> Result<Vec<u8>, String> {
-    git_with_stdin(root, args, Vec::new())
-}
-
-fn git_with_stdin(root: &Path, args: &[&str], stdin: Vec<u8>) -> Result<Vec<u8>, String> {
     let mut q = ProcessRequest::new("git", root);
     q.args = args.iter().map(Into::into).collect();
-    q.stdin = stdin;
     q.timeout = Duration::from_secs(60);
     q.env.insert("GIT_OPTIONAL_LOCKS".into(), "0".into());
     let out = SystemProcessRunner.run(&q).map_err(|e| e.to_string())?;
@@ -339,24 +335,6 @@ fn git_with_stdin(root: &Path, args: &[&str], stdin: Vec<u8>) -> Result<Vec<u8>,
         ));
     }
     Ok(out.stdout)
-}
-
-fn history(root: &Path, range: &str, paths: &BTreeSet<&str>) -> Result<Vec<u8>, String> {
-    // Keep the complete pathspec in one history walk: batching paths can change
-    // Git's merge simplification, commit order and therefore release notes.
-    let mut args = vec!["log", "--format=%B%x00", range, "--stdin", "--"];
-    let mut stdin = b"--\n".to_vec();
-    for path in paths {
-        // --stdin reads raw lines and strips CRLF. Preserve unusual historical
-        // names through argv instead of splitting or changing their pathspecs.
-        if path.contains('\n') || path.ends_with('\r') {
-            args.push(path);
-        } else {
-            stdin.extend_from_slice(path.as_bytes());
-            stdin.push(b'\n');
-        }
-    }
-    git_with_stdin(root, &args, stdin)
 }
 
 fn inventory(root: &Path, r: &Recipe) -> Result<Vec<String>, String> {
@@ -466,460 +444,6 @@ fn packages(root: &Path, files: &[String]) -> Result<Vec<Value>, String> {
     Ok(result)
 }
 
-pub fn identity(root: &Path) -> Result<SourceIdentity, String> {
-    let r = recipe(root)?.ok_or("native project release recipe missing")?;
-    let version =
-        fs::read_to_string(source_path(root, &r.version_file)?).map_err(|e| e.to_string())?;
-    let files = inventory(root, &r)?;
-    let packages = packages(root, &files)?;
-    let mut paths = BTreeSet::from([r.version_file.clone(), r.changelog.clone()]);
-    for p in &packages {
-        paths.insert(p["manifest"].as_str().unwrap().into());
-        paths.insert(p["version_manifest"].as_str().unwrap().into());
-    }
-    paths.extend(
-        files
-            .iter()
-            .filter(|p| p.starts_with("source/") && p.ends_with("/Cargo.lock"))
-            .cloned(),
-    );
-    Ok(SourceIdentity {
-        product: r.product,
-        repository: r.repository,
-        gitlab_origin: r.gitlab_origin,
-        version: version.trim().into(),
-        tag_prefix: r.tag_prefix,
-        paths: paths.into_iter().collect(),
-    })
-}
-
-fn package_edits(
-    root: &Path,
-    r: &Recipe,
-    reference: &str,
-    changed: &BTreeSet<&str>,
-    bump: u8,
-) -> Result<(Vec<SourceEdit>, Vec<String>), String> {
-    let files = inventory(root, r)?;
-    let packages = packages(root, &files)?;
-    let old_paths = git(
-        root,
-        &[
-            "ls-tree",
-            "-r",
-            "--name-only",
-            "-z",
-            reference,
-            "--",
-            "source",
-        ],
-    )?;
-    let old_paths = old_paths
-        .split(|b| *b == 0)
-        .filter_map(|p| std::str::from_utf8(p).ok())
-        .collect::<BTreeSet<_>>();
-    let mut owners = BTreeMap::<String, (String, String, bool)>::new();
-    let choose = |p: &Value,
-                  owners: &mut BTreeMap<String, (String, String, bool)>,
-                  level: u8|
-     -> Result<bool, String> {
-        let manifest = p["manifest"].as_str().unwrap();
-        let owner = p["version_manifest"].as_str().unwrap();
-        let _ = manifest;
-        if owners.contains_key(owner) || !old_paths.contains(owner) {
-            return Ok(false);
-        }
-        let inherited = p["workspace_version"] == true;
-        let old = String::from_utf8(git(root, &["show", &format!("{reference}:{owner}")])?)
-            .map_err(|e| e.to_string())?
-            .parse::<DocumentMut>()
-            .map_err(|e| e.to_string())?;
-        let value = if inherited {
-            old.get("workspace").and_then(|v| v.get("package"))
-        } else {
-            old.get(if owner.ends_with("pyproject.toml") {
-                "project"
-            } else {
-                "package"
-            })
-        };
-        let Some(old) = value.and_then(|v| v.get("version")).and_then(Item::as_str) else {
-            return Ok(false);
-        };
-        let current = p["version"].as_str().unwrap();
-        let old_semver = old.parse::<SemVer>()?;
-        let current_semver = current.parse::<SemVer>()?;
-        if current_semver < old_semver {
-            return Err(format!("native package version regressed: {owner}"));
-        }
-        let selected = if current_semver == old_semver {
-            increment(current_semver, level)?.to_string()
-        } else {
-            current.into()
-        };
-        owners.insert(owner.into(), (old.into(), selected, inherited));
-        Ok(true)
-    };
-    for p in &packages {
-        let manifest = p["manifest"].as_str().unwrap();
-        let prefix = format!("{}/", manifest.rsplit_once('/').unwrap().0);
-        if changed.iter().any(|c| c.starts_with(&prefix)) {
-            choose(p, &mut owners, bump)?;
-        }
-    }
-    loop {
-        let mut added = false;
-        let pins = packages
-            .iter()
-            .filter_map(|p| {
-                owners
-                    .get(p["version_manifest"].as_str().unwrap())
-                    .map(|(old, new, _)| {
-                        (
-                            p["name"].as_str().unwrap().to_string(),
-                            old.clone(),
-                            new.clone(),
-                        )
-                    })
-            })
-            .collect::<Vec<_>>();
-        for p in packages
-            .iter()
-            .filter(|p| p["manifest"].as_str().unwrap().ends_with("pyproject.toml"))
-        {
-            let rel = p["manifest"].as_str().unwrap();
-            let doc = fs::read_to_string(source_path(root, rel)?)
-                .map_err(|e| e.to_string())?
-                .parse::<DocumentMut>()
-                .map_err(|e| e.to_string())?;
-            let depends = doc
-                .get("project")
-                .and_then(|v| v.get("dependencies"))
-                .and_then(Item::as_array)
-                .is_some_and(|deps| {
-                    deps.iter().filter_map(|v| v.as_str()).any(|dep| {
-                        let compact = dep.replace(' ', "").replace('_', "-");
-                        pins.iter().any(|(name, old, new)| {
-                            old != new && compact == format!("{}=={old}", name.replace('_', "-"))
-                        })
-                    })
-                });
-            if depends {
-                added |= choose(p, &mut owners, 1)?;
-            }
-        }
-        if !added {
-            break;
-        }
-    }
-    let mut documents = BTreeMap::<String, (String, DocumentMut)>::new();
-    for owner in owners.keys() {
-        let before = fs::read_to_string(source_path(root, owner)?).map_err(|e| e.to_string())?;
-        let mut doc = before.parse::<DocumentMut>().map_err(|e| e.to_string())?;
-        let (_, new, inherited) = &owners[owner];
-        if *inherited {
-            doc["workspace"]["package"]["version"] = value(new.as_str());
-        } else {
-            doc[if owner.ends_with("pyproject.toml") {
-                "project"
-            } else {
-                "package"
-            }]["version"] = value(new.as_str());
-        }
-        documents.insert(owner.clone(), (before, doc));
-    }
-    let mut versions = BTreeMap::<String, (String, String)>::new();
-    let mut notes = vec![];
-    for p in &packages {
-        if let Some((old, new, _)) = owners.get(p["version_manifest"].as_str().unwrap()) {
-            let name = p["name"].as_str().unwrap();
-            versions.insert(name.into(), (old.clone(), new.clone()));
-            notes.push(format!(
-                "- `{name}`: {old} → {new} (changed native inputs)."
-            ));
-        }
-    }
-    // Update local Cargo lock identities and exact Python internal pins only;
-    // registry packages and unrelated constraints are never rewritten.
-    for rel in files.iter().filter(|p| {
-        p.starts_with("source/") && (p.ends_with("/Cargo.lock") || p.ends_with("/pyproject.toml"))
-    }) {
-        let before = fs::read_to_string(source_path(root, rel)?).map_err(|e| e.to_string())?;
-        let mut doc = documents
-            .get(rel)
-            .map(|(_, d)| d.clone())
-            .unwrap_or(before.parse::<DocumentMut>().map_err(|e| e.to_string())?);
-        if rel.ends_with("Cargo.lock") {
-            if let Some(packages) = doc
-                .get_mut("package")
-                .and_then(Item::as_array_of_tables_mut)
-            {
-                for package in packages.iter_mut() {
-                    if package.get("source").is_none() {
-                        if let Some((old, new)) = package
-                            .get("name")
-                            .and_then(Item::as_str)
-                            .and_then(|name| versions.get(name))
-                        {
-                            if package.get("version").and_then(Item::as_str) == Some(old.as_str()) {
-                                package["version"] = value(new.as_str());
-                            }
-                        }
-                    }
-                    if let Some(deps) = package.get_mut("dependencies").and_then(Item::as_array_mut)
-                    {
-                        for dep in deps.iter_mut() {
-                            if let Some(s) = dep.as_str() {
-                                if let Some((name, (_old, new))) = versions
-                                    .iter()
-                                    .find(|(name, (old, _))| s == format!("{name} {old}"))
-                                {
-                                    *dep = toml_edit::Value::from(format!("{name} {new}"));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        } else if let Some(deps) = doc
-            .get_mut("project")
-            .and_then(|p| p.get_mut("dependencies"))
-            .and_then(Item::as_array_mut)
-        {
-            for dep in deps.iter_mut() {
-                if let Some(s) = dep.as_str() {
-                    let compact = s.replace(' ', "");
-                    if let Some((name, (old, new))) = versions.iter().find(|(name, (old, _))| {
-                        compact == format!("{name}=={old}")
-                            || compact == format!("{}=={old}", name.replace('_', "-"))
-                    }) {
-                        let _ = old;
-                        *dep = toml_edit::Value::from(format!("{name}=={new}"));
-                    }
-                }
-            }
-        }
-        if doc.to_string() != before {
-            documents.insert(rel.clone(), (before, doc));
-        }
-    }
-    let edits = documents
-        .into_iter()
-        .filter_map(|(path, (before, doc))| {
-            let after = doc.to_string();
-            (before != after).then_some(SourceEdit {
-                path,
-                before,
-                after,
-            })
-        })
-        .collect();
-    Ok((edits, notes))
-}
-
-fn level(message: &str) -> Result<u8, String> {
-    let subject = message.lines().next().unwrap_or("");
-    let kind = subject
-        .split_once(':')
-        .ok_or("code changes require a classified commit message")?
-        .0;
-    let breaking =
-        kind.ends_with('!') || message.lines().any(|s| s.starts_with("BREAKING CHANGE:"));
-    match kind.trim_end_matches('!').split('(').next().unwrap() {
-        "feat" => Ok(if breaking { 3 } else { 2 }),
-        "fix" | "perf" | "refactor" | "chore" | "build" | "test" | "ci" | "style" | "revert"
-        | "docs" | "merge" => Ok(if breaking { 3 } else { 1 }),
-        _ => Err("unknown native release change classification".into()),
-    }
-}
-
-fn increment(mut v: SemVer, level: u8) -> Result<SemVer, String> {
-    if level == 3 && v.major > 0 {
-        v.major = v.major.checked_add(1).ok_or("version overflow")?;
-        v.minor = 0;
-        v.patch = 0;
-    } else if level >= 2 {
-        v.minor = v.minor.checked_add(1).ok_or("version overflow")?;
-        v.patch = 0;
-    } else {
-        v.patch = v.patch.checked_add(1).ok_or("version overflow")?;
-    }
-    Ok(v)
-}
-
-fn code(path: &str) -> bool {
-    if path.starts_with("doc/")
-        || matches!(
-            path,
-            "VERSION" | "CHANGELOG.md" | "README.md" | "INSTALL.md" | "AGENTS.md"
-        )
-    {
-        return false;
-    }
-    path.starts_with("source/") || path.starts_with(".codex/") || !path.ends_with(".md")
-}
-
-fn code_paths(paths: &[u8]) -> impl Iterator<Item = &str> {
-    paths
-        .split(|c| *c == 0)
-        .filter_map(|p| std::str::from_utf8(p).ok())
-        .filter(|p| !p.is_empty() && code(p))
-}
-
-pub fn source(root: &Path, context: Option<&SourceContext>) -> Result<Value, String> {
-    let mut id = identity(root)?;
-    let Some(context) = context else {
-        return serde_json::to_value(id).map_err(|e| e.to_string());
-    };
-    if context.schema != 1 || context.identity != id {
-        return Err("native source identity changed".into());
-    }
-    let r = recipe(root)?.unwrap();
-    let current = id.version.parse::<SemVer>()?;
-    let base = context
-        .baseline
-        .as_ref()
-        .map(|b| b.version.parse::<SemVer>())
-        .transpose()?;
-    let initial_base = if base.is_none() {
-        String::from_utf8(git(root, &["show", &format!("HEAD:{}", r.version_file)])?)
-            .map_err(|e| e.to_string())?
-            .trim()
-            .parse::<SemVer>()?
-    } else {
-        current
-    };
-    if base.is_some_and(|b| current < b) {
-        return Err("native version is below the formal release baseline".into());
-    }
-    let reference = context
-        .baseline
-        .as_ref()
-        .map(|b| b.commit.as_str())
-        .unwrap_or("HEAD");
-    let changed = git(
-        root,
-        &["diff", "--no-renames", "--name-only", "-z", reference, "--"],
-    )?;
-    let untracked = git(root, &["ls-files", "--others", "--exclude-standard", "-z"])?;
-    let changed_code: BTreeSet<_> = code_paths(&changed).chain(code_paths(&untracked)).collect();
-    let mut reuse = None;
-    let mut selected = current;
-    let mut message = String::new();
-    let mut package_changes = Vec::new();
-    if changed_code.is_empty() {
-        if let Some(b) = &context.baseline {
-            if current == b.version.parse::<SemVer>()? {
-                reuse = Some(b.clone());
-            }
-        }
-    } else {
-        let mut messages = Vec::new();
-        if let Some(b) = &context.baseline {
-            let range = format!("{}..HEAD", b.commit);
-            messages.extend(
-                String::from_utf8(history(root, &range, &changed_code)?)
-                    .map_err(|e| e.to_string())?
-                    .split('\0')
-                    .map(str::trim)
-                    .filter(|s| !s.is_empty())
-                    .map(str::to_owned),
-            );
-        }
-        let pending = git(
-            root,
-            &["diff", "--no-renames", "--name-only", "-z", "HEAD", "--"],
-        )?;
-        if code_paths(&pending)
-            .chain(code_paths(&untracked))
-            .next()
-            .is_some()
-        {
-            messages.push(
-                context
-                    .message
-                    .as_deref()
-                    .ok_or("native release with uncommitted code requires a classified message")?
-                    .into(),
-            );
-        }
-        if !messages.is_empty() {
-            let bump = messages
-                .iter()
-                .map(|s| level(s))
-                .collect::<Result<Vec<_>, _>>()?
-                .into_iter()
-                .max()
-                .unwrap();
-            selected = current.max(increment(base.unwrap_or(initial_base), bump)?);
-            message = messages
-                .iter()
-                .map(|s| format!("- {}", s.lines().next().unwrap_or("")))
-                .collect::<Vec<_>>()
-                .join("\n");
-            let (edits, notes) = package_edits(root, &r, reference, &changed_code, bump)?;
-            package_changes = edits;
-            if !notes.is_empty() {
-                message.push_str("\n\nNative package versions:\n");
-                message.push_str(&notes.join("\n"));
-            }
-        }
-    }
-    id.version = selected.to_string();
-    if reuse.is_some() {
-        return serde_json::to_value(SourcePlan {
-            schema: 1,
-            identity: id,
-            edits: vec![],
-            reuse_release: reuse,
-            release_assets: vec![
-                "source.tar".into(),
-                "versions.json".into(),
-                "SHA256SUMS.txt".into(),
-            ],
-        })
-        .map_err(|e| e.to_string());
-    }
-    let mut edits = package_changes;
-    if selected != current {
-        let before =
-            fs::read_to_string(source_path(root, &r.version_file)?).map_err(|e| e.to_string())?;
-        edits.push(SourceEdit {
-            path: r.version_file.clone(),
-            before,
-            after: format!("{selected}\n"),
-        });
-    }
-    let before = fs::read_to_string(source_path(root, &r.changelog)?).map_err(|e| e.to_string())?;
-    let heading = format!("## [{selected}]");
-    let mut after = before.clone();
-    if !before
-        .lines()
-        .any(|s| s == heading || s.starts_with(&format!("{heading} - ")))
-    {
-        let at = before.find("\n## ").unwrap_or(before.len());
-        if message.is_empty() {
-            message = "- Native release of the current project source.".into();
-        }
-        after.insert_str(at, &format!("\n{heading}\n\n{message}\n"));
-    }
-    if after != before {
-        edits.push(SourceEdit {
-            path: r.changelog,
-            before,
-            after,
-        });
-    }
-    serde_json::to_value(SourcePlan {
-        schema: 1,
-        identity: id,
-        edits,
-        reuse_release: None,
-        release_assets: vec![],
-    })
-    .map_err(|e| e.to_string())
-}
-
 #[cfg(windows)]
 fn windows_powershell_modules(
     request: &mut ProcessRequest,
@@ -972,17 +496,9 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value, String> {
         return Err("release output already exists; preserve previous artifact".into());
     }
     let r = recipe(&root)?.unwrap();
-    let id = identity(&root)?;
+    let version = fs::read_to_string(source_path(&root, &r.version_file)?).map_err(|e| e.to_string())?;
+    let version = version.trim();
     let input = inventory(&root, &r)?;
-    let snapshot = input
-        .iter()
-        .map(|p| {
-            Ok((
-                p.clone(),
-                raw_sha(&fs::read(source_path(&root, p)?).map_err(|e| e.to_string())?),
-            ))
-        })
-        .collect::<Result<BTreeMap<_, _>, String>>()?;
     for argv in &r.build {
         let mut q = ProcessRequest::new(&argv[0], &root);
         q.args = argv[1..].iter().map(Into::into).collect();
@@ -1001,22 +517,12 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value, String> {
     }
     fs::create_dir_all(&output).map_err(|e| e.to_string())?;
     let mut paths = input.clone();
-    let mut archive_hashes = snapshot.clone();
-    for rel in &r.artifacts {
-        let path = managed_paths::safe_join(&root, rel, "native artifact")?;
-        if !path.is_file() {
-            return Err(format!("native build did not produce {rel}"));
-        }
-        paths.push(rel.clone());
-        archive_hashes.insert(
-            rel.clone(),
-            raw_sha(&fs::read(path).map_err(|e| e.to_string())?),
-        );
-    }
+    paths.extend(r.artifacts.iter().cloned());
     paths.sort();
     paths.dedup();
-    archive::write(&root, &paths, &archive_hashes, &output.join("source.tar"))?;
-    let manifest = json!({"schema":1,"product":id.product,"version":id.version,"repository":id.repository,"gitlab_origin":id.gitlab_origin,
+    let mut snapshot = archive::write(&root, &paths, &output.join("source.tar"))?;
+    snapshot.retain(|path,_| input.binary_search(path).is_ok());
+    let manifest = json!({"schema":1,"product":r.product,"version":version,"repository":r.repository,"gitlab_origin":r.gitlab_origin,
         "source_files":snapshot,"packages":packages(&root,&input)?,"usage":"Use the existing project checkout and startup entry; this is not a standalone installer."});
     persistence::atomic_write(
         &output.join("versions.json"),
@@ -1032,363 +538,47 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value, String> {
     }
     persistence::atomic_write(&output.join("SHA256SUMS.txt"), sums.as_bytes())
         .map_err(|e| e.to_string())?;
-    if inventory(&root, &r)? != input {
-        return Err("project source inventory changed during packaging".into());
-    }
-    for (rel, sha) in &snapshot {
-        if &raw_sha(&fs::read(source_path(&root, rel)?).map_err(|e| e.to_string())?) != sha {
-            return Err(format!("source changed during packaging: {rel}"));
-        }
-    }
     let notes = fs::read_to_string(source_path(&root, &r.changelog)?).map_err(|e| e.to_string())?;
-    let heading = format!("## [{}]", id.version);
+    let heading = format!("## [{}]", version);
     let at = notes.find(&heading).ok_or("native release notes missing")?;
     let rest = &notes[at..];
     let end = rest[heading.len()..]
         .find("\n## ")
         .map(|n| n + heading.len())
         .unwrap_or(rest.len());
-    let assets = ["source.tar", "versions.json", "SHA256SUMS.txt"]
-        .iter()
-        .map(|name| {
-            let bytes = fs::read(output.join(name)).map_err(|e| e.to_string())?;
-            Ok(Asset {
-                name: (*name).into(),
-                path: format!("{relative}/{name}"),
-                sha256: raw_sha(&bytes),
-                size: bytes.len() as u64,
-            })
-        })
-        .collect::<Result<Vec<_>, String>>()?;
+    let assets = ["source.tar", "versions.json", "SHA256SUMS.txt"].into_iter()
+        .map(|name| Asset { name:name.into(), path:format!("{relative}/{name}") }).collect();
     let plan = Plan {
         schema: 1,
-        product: id.product.clone(),
-        version: id.version.clone(),
-        repository: id.repository,
-        gitlab_origin: id.gitlab_origin,
-        tag: format!("{}{}", id.tag_prefix, id.version),
-        title: format!("{} {}", id.product, id.version),
+        product: r.product.clone(),
+        version: version.to_owned(),
+        repository: r.repository,
+        gitlab_origin: r.gitlab_origin,
+        tag: format!("{}{}", r.tag_prefix, version),
+        title: format!("{} {}", r.product, version),
         notes: rest[..end].trim().into(),
         assets,
     };
-    plan.validate(&root)?;
     serde_json::to_value(plan).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bridgeforge_core::native_release::PublishedVersion;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
-
-    struct Repo {
-        root: PathBuf,
-        baseline: String,
-    }
-
-    impl Repo {
-        fn new() -> Self {
-            let workspace = Path::new(env!("CARGO_MANIFEST_DIR"))
-                .ancestors()
-                .find(|p| p.join(".git").exists())
-                .expect("test checkout root");
-            let root = workspace.join(format!(
-                ".runtime/tests/project-release-history/{}-{}",
-                std::process::id(),
-                NEXT.fetch_add(1, Ordering::Relaxed)
-            ));
-            fs::create_dir_all(&root).unwrap();
-            let mut repo = Self {
-                root,
-                baseline: String::new(),
-            };
-            repo.git(&["-c", "init.templateDir=", "init", "--initial-branch=main"]);
-            for (key, value) in [
-                ("user.name", "Release Test"),
-                ("user.email", "release-test@example.invalid"),
-                ("commit.gpgsign", "false"),
-                ("core.hooksPath", "disabled-hooks"),
-                ("core.autocrlf", "false"),
-            ] {
-                repo.git(&["config", key, value]);
-            }
-            repo.write("VERSION", "1.0.0\n");
-            repo.write("CHANGELOG.md", "# Changelog\n\n## [1.0.0]\n\n- baseline\n");
-            repo.write(
-                "source/pkg/Cargo.toml",
-                "[package]\nname = \"sample\"\nversion = \"0.4.0\"\n",
-            );
-            repo.write("source/pkg/lib.rs", "baseline\n");
-            repo.write(
-                "Cargo.toml",
-                r#"[workspace]
-members = []
-[workspace.metadata.bridgeforge.project-release]
-schema = 1
-product = "Sample"
-repository = "example/sample"
-version-file = "VERSION"
-changelog = "CHANGELOG.md"
-tag-prefix = "v"
-include = ["VERSION", "CHANGELOG.md", "Cargo.toml", "source", "doc"]
-build = []
-artifacts = []
-"#,
-            );
-            repo.commit("chore: baseline");
-            repo.baseline = repo.git(&["rev-parse", "HEAD"]).trim().into();
-            repo
-        }
-
-        fn git(&self, args: &[&str]) -> String {
-            String::from_utf8(git(&self.root, args).unwrap()).unwrap()
-        }
-
-        fn write(&self, path: &str, content: &str) {
-            let path = self.root.join(path);
-            fs::create_dir_all(path.parent().unwrap()).unwrap();
-            fs::write(path, content).unwrap();
-        }
-
-        fn commit(&self, message: &str) {
-            self.git(&["add", "--all"]);
-            self.git(&["commit", "-m", message]);
-        }
-
-        fn context(&self, message: Option<&str>) -> SourceContext {
-            SourceContext {
-                schema: 1,
-                identity: identity(&self.root).unwrap(),
-                baseline: Some(PublishedVersion {
-                    version: "1.0.0".into(),
-                    commit: self.baseline.clone(),
-                }),
-                message: message.map(str::to_owned),
-            }
-        }
-
-        fn plan(&self, message: Option<&str>) -> SourcePlan {
-            serde_json::from_value(source(&self.root, Some(&self.context(message))).unwrap())
-                .unwrap()
-        }
-
-        fn compare_history(&self, range: &str, paths: &[&str]) -> Vec<u8> {
-            let paths = paths.iter().copied().collect::<BTreeSet<_>>();
-            let mut legacy = vec!["log", "--format=%B%x00", range, "--"];
-            legacy.extend(paths.iter().copied());
-            let expected = git(&self.root, &legacy).unwrap();
-            let actual = history(&self.root, range, &paths).unwrap();
-            assert_eq!(
-                actual, expected,
-                "history must match the original query byte for byte"
-            );
-            actual
-        }
-    }
-
-    #[test]
-    fn history_preserves_merge_simplification_and_message_order() {
-        let repo = Repo::new();
-        repo.git(&["checkout", "-b", "side"]);
-        repo.write("source/side.rs", "side\n");
-        repo.commit("feat!: duplicate subject\n\nside body");
-        repo.git(&["checkout", "main"]);
-        repo.write("source/main.rs", "main\n");
-        repo.commit("feat!: duplicate subject\n\nmain body");
-        repo.git(&["merge", "--no-ff", "side", "-m", "merge: merge both paths"]);
-        repo.write("doc/notes.md", "documentation only\n");
-        repo.commit("unclassified documentation only");
-        let range = format!("{}..HEAD", repo.baseline);
-        let all = repo.compare_history(&range, &["source/main.rs", "source/side.rs"]);
-        let main = repo.compare_history(&range, &["source/main.rs"]);
-        let side = repo.compare_history(&range, &["source/side.rs"]);
-        assert!(String::from_utf8_lossy(&all).contains("merge: merge both paths"));
-        assert!(!String::from_utf8_lossy(&main).contains("merge: merge both paths"));
-        assert!(!String::from_utf8_lossy(&side).contains("merge: merge both paths"));
-        let plan = repo.plan(None);
-        assert_eq!(plan.identity.version, "2.0.0");
-        let notes = &plan
-            .edits
-            .iter()
-            .find(|e| e.path == "CHANGELOG.md")
-            .unwrap()
-            .after;
-        assert_eq!(notes.matches("feat!: duplicate subject").count(), 2);
-        assert!(!notes.contains("unclassified"));
-    }
-
-    #[test]
-    fn history_preserves_raw_paths_and_pathspec_magic() {
-        let repo = Repo::new();
-        for name in ["source/空 格.rs", "source/-dash.rs", "source/[ab].rs"] {
-            repo.write(name, name);
-            repo.commit("fix: selected path");
-        }
-        repo.write("source/a.rs", "glob also selects this\n");
-        repo.commit("feat: wildcard match");
-        let range = format!("{}..HEAD", repo.baseline);
-        repo.compare_history(&range, &["source/空 格.rs", "source/-dash.rs"]);
-        repo.compare_history(&range, &["source/[ab].rs"]);
-        repo.compare_history(&range, &[":(literal)source/[ab].rs"]);
-        repo.compare_history(&range, &["source", ":(exclude)source/a.rs"]);
-    }
-
-    #[test]
-    fn history_preserves_newline_carriage_return_and_quoted_historical_names() {
-        let repo = Repo::new();
-        // Use tree plumbing: Windows cannot check these names out, but deleted
-        // paths from cross-platform history can still occur in the pathspec.
-        let blob = String::from_utf8(
-            git_with_stdin(
-                &repo.root,
-                &["hash-object", "-w", "--stdin"],
-                b"body".to_vec(),
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        let mut entries = Vec::new();
-        let paths = [
-            "line\nbreak.rs",
-            "trailing\r",
-            "middle\rname.rs",
-            "tab\tname.rs",
-            "ctrl\u{1a}name.rs",
-            "quote\"name.rs",
-            "back\\slash.rs",
-            "ordinary.rs",
-        ];
-        for path in paths {
-            entries.extend_from_slice(format!("100644 blob {}\t{path}\0", blob.trim()).as_bytes());
-        }
-        let tree =
-            String::from_utf8(git_with_stdin(&repo.root, &["mktree", "-z"], entries).unwrap())
-                .unwrap();
-        let commit = repo.git(&[
-            "commit-tree",
-            tree.trim(),
-            "-p",
-            &repo.baseline,
-            "-m",
-            "fix: unusual historical names",
-        ]);
-        let range = format!("{}..{}", repo.baseline, commit.trim());
-        for path in paths {
-            repo.compare_history(&range, &[path]);
-        }
-        repo.compare_history(&range, &paths);
-    }
-
-    #[test]
-    fn source_handles_more_than_windows_command_limit_without_changing_versions() {
-        let repo = Repo::new();
-        let paths = (0..1000)
-            .map(|i| format!("source/pkg/changed_{i:04}_{}.rs", "x".repeat(45)))
-            .collect::<Vec<_>>();
-        assert!(
-            paths
-                .iter()
-                .map(|p| p.encode_utf16().count() + 1)
-                .sum::<usize>()
-                > 32767
-        );
-        for path in &paths {
-            repo.write(path, "changed\n");
-        }
-        repo.commit("fix: many changed paths");
-        let range = format!("{}..HEAD", repo.baseline);
-        let pathspecs = paths.iter().map(String::as_str).collect::<BTreeSet<_>>();
-        #[cfg(windows)]
-        {
-            let mut legacy = vec!["log", "--format=%B%x00", range.as_str(), "--"];
-            legacy.extend(pathspecs.iter().copied());
-            assert!(git(&repo.root, &legacy).unwrap_err().contains("206"));
-        }
-        assert_eq!(
-            history(&repo.root, &range, &pathspecs).unwrap(),
-            git(
-                &repo.root,
-                &["log", "--format=%B%x00", &range, "--", "source/pkg"]
-            )
-            .unwrap()
-        );
-        repo.write("doc/notes.md", "documentation\n");
-        repo.commit("feat!: docs must not affect versions");
-        let plan = repo.plan(None);
-        assert_eq!(plan.identity.version, "1.0.1");
-        assert!(plan.reuse_release.is_none());
-        assert!(
-            plan.edits
-                .iter()
-                .any(|e| e.path == "source/pkg/Cargo.toml" && e.after.contains("0.4.1"))
-        );
-        let notes = &plan
-            .edits
-            .iter()
-            .find(|e| e.path == "CHANGELOG.md")
-            .unwrap()
-            .after;
-        assert_eq!(notes.matches("fix: many changed paths").count(), 1);
-        assert!(!notes.contains("docs must not affect"));
-        assert!(
-            repo.git(&["status", "--porcelain"]).is_empty(),
-            "source planning must remain read-only"
-        );
-    }
-
-    #[test]
-    fn source_preserves_classification_and_existing_candidates() {
-        for (message, expected, package) in [
-            ("fix: patch", "1.0.1", "0.4.1"),
-            ("merge: combine branches", "1.0.1", "0.4.1"),
-            ("merge(config): combine branches", "1.0.1", "0.4.1"),
-            ("merge!: changed contract", "2.0.0", "0.5.0"),
-            ("merge(config)!: changed contract", "2.0.0", "0.5.0"),
-            (
-                "merge: combine branches\n\nBREAKING CHANGE: contract",
-                "2.0.0",
-                "0.5.0",
-            ),
-            ("feat: minor", "1.1.0", "0.5.0"),
-            ("refactor!: major", "2.0.0", "0.5.0"),
-            (
-                "fix: body marker\n\nBREAKING CHANGE: contract",
-                "2.0.0",
-                "0.5.0",
-            ),
-        ] {
-            let repo = Repo::new();
-            repo.write("source/pkg/lib.rs", "changed\n");
-            repo.commit(message);
-            let plan = repo.plan(None);
-            assert_eq!(plan.identity.version, expected);
-            assert!(
-                plan.edits
-                    .iter()
-                    .any(|e| e.path == "source/pkg/Cargo.toml" && e.after.contains(package))
-            );
-            repo.write("VERSION", "3.0.0\n");
-            let candidate = repo.plan(Some("fix: pending candidate"));
-            assert_eq!(candidate.identity.version, "3.0.0");
-            assert!(!candidate.edits.iter().any(|e| e.path == "VERSION"));
-        }
-    }
-
     #[test]
     #[cfg(windows)]
     fn isolate_bundled_pwsh_modules_only_for_windows_powershell_builds() {
-        let repo = Repo::new();
-        repo.write("edition/pwsh.exe", "");
-        let bundled = repo.root.join("edition/modules");
-        let custom = repo.root.join("custom/Modules");
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../.runtime/tests/release-powershell").join(std::process::id().to_string());
+        fs::create_dir_all(root.join("edition")).unwrap();
+        fs::write(root.join("edition/pwsh.exe"), "").unwrap();
+        let bundled = root.join("edition/modules");
+        let custom = root.join("custom/Modules");
         let inherited = std::env::join_paths([&bundled, &custom]).unwrap();
         for program in [
             "powershell",
             r"C:\Windows\System32\WindowsPowerShell\v1.0\PowerShell.EXE",
         ] {
-            let mut req = ProcessRequest::new(program, &repo.root);
+            let mut req = ProcessRequest::new(program, &root);
             windows_powershell_modules(&mut req, custom.as_os_str()).unwrap();
             assert!(req.env.is_empty() && req.env_remove.is_empty());
             windows_powershell_modules(&mut req, &inherited).unwrap();
@@ -1398,81 +588,13 @@ artifacts = []
             );
         }
         for program in ["pwsh.exe", "cargo"] {
-            let mut req = ProcessRequest::new(program, &repo.root);
+            let mut req = ProcessRequest::new(program, &root);
             windows_powershell_modules(&mut req, &inherited).unwrap();
             assert!(req.env.is_empty() && req.env_remove.is_empty());
         }
-        let mut req = ProcessRequest::new("powershell.exe", &repo.root);
+        let mut req = ProcessRequest::new("powershell.exe", &root);
         windows_powershell_modules(&mut req, bundled.as_os_str()).unwrap();
         assert_eq!(req.env_remove, [std::ffi::OsString::from("PSModulePath")]);
     }
 
-    #[test]
-    fn source_classifies_only_pending_code_changes() {
-        let repo = Repo::new();
-        repo.write("source/pkg/lib.rs", "committed fix\n");
-        repo.commit("fix: committed code");
-        repo.write("doc/pending.md", "work in progress\n");
-        assert_eq!(repo.plan(None).identity.version, "1.0.1");
-        repo.git(&["add", "doc/pending.md"]);
-        assert_eq!(repo.plan(Some("feat: unrelated")).identity.version, "1.0.1");
-
-        repo.write("source/pkg/new.rs", "pending code\n");
-        for staged in [false, true] {
-            if staged {
-                repo.git(&["add", "source/pkg/new.rs"]);
-            }
-            assert!(
-                source(&repo.root, Some(&repo.context(None)))
-                    .unwrap_err()
-                    .contains("classified message")
-            );
-            assert_eq!(
-                repo.plan(Some("feat: pending code")).identity.version,
-                "1.1.0"
-            );
-        }
-    }
-
-    #[test]
-    fn source_preserves_reuse_dirty_input_and_failure_behavior() {
-        let repo = Repo::new();
-        repo.write("doc/notes.md", "documentation\n");
-        repo.commit("unclassified documentation only");
-        let reuse = repo.plan(None);
-        assert_eq!(reuse.reuse_release.unwrap().commit, repo.baseline);
-        assert!(reuse.edits.is_empty());
-        repo.write("source/pkg/lib.rs", "pending\n");
-        assert!(
-            source(&repo.root, Some(&repo.context(None)))
-                .unwrap_err()
-                .contains("classified message")
-        );
-        assert_eq!(
-            repo.plan(Some("feat: pending code")).identity.version,
-            "1.1.0"
-        );
-        repo.commit("unclassified code");
-        assert!(
-            source(&repo.root, Some(&repo.context(None)))
-                .unwrap_err()
-                .contains("classified commit")
-        );
-        assert!(
-            history(
-                &repo.root,
-                "missing-reference..HEAD",
-                &BTreeSet::from(["source/pkg/lib.rs"])
-            )
-            .unwrap_err()
-            .contains("native source query failed")
-        );
-    }
-
-    #[test]
-    fn merge_classification_does_not_accept_other_unknown_messages() {
-        assert!(level("maintenance: unknown type").is_err());
-        assert!(level("Merge branch 'side'").is_err());
-        assert_eq!(level("merge: ordinary integration"), Ok(1));
-    }
 }

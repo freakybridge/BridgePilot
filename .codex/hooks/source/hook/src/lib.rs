@@ -350,7 +350,6 @@ fn lifecycle(event: &str, payload: Option<&Value>) -> i32 {
     first = step.code;
     let steps = [
         || session::config_health(false),
-        session::githooks_path,
         session::show_state,
         session::skill_sync,
     ];

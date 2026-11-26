@@ -118,7 +118,7 @@
 ### 项目目录地图
 
 - `source/forge/templates/**`：下沉到项目的 Codex 公共骨架与公共 `AGENTS.md` 源。
-- `source/forge/**`：工厂 Rust workspace 的唯一维护源，公共八包投影到 `.codex/hooks/source/`，factory 只用于本仓库。
+- `source/forge/**`：工厂 Rust workspace 的唯一维护源，公共七包投影到 `.codex/hooks/source/`，factory 只用于本仓库。
 - `source/orchestrator/**`：BP 私有总管，含 tasks（任务模型与规则）、storage（SQLite 与事务）、execution（执行、调度与核验）、transfer（同步换机）、install（安装恢复）、cli（命令组合）六个独立包及本地交互 Skill；与 `source/forge/` 平行，无额外 `src/`。包依赖向 tasks/storage 收敛，transfer 可调用 execution 的必要查询；只依赖 Forge core，不进入公共源码投影或共享 Skill 分发。Forge 不依赖 orchestrator。
 - `source/forge/templates/skills/**`：通用 Skill 的维护源，作为骨架投影到项目 `.codex/skills/`；`source/forge/templates/maintenance/**` 随骨架投影内部维护手册与准备入口。
 - `scripts/**`：Windows 用户级迁移入口与独立辅助工具；工厂 Rust 命令由 `source/forge/factory/` 实现。
@@ -139,7 +139,7 @@ BP 组织单项目或多项目骨架升级时，读取私有 [bridgepilot-update
 
 本工厂使用 Forge 项目级 `git-sync` Skill。普通 Git 同步的受管程序入口仍为 `.build/bridgeforge/bin/bridgeforge-factory.exe git-sync`，使用现有工具与一次聚合预检。工具缺失或不匹配时报告维护缺口，不自动安装升级。原生开发验证使用下列 Cargo 入口；旧 develop、配置迁移与配置化 release 参数明确报退役，不能转回冻结工具继续在线运行。
 
-用户完整发布仍只调用 `git-sync release`；实际受管命令为 `.build/bridgeforge/bin/bridgeforge-factory.exe git-sync release`。CLI 通过原生 Cargo metadata 登记的 BP 适配器完成必要构建、打包、源码提交推送、正式 GitHub Release 和远端核验。只有 `status=released` 且 `publication_verified=true` 才是发布成功；普通 synced 不代替发布。最短路径、四类暂停与接续规则只维护在共享 git-sync Skill；原生入口和包边界见 INSTALL。Forge 不依赖 BP 包，不重建旧版本账本。
+用户完整发布只调用 `git-sync release`。受管入口按项目原生版本构建，确认源码成功推送后执行平台发布；`status=released` 与 `publication_verified=false` 表示发布命令成功、远端内容未复核。项目通过正式发布回执与普通同步回执区分两种结果。
 
 cleanup 使用固定范围、当前原生依据及精确保留路径，不读取或恢复旧项目产物覆盖、Hook 登记与分发 JSON。工厂入口自动保护自身工具和收据；项目成品、运行依赖及仍需保留的恢复证据按当前调用链显式核对并传入，不默认清空 `.build`。preview 零写入，实际删除仍须有对应范围授权。
 

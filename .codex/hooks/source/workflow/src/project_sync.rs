@@ -42,8 +42,6 @@ pub struct SyncPlan {
     pub schema: u32,
     pub status: String,
     pub readiness: String,
-    #[serde(default)]
-    pub release_setup: Value,
     pub mode: SyncMode,
     pub previous_version: Option<String>,
     pub current_version: String,
@@ -68,8 +66,6 @@ pub struct SyncPlan {
     project_hook_reads: BTreeMap<String, Option<Vec<u8>>>,
     #[serde(skip)]
     public_actions: Vec<SyncAction>,
-    #[serde(skip)]
-    release_upgrade: Option<crate::release::schema4::ReleaseUpgrade>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -87,8 +83,6 @@ pub struct SyncReceipt {
     pub rollback_performed: bool,
     pub stamp_written_last: bool,
     pub project_readiness: String,
-    #[serde(default)]
-    pub release_setup: Value,
     pub preserved_asset_ids: Vec<String>,
 }
 
@@ -1018,7 +1012,7 @@ pub fn build_plan_with_inputs(
         .as_str()
         .ok_or("managed contract release_version is missing")?
         .to_string();
-    let current_semver = version.parse::<crate::release::SemVer>()?;
+    let current_semver = version.parse::<bridgeforge_core::SemVer>()?;
     if current_semver < crate::baseline::MIN_SUPPORTED_VERSION.parse()? {
         return Err("target skeleton is unsupported; minimum supported version is 8.0.0".into());
     }
@@ -1041,7 +1035,7 @@ pub fn build_plan_with_inputs(
     let previous_version = crate::baseline::project_version(&project_root)?;
     let previous_semver = previous_version
         .as_deref()
-        .map(str::parse::<crate::release::SemVer>)
+        .map(str::parse::<bridgeforge_core::SemVer>)
         .transpose()?;
     if previous_semver
         .as_ref()
@@ -1334,37 +1328,7 @@ pub fn build_plan_with_inputs(
         &mut gaps,
         &mut generated_source_fingerprints,
     )?;
-    let mut project_hook_reads = target_reads;
-    // A fresh Init may not have a committed VERSION baseline yet. Its first
-    // release setup establishes that proof; existing projects must not skip it.
-    let release_upgrade =
-        if contract["release_model"] == "product-packages" && mode != SyncMode::Init {
-            crate::release::schema4::prepare_project_upgrade(&project_root)?
-        } else {
-            None
-        };
-    if let Some(upgrade) = &release_upgrade {
-        let target = ".codex/bridgeforge-version.json";
-        let path = project_root.join(target);
-        if writes.contains_key(&path) || deletes.contains(&path) {
-            return Err("release cutover overlaps another project update action".into());
-        }
-        let payload = upgrade.payload()?;
-        risk.push(SyncAction {
-            id: "migration.release-model".into(),
-            target: target.into(),
-            operation: "cutover".into(),
-            risk: true,
-            before_sha256: transaction_file_state(&path)?.as_deref().map(sha_raw),
-            after_sha256: sha_raw(&payload),
-        });
-        generated_source_fingerprints
-            .insert("release-cutover".into(), upgrade.fingerprint().into());
-        for (path, bytes) in upgrade.inputs() {
-            project_hook_reads.insert(relative_posix(&project_root, path)?, bytes.clone());
-        }
-        writes.insert(path, payload);
-    }
+    let project_hook_reads = target_reads;
     safe.sort_by(|left, right| left.target.cmp(&right.target));
     risk.sort_by(|left, right| left.target.cmp(&right.target));
     let fingerprint = plan_fingerprint(
@@ -1396,7 +1360,6 @@ pub fn build_plan_with_inputs(
             "ready"
         }
         .into(),
-        release_setup: crate::git_sync::release_setup_status(&project_root),
         mode,
         previous_version,
         current_version: version,
@@ -1416,7 +1379,6 @@ pub fn build_plan_with_inputs(
         generated_source_fingerprints,
         project_hook_reads,
         public_actions: Vec::new(),
-        release_upgrade,
     })
 }
 
@@ -1605,9 +1567,6 @@ fn apply_plan_internal(
         if &legacy_runtime_fingerprint(&plan.project_root, &current)? != expected {
             return Err("legacy runtime changed after plan; preserve it and regenerate".into());
         }
-    }
-    if let Some(upgrade) = &plan.release_upgrade {
-        upgrade.verify(&plan.project_root)?;
     }
     if let Some(expected) = plan.generated_source_fingerprints.get(RETIRED_SYNC_INPUT)
         && sync_role_fingerprint(&sync_role_inputs(&plan.project_root)?)? != *expected
@@ -1932,7 +1891,6 @@ fn apply_plan_internal(
         rollback_performed: false,
         stamp_written_last,
         project_readiness: "ready".into(),
-        release_setup: crate::git_sync::release_setup_status(&plan.project_root),
         preserved_asset_ids: plan.preservation_manifest["entries"]
             .as_array()
             .into_iter()
@@ -1972,7 +1930,6 @@ fn human_plan(plan: &SyncPlan) -> Value {
         "pending": pending,
         "next_step": next_step,
         "current_version": plan.current_version,
-        "release_setup": plan.release_setup
     })
 }
 
@@ -2035,7 +1992,6 @@ pub fn outcome_receipt_with_format(
                 "pending": [],
                 "next_step": if noop {"本次骨架操作已结束，无需继续处理"}else{"需要保存到 GitHub 时运行 $git-sync"},
                 "current_version": receipt.current_version,
-                "release_setup": receipt.release_setup,
                 "changed_count": receipt.applied.len()
             });
             let machine = serde_json::to_value(receipt)

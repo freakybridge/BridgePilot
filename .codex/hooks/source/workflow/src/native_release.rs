@@ -1,12 +1,10 @@
 //! Single-call native release coordination. Git synchronization is an intermediate result.
-use crate::{CommandOutcome, ProcessRequest, ProcessRunner, git_sync, persistence};
-use bridgeforge_core::native_release::{Plan, raw_sha};
+use crate::{CommandOutcome, ProcessRequest, ProcessRunner, git_sync};
+use bridgeforge_core::native_release::Plan;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
-    collections::BTreeSet,
     fs,
-    io::Write,
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -56,9 +54,17 @@ impl ProcessRunner for Measured<'_> {
                 }
                 calls.upload += u64::from(args.starts_with(&["release", "upload"]));
             }
-            if program=="curl" && args.windows(2).any(|p|p[0]=="--url" && p[1].contains("/api/v4/projects/")) {
-                if args.windows(2).any(|p|p==["--request","GET"]) {calls.gitlab_reads+=1;} else {calls.gitlab_writes+=1;}
-                calls.upload+=u64::from(args.contains(&"--upload-file"));
+            if program == "curl"
+                && args
+                    .windows(2)
+                    .any(|p| p[0] == "--url" && p[1].contains("/api/v4/projects/"))
+            {
+                if args.windows(2).any(|p| p == ["--request", "GET"]) {
+                    calls.gitlab_reads += 1;
+                } else {
+                    calls.gitlab_writes += 1;
+                }
+                calls.upload += u64::from(args.contains(&"--upload-file"));
             }
         }
         let out = self.inner.run(q);
@@ -75,41 +81,14 @@ mod github;
 mod gitlab;
 #[path = "native_release_platform.rs"]
 mod platform;
-#[path = "native_release_source.rs"]
-mod source;
-#[path = "native_release_recovery.rs"]
-mod recovery;
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Driver {
     build: Vec<String>,
     program: String,
     args: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    source_args: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     prepare_timeout_seconds: Option<u64>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct State {
-    schema: u32,
-    fingerprint: String,
-    driver: Driver,
-    plan: Plan,
-    commit: Option<String>,
-    status: String,
-    result: Option<Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    anchor: Option<Anchor>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    previous_attempt: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    reuse_release: Option<bridgeforge_core::native_release::PublishedVersion>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    identity_recovery: Option<recovery::Evidence>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -120,7 +99,6 @@ struct Anchor {
     remote: String,
     push_ref: String,
     url: String,
-    config_sha256: String,
 }
 
 impl Anchor {
@@ -129,7 +107,6 @@ impl Anchor {
             && self.remote == other.remote
             && self.push_ref == other.push_ref
             && self.url == other.url
-            && self.config_sha256 == other.config_sha256
     }
 }
 
@@ -171,10 +148,16 @@ fn driver(root: &Path) -> Result<Driver, Stop> {
         .ok_or_else(|| {
             decision("project has no native release entry; no Git writes or publication performed")
         })?;
-    if table
-        .iter()
-        .any(|(key, _)| !["build", "program", "args", "source-args", "prepare-timeout-seconds"].contains(&key))
-    {
+    if table.iter().any(|(key, _)| {
+        ![
+            "build",
+            "program",
+            "args",
+            "source-args",
+            "prepare-timeout-seconds",
+        ]
+        .contains(&key)
+    }) {
         return Err(decision("unknown native release entry field"));
     }
     let array = |key: &str| -> Result<Vec<String>, Stop> {
@@ -193,10 +176,17 @@ fn driver(root: &Path) -> Result<Driver, Stop> {
     let d = Driver {
         build: array("build")?,
         args: array("args")?,
-        source_args: if table.contains_key("source-args") { array("source-args")? } else { vec![] },
-        prepare_timeout_seconds: table.get("prepare-timeout-seconds").map(|v|v.as_integer()
-            .and_then(|n|u64::try_from(n).ok()).filter(|n|(1..=21600).contains(n))
-            .ok_or_else(||decision("native prepare timeout must be between 1 and 21600 seconds"))).transpose()?,
+        prepare_timeout_seconds: table
+            .get("prepare-timeout-seconds")
+            .map(|v| {
+                v.as_integer()
+                    .and_then(|n| u64::try_from(n).ok())
+                    .filter(|n| (1..=21600).contains(n))
+                    .ok_or_else(|| {
+                        decision("native prepare timeout must be between 1 and 21600 seconds")
+                    })
+            })
+            .transpose()?,
         program: table
             .get("program")
             .and_then(toml_edit::Item::as_str)
@@ -214,29 +204,27 @@ fn driver(root: &Path) -> Result<Driver, Stop> {
 }
 
 pub fn preflight(root: &Path, runner: &dyn ProcessRunner) -> CommandOutcome {
-    match driver(root) {
-        Err(e) => stopped("preflight", e),
-        Ok(_) => {
-            let mut out = git_sync::preflight(root, runner);
-            if let Some(receipt) = out.receipt.as_mut() {
-                receipt["operation"] = json!("native-release");
-                receipt["release_requested"] = json!(true);
-                receipt["publication_status"] = json!("not_verified");
-            }
-            out
-        }
+    let result = driver(root)
+        .and_then(|_| require_idle_git(root, runner))
+        .and_then(|_| anchor(root, runner));
+    match result {
+        Ok(target) => CommandOutcome::with_receipt(
+            json!({"schema":1,"operation":"native-release","status":"ready",
+            "release_requested":true,"branch":target.branch,"head":target.head,"push_target":target.push_ref,"publication_verified":false}),
+        ),
+        Err(error) => stopped("preflight", error),
     }
 }
 
 /// Local-only installation evidence. No fetch, build, credential or hosting API call.
-pub fn installation_target(root:&Path, repository:&str, gitlab_origin:Option<&str>) -> Result<Value,String> {
-    let target=anchor(root,&crate::SystemProcessRunner).map_err(|e|e.message)?;
-    platform::match_remote(&target.url,repository,gitlab_origin).map_err(|e|e.message)?;
-    serde_json::to_value(target).map_err(|e|e.to_string())
-}
-
-pub(crate) fn identity_recovery_installation(root: &Path, excluded: &BTreeSet<String>, exact: bool) -> Result<Value, String> {
-    recovery::installation_checkpoint(root, &crate::SystemProcessRunner, excluded, exact).map_err(|e|e.message)
+pub fn installation_target(
+    root: &Path,
+    repository: &str,
+    gitlab_origin: Option<&str>,
+) -> Result<Value, String> {
+    let target = anchor(root, &crate::SystemProcessRunner).map_err(|e| e.message)?;
+    platform::match_remote(&target.url, repository, gitlab_origin).map_err(|e| e.message)?;
+    serde_json::to_value(target).map_err(|e| e.to_string())
 }
 
 fn request(
@@ -268,73 +256,6 @@ fn git(root: &Path, runner: &dyn ProcessRunner, args: &[&str]) -> Result<String,
     request(root, runner, &argv, 60).map(|s| s.trim().to_owned())
 }
 
-/// Includes all tracked and untracked non-ignored inputs. Build/runtime output is ignored by project policy.
-fn fingerprint(root: &Path, runner: &dyn ProcessRunner) -> Result<String, Stop> {
-    fingerprint_without(root, runner, &BTreeSet::new())
-}
-
-fn fingerprint_without(root: &Path, runner: &dyn ProcessRunner, excluded: &BTreeSet<String>) -> Result<String, Stop> {
-    use sha2::{Digest, Sha256};
-    let files = request(
-        root,
-        runner,
-        &[
-            "git",
-            "ls-files",
-            "--cached",
-            "--others",
-            "--exclude-standard",
-            "-z",
-        ]
-        .into_iter()
-        .map(str::to_owned)
-        .collect::<Vec<_>>(),
-        60,
-    )?;
-    let paths: BTreeSet<_> = files.split('\0').filter(|s| !s.is_empty()).collect();
-    let mut hash = Sha256::new();
-    for name in paths {
-        if excluded.contains(name) { continue; }
-        let path = bridgeforge_core::managed_paths::safe_join(root, name, "release source")
-            .map_err(conflict)?;
-        let Some(bytes) = bridgeforge_core::managed_paths::read_metadata(&path, 128 * 1024 * 1024)
-            .map_err(conflict)?
-        else {
-            continue;
-        };
-        hash.update((name.len() as u64).to_le_bytes());
-        hash.update(name.as_bytes());
-        hash.update((bytes.len() as u64).to_le_bytes());
-        hash.update(bytes);
-    }
-    Ok(format!("{:x}", hash.finalize()))
-}
-
-fn state_bytes(path: &Path) -> Result<Option<Vec<u8>>, Stop> {
-    bridgeforge_core::managed_paths::read_metadata(path, 4 * 1024 * 1024).map_err(conflict)
-}
-
-fn unchanged_state(path: &Path, expected: &Option<Vec<u8>>) -> Result<(), Stop> {
-    if &state_bytes(path)? != expected {
-        return Err(conflict(
-            "release continuation changed concurrently; external state preserved",
-        ));
-    }
-    Ok(())
-}
-
-fn save(path: &Path, state: &State, expected: &mut Option<Vec<u8>>) -> Result<(), Stop> {
-    unchanged_state(path, expected)?;
-    let mut bytes = serde_json::to_vec_pretty(state).map_err(|e| condition(e.to_string()))?;
-    bytes.push(b'\n');
-    persistence::atomic_write(path, &bytes).map_err(|e| condition(e.to_string()))?;
-    if state_bytes(path)?.as_ref() != Some(&bytes) {
-        return Err(conflict("release continuation changed during save"));
-    }
-    *expected = Some(bytes);
-    Ok(())
-}
-
 fn anchor(root: &Path, runner: &dyn ProcessRunner) -> Result<Anchor, Stop> {
     let branch = git(root, runner, &["symbolic-ref", "--quiet", "HEAD"])?;
     let row = git(
@@ -342,12 +263,12 @@ fn anchor(root: &Path, runner: &dyn ProcessRunner) -> Result<Anchor, Stop> {
         runner,
         &[
             "for-each-ref",
-            "--format=%(objectname)%00%(push:remotename)%00%(push)",
+            "--format=%(objectname)%00%(push:remotename)%00%(push)%00%(push:remoteref)%00%(upstream)%00%(upstream:remoteref)",
             &branch,
         ],
     )?;
     let fields: Vec<_> = row.split('\0').collect();
-    if fields.len() != 3 || fields.iter().any(|v| v.is_empty() || v.contains('\n')) {
+    if fields.len() != 6 || fields[..3].iter().any(|v| v.is_empty() || v.contains('\n')) {
         return Err(decision(
             "actual Git push target is not uniquely configured",
         ));
@@ -357,14 +278,50 @@ fn anchor(root: &Path, runner: &dyn ProcessRunner) -> Result<Anchor, Stop> {
         runner,
         &["remote", "get-url", "--push", "--all", fields[1]],
     )?;
-    let config = git(root, runner, &["config", "--null", "--list"])?;
+    let destination = if !fields[3].is_empty() {
+        fields[3]
+    } else if fields[2] == fields[4] {
+        fields[5]
+    } else {
+        ""
+    };
+    let push_ref = if destination.starts_with("refs/heads/") {
+        destination.to_owned()
+    } else {
+        let specs = git(
+            root,
+            runner,
+            &[
+                "config",
+                "--get-all",
+                &format!("remote.{}.fetch", fields[1]),
+            ],
+        )?;
+        let mut matches = specs
+            .lines()
+            .filter_map(|s| {
+                let (src, dst) = s.trim_start_matches('+').split_once(':')?;
+                if dst == fields[2] {
+                    return Some(src.to_owned());
+                }
+                let (start, end) = dst.split_once('*')?;
+                Some(src.replace('*', fields[2].strip_prefix(start)?.strip_suffix(end)?))
+            })
+            .filter(|s| s.starts_with("refs/heads/"));
+        let branch = matches
+            .next()
+            .ok_or_else(|| decision("cannot resolve push branch"))?;
+        if matches.any(|s| s != branch) {
+            return Err(decision("ambiguous push branch"));
+        }
+        branch
+    };
     Ok(Anchor {
         head: fields[0].into(),
         branch,
         remote: fields[1].into(),
-        push_ref: fields[2].into(),
+        push_ref,
         url,
-        config_sha256: raw_sha(config.as_bytes()),
     })
 }
 
@@ -411,158 +368,6 @@ fn require_idle_git(root: &Path, runner: &dyn ProcessRunner) -> Result<(), Stop>
     Ok(())
 }
 
-fn archive_attempt(
-    root: &Path,
-    bytes: &[u8],
-    guard: Option<&git_sync::CommitGuard>,
-) -> Result<String, Stop> {
-    let hash = raw_sha(bytes);
-    let relative = format!(
-        ".runtime/bridgeforge-codex/native-release/attempts/{}/state.json",
-        &hash[7..]
-    );
-    let path =
-        bridgeforge_core::managed_paths::safe_join(root, &relative, "release attempt archive")
-            .map_err(conflict)?;
-    persistence::ensure_real_directory(path.parent().unwrap(), true)
-        .map_err(|e| conflict(e.to_string()))?;
-    let preserve = |path: &Path, bytes: &[u8]| -> Result<(), Stop> {
-        match fs::OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(path)
-        {
-            Ok(mut file) => {
-                file.write_all(bytes)
-                    .map_err(|e| condition(e.to_string()))?;
-                file.sync_all().map_err(|e| condition(e.to_string()))?;
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
-            Err(e) => return Err(conflict(e.to_string())),
-        }
-        if bridgeforge_core::managed_paths::read_metadata(path, 4 * 1024 * 1024)
-            .map_err(conflict)?
-            .as_deref()
-            != Some(bytes)
-        {
-            return Err(conflict(
-                "release attempt archive differs; archive and current state preserved",
-            ));
-        }
-        Ok(())
-    };
-    preserve(&path, bytes)?;
-    if let Some(guard) = guard {
-        let name = format!("commit-guard-{}.json", &raw_sha(&guard.bytes)[7..]);
-        preserve(&path.with_file_name(name), &guard.bytes)?;
-    }
-    Ok(relative)
-}
-
-fn require_repreparable(
-    root: &Path,
-    runner: &dyn ProcessRunner,
-    old: &State,
-    current: &Anchor,
-) -> Result<(), Stop> {
-    if old.commit.is_some()
-        || !["prepared", "source-syncing", "blocked-before-commit"].contains(&old.status.as_str())
-    {
-        return Err(conflict(
-            "unfinished release inputs changed after a fixed source commit; previous attempt preserved",
-        ));
-    }
-    require_idle_git(root, runner)?;
-    let guard = git_sync::inspect_commit_guard(root, runner).map_err(conflict)?;
-    match &old.anchor {
-        Some(before) if before == current => {}
-        Some(_) => {
-            return Err(conflict(
-                "release Git checkpoint or push target changed; previous attempt preserved",
-            ));
-        }
-        None if old.status == "prepared"
-            && guard
-                .as_ref()
-                .is_some_and(|g| g.before_commit && g.parent == current.head) => {}
-        None => {
-            return Err(conflict(
-                "legacy prepared release lacks verified before-commit evidence; previous attempt preserved",
-            ));
-        }
-    }
-    if guard.as_ref().is_some_and(|g| !g.before_commit) {
-        return Err(conflict(
-            "reviewed source commit already exists; reprepare refused",
-        ));
-    }
-    platform::match_remote(&current.url, &old.plan.repository, old.plan.gitlab_origin.as_deref())
-}
-
-fn verified_source_commit(
-    root: &Path,
-    runner: &dyn ProcessRunner,
-    before: &Anchor,
-    current: &Anchor,
-    input: &str,
-) -> Result<bool, Stop> {
-    if !before.same_target(current)
-        || !git(root, runner, &["status", "--porcelain"])?.is_empty()
-        || fingerprint(root, runner)? != input
-    {
-        return Ok(false);
-    }
-    let parents = git(root, runner, &["rev-list", "--parents", "-n", "1", "HEAD"])?;
-    let parents: Vec<_> = parents.split_whitespace().collect();
-    if parents != [current.head.as_str(), before.head.as_str()] {
-        return Ok(false);
-    }
-    if let Some(guard) = git_sync::inspect_commit_guard(root, runner).map_err(conflict)? {
-        if guard.before_commit
-            || guard.parent != before.head
-            || git(root, runner, &["rev-parse", "HEAD^{tree}"])? != guard.tree
-        {
-            return Ok(false);
-        }
-    }
-    Ok(true)
-}
-
-fn record_source_progress(
-    root: &Path,
-    runner: &dyn ProcessRunner,
-    state: &mut State,
-    input: &str,
-) -> Result<(), Stop> {
-    let current = anchor(root, runner)?;
-    let before = state
-        .anchor
-        .as_ref()
-        .ok_or_else(|| conflict("release source checkpoint missing"))?;
-    if let Some(commit) = &state.commit {
-        state.status = if commit == &current.head
-            && before.same_target(&current)
-            && git(root, runner, &["status", "--porcelain"])?.is_empty()
-            && fingerprint(root, runner)? == input
-        {
-            "source-committed"
-        } else {
-            "source-uncertain"
-        }
-        .into();
-        return Ok(());
-    }
-    if &current == before && fingerprint(root, runner)? == input {
-        state.status = "blocked-before-commit".into();
-    } else if verified_source_commit(root, runner, before, &current, input)? {
-        state.commit = Some(current.head);
-        state.status = "source-committed".into();
-    } else {
-        state.status = "source-uncertain".into();
-    }
-    Ok(())
-}
-
 fn stopped(stage: &str, e: Stop) -> CommandOutcome {
     CommandOutcome {
         code: 2,
@@ -570,7 +375,7 @@ fn stopped(stage: &str, e: Stop) -> CommandOutcome {
         stderr: format!("[native-release] {stage}: {}\n", e.message),
         receipt: Some(
             json!({"schema":1,"operation":"native-release","status":"incomplete","release_requested":true,
-            "stage":stage,"pause_category":e.category,"reason":e.message,"resume":"git-sync release"}),
+            "stage":stage,"pause_category":e.category,"reason":e.message}),
         ),
     }
 }
@@ -599,356 +404,114 @@ pub fn run(
 fn run_inner(
     root: &Path,
     runner: &dyn ProcessRunner,
-    mut options: git_sync::GitSyncOptions,
+    options: git_sync::GitSyncOptions,
 ) -> CommandOutcome {
     let mut stage = "preflight";
-    let mut archived_attempt = None;
-    let mut build_invocations = 0usize;
+    let mut source_commit = None;
+    let mut pushed = false;
     let result = (|| -> Result<Value, Stop> {
-        driver(root)?;
-        if options.skip_fetch || options.skip_push {
-            return Err(decision("release cannot skip source integration or push"));
-        }
-        let preflight = git_sync::preflight(root, runner);
-        if preflight.code != 0 {
-            return Err(condition(preflight.stderr));
-        }
+        let native = driver(root)?;
+        require_idle_git(root, runner)?;
         let _lock = bridgeforge_core::file_lock::FileLock::acquire(
             &root.join(".runtime/bridgeforge-codex/native-release/operation.lock"),
         )
         .map_err(conflict)?;
-        let state_path = root.join(".runtime/bridgeforge-codex/native-release/current.json");
-        let mut expected = state_bytes(&state_path)?;
-        let mut old = expected
-            .as_deref()
-            .map(|bytes| {
-                serde_json::from_slice::<State>(bytes)
-                    .map_err(|e| conflict(format!("release continuation invalid: {e}")))
-            })
-            .transpose()?;
-        if let Some(old) = &old {
-            if old.schema != 1 {
-                return Err(conflict("unknown native release continuation schema"));
-            }
-            if ![
-                "prepared",
-                "source-syncing",
-                "blocked-before-commit",
-                "source-committed",
-                "source-uncertain",
-                "pushed",
-                "released",
-            ]
-            .contains(&old.status.as_str())
-            {
-                return Err(conflict("unknown native release continuation phase"));
-            }
-            if ["source-committed", "pushed", "released"].contains(&old.status.as_str())
-                && old.commit.is_none()
-            {
-                return Err(conflict("release phase lacks its fixed source commit"));
-            }
-        }
-        let observed = anchor(root, runner)?;
-        require_idle_git(root, runner)?;
-        if options.recover_author_identity {
-            recovery::recover(root, runner, &state_path, &mut expected, &mut old, &observed)?;
-        }
-        source::recover(root, runner)?;
-        let mut input = fingerprint(root, runner)?;
-        if old.as_ref().is_some_and(|s| s.status == "source-uncertain") {
-            return Err(conflict(
-                "source synchronization outcome is uncertain; inspect Git progress before continuing",
-            ));
-        }
-        let obsolete = match &old {
-            Some(prior) => source::can_replace_obsolete_attempt(root, runner, prior, &observed)?,
-            None => false,
-        };
-        let recovering = old
-            .as_ref()
-            .is_some_and(|s| s.status != "released" && (s.fingerprint != input || obsolete));
-        if recovering {
-            let prior = old.as_ref().unwrap();
-            if !obsolete {
-                require_repreparable(root, runner, prior, &observed)?;
-            }
-        }
-        let resume = !obsolete && old.as_ref().is_some_and(|s| s.fingerprint == input);
-        if !resume && let Some(bytes) = &expected {
-            unchanged_state(&state_path, &expected)?;
-            let guard = git_sync::inspect_commit_guard(root, runner).map_err(conflict)?;
-            archived_attempt = Some(archive_attempt(root, bytes, guard.as_ref())?);
-            unchanged_state(&state_path, &expected)?;
-        }
-        let mut state = if resume {
-            old.unwrap()
-        } else {
-            stage = "source-integration";
-            let integrated = git_sync::sync_remote(root, runner, options.clone());
-            if integrated.code != 0 {
-                return Err(condition(format!(
-                    "source integration incomplete: {} {:?}",
-                    integrated.stderr, integrated.receipt
-                )));
-            }
-            input = fingerprint(root, runner)?;
-            unchanged_state(&state_path, &expected)?;
-            let mut prepared_from = anchor(root, runner)?;
-            // Fetch may update the native entry too. Never execute the pre-fetch command against new source.
-            let native = driver(root)?;
-            stage = if recovering { "reprepare" } else { "prepare" };
-            build_invocations += 1;
-            request(root, runner, &native.build, 1800)?;
-            let mut selected_source = None;
-            if !native.source_args.is_empty() {
-                stage = "source-version";
-                let (changed, selected) = source::prepare(root, runner, &native, &options)?;
-                selected_source = Some(selected);
-                input = fingerprint(root, runner)?;
-                prepared_from = anchor(root, runner)?;
-                if changed { build_invocations += 1; request(root, runner, &native.build, 1800)?; }
-            }
-            let reuse_release = selected_source.as_ref().and_then(|selected| selected.reuse_release.clone());
-            let plan: Plan = if let Some(selected) = selected_source.as_ref().filter(|selected| selected.reuse_release.is_some()) {
-                platform::existing_plan(root, runner, selected)?
-            } else {
-            let output = format!(
-                ".build/native-release/{}-{}",
-                &input[..16],
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map_err(|e| condition(e.to_string()))?
-                    .as_nanos()
-            );
-            let binary =
-                bridgeforge_core::managed_paths::safe_join(root, &native.program, "release driver")
-                    .map_err(conflict)?;
-            let mut argv = vec![binary.to_string_lossy().into_owned()];
-            argv.extend(native.args.clone());
-            argv.extend([
-                "--project-root".into(),
-                root.to_string_lossy().into_owned(),
-                "--output".into(),
-                root.join(output).to_string_lossy().into_owned(),
-            ]);
-            let prepared = request(root, runner, &argv, native.prepare_timeout_seconds.unwrap_or(300))?;
-            let plan: Plan = serde_json::from_str(&prepared)
-                .map_err(|e| condition(format!("native release plan invalid: {e}")))?;
-            plan.validate(root).map_err(condition)?;
-            plan
-            };
-            if selected_source.as_ref().is_some_and(|selected| selected.identity.product != plan.product
-                || selected.identity.repository != plan.repository || selected.identity.gitlab_origin != plan.gitlab_origin || selected.identity.version != plan.version
-                || format!("{}{}", selected.identity.tag_prefix, selected.identity.version) != plan.tag) {
-                return Err(conflict("artifact plan differs from the selected source version"));
-            }
-            if fingerprint(root, runner)? != input {
-                return Err(conflict(
-                    "release source changed during preparation; prepared artifacts preserved",
-                ));
-            }
-            if anchor(root, runner)? != prepared_from {
-                return Err(conflict(
-                    "Git checkpoint changed during preparation; previous attempt preserved",
-                ));
-            }
-            let state = State {
-                schema: 1,
-                fingerprint: input.clone(),
-                driver: native,
-                plan,
-                commit: None,
-                status: "prepared".into(),
-                result: None,
-                anchor: Some(prepared_from),
-                previous_attempt: archived_attempt.clone(),
-                reuse_release,
-                identity_recovery: old.as_ref().and_then(|s| s.identity_recovery.clone()),
-            };
-            save(&state_path, &state, &mut expected)?;
-            state
-        };
-        // Driver identity is part of source fingerprint, but retain explicit diagnostics for hand-edited state.
-        if serde_json::to_value(&state.driver).unwrap()
-            != serde_json::to_value(driver(root)?).unwrap()
-        {
-            return Err(conflict("native release entry differs from continuation"));
-        }
-        if state.reuse_release.is_none() && state.status != "released" {
-            state.plan.validate(root).map_err(conflict)?;
-        }
-        source::finish(root, runner)?;
-        let current = anchor(root, runner)?;
-        if state
-            .anchor
-            .as_ref()
-            .is_some_and(|before| !before.same_target(&current))
-        {
-            return Err(conflict(
-                "release branch, push target or Git configuration changed",
-            ));
-        }
-        platform::match_remote(&current.url, &state.plan.repository, state.plan.gitlab_origin.as_deref())?;
-        if let Some(commit) = &state.commit {
-            if current.head != *commit || !git(root, runner, &["status", "--porcelain"])?.is_empty()
-            {
-                return Err(conflict(
-                    "fixed release commit or working tree changed; continuation preserved",
-                ));
-            }
-        } else if let Some(before) = &state.anchor {
-            if before.head != current.head {
-                if !verified_source_commit(root, runner, before, &current, &input)? {
-                    return Err(conflict(
-                        "source synchronization outcome is uncertain; previous attempt preserved",
-                    ));
+        let target = anchor(root, runner)?;
+        stage = "source-commit";
+        git(root, runner, &["add", "."])?;
+        let tree = git(root, runner, &["write-tree"])?;
+        if tree != git(root, runner, &["rev-parse", "HEAD^{tree}"])? {
+            let message = match (options.message_file, options.message) {
+                (Some(path), _) => {
+                    fs::read_to_string(path).map_err(|e| condition(e.to_string()))?
                 }
-                state.commit = Some(current.head.clone());
-                state.status = "source-committed".into();
-                save(&state_path, &state, &mut expected)?;
-            }
-        } else {
-            // A legacy clean snapshot can only continue as a fixed source commit.
-            // A dirty legacy snapshot needs the owning commit guard as evidence.
-            let guard = git_sync::inspect_commit_guard(root, runner).map_err(conflict)?;
-            if git(root, runner, &["status", "--porcelain"])?.is_empty() {
-                state.commit = Some(current.head.clone());
-                state.status = "source-committed".into();
-            } else if !guard
-                .as_ref()
-                .is_some_and(|g| g.before_commit && g.parent == current.head)
-            {
-                return Err(conflict(
-                    "legacy release lacks verified source progress; previous attempt preserved",
-                ));
-            }
-            state.anchor = Some(current.clone());
-            save(&state_path, &state, &mut expected)?;
+                (_, Some(message)) => message,
+                _ => "Publish project version".into(),
+            };
+            git(root, runner, &["commit", "-m", &message])?;
         }
-        if !["pushed", "released"].contains(&state.status.as_str()) {
-            stage = "publication-preflight";
-            if let Some(published) = &state.reuse_release {
-                platform::verify_existing(root, runner, &state.plan, &published.commit)?;
-            } else {
-                platform::precheck(root, runner, &state.plan, &current.head,
-                    !git(root, runner, &["status", "--porcelain"])?.is_empty())?;
-            }
-            stage = "source-push";
-            require_idle_git(root, runner)?;
-            if options.message.is_none() && options.message_file.is_none() {
-                options.message = Some(format!(
-                    "chore: 发布 {} {}",
-                    state.plan.product, state.plan.version
-                ));
-            }
-            state.status = "source-syncing".into();
-            save(&state_path, &state, &mut expected)?;
-            options.skip_fetch = !resume;
-            let synced = git_sync::sync(root, runner, options);
-            if synced.code != 0 {
-                record_source_progress(root, runner, &mut state, &input)?;
-                save(&state_path, &state, &mut expected)?;
-                return Err(condition(format!(
-                    "source synchronization incomplete: {} {:?}",
-                    synced.stderr, synced.receipt
-                )));
-            }
-            let actual_commit = git(root, runner, &["rev-parse", "HEAD"])?;
-            if state
-                .commit
-                .as_ref()
-                .is_some_and(|fixed| fixed != &actual_commit)
-            {
-                state.status = "source-uncertain".into();
-                save(&state_path, &state, &mut expected)?;
-                return Err(conflict(
-                    "fixed source commit changed during push recovery; publication stopped",
-                ));
-            }
-            if fingerprint(root, runner)? != input {
-                return Err(conflict(
-                    "release source changed during Git synchronization; publication stopped",
-                ));
-            }
-            let proof = synced
-                .receipt
-                .as_ref()
-                .ok_or_else(|| conflict("source synchronization proof missing"))?;
-            if proof["status"] != "synced"
-                || proof["working_tree"] != "clean"
-                || proof["ahead"] != 0
-                || proof["behind"] != 0
-            {
-                return Err(conflict(
-                    "source push parity was not verified; publication stopped",
-                ));
-            }
-            state.commit = Some(actual_commit);
-            if proof["commit"].as_str() != state.commit.as_deref() {
-                return Err(conflict(
-                    "source push commit differs from synchronization proof",
-                ));
-            }
-            state.status = "pushed".into();
-            save(&state_path, &state, &mut expected)?;
+        let commit = git(root, runner, &["rev-parse", "HEAD"])?;
+        if git(root, runner, &["rev-parse", "HEAD^{tree}"])? != tree {
+            return Err(conflict("committed content differs from the staged tree"));
         }
-        stage = "publication";
-        let publishing = anchor(root, runner)?;
-        if !current.same_target(&publishing)
-            || Some(publishing.head.as_str()) != state.commit.as_deref()
+        source_commit = Some(commit.clone());
+        stage = "prepare";
+        request(root, runner, &native.build, 1800)?;
+        let output = root.join(".build/native-release").join(format!(
+            "{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_err(|e| condition(e.to_string()))?
+                .as_nanos()
+        ));
+        let binary =
+            bridgeforge_core::managed_paths::safe_join(root, &native.program, "release driver")
+                .map_err(condition)?;
+        let mut argv = vec![binary.to_string_lossy().into_owned()];
+        argv.extend(native.args);
+        argv.extend([
+            "--project-root".into(),
+            root.to_string_lossy().into_owned(),
+            "--output".into(),
+            output.to_string_lossy().into_owned(),
+        ]);
+        let prepared = request(
+            root,
+            runner,
+            &argv,
+            native.prepare_timeout_seconds.unwrap_or(300),
+        )?;
+        let plan: Plan = serde_json::from_str(&prepared).map_err(|e| condition(e.to_string()))?;
+        if !bridgeforge_core::native_release::identifier(&plan.tag) {
+            return Err(condition("invalid tag in project release output"));
+        }
+        platform::match_remote(&target.url, &plan.repository, plan.gitlab_origin.as_deref())?;
+        stage = "source-push";
+        let now = anchor(root, runner)?;
+        if !target.same_target(&now)
+            || now.head != commit
+            || !git(root, runner, &["status", "--porcelain"])?.is_empty()
         {
-            return Err(conflict("Git publication remote changed during release"));
+            return Err(conflict("source or push target changed before push"));
         }
-        unchanged_state(&state_path, &expected)?;
-        let mut result = if let Some(published) = &state.reuse_release {
-            platform::verify_existing(root, runner, &state.plan, &published.commit)?
-        } else if state.status == "released" {
-            platform::verify_existing(root, runner, &state.plan, state.commit.as_deref().unwrap())?
-        } else {
-            platform::publish(root, runner, &state.plan, state.commit.as_deref().unwrap())?
-        };
-        result["synchronization_commit"] = json!(state.commit);
-        if fingerprint(root, runner)? != input {
-            return Err(conflict(
-                "source changed during publication; remote result must be inspected before continuing",
-            ));
+        let dest = &target.push_ref;
+        git(
+            root,
+            runner,
+            &[
+                "push",
+                "--no-follow-tags",
+                "--",
+                &target.remote,
+                &format!("{commit}:{dest}"),
+            ],
+        )?;
+        let remote = git(
+            root,
+            runner,
+            &["ls-remote", "--refs", "--", &target.url, dest],
+        )?;
+        if remote != format!("{commit}\t{dest}") || anchor(root, runner)? != now {
+            return Err(conflict("remote push commit or local branch differs"));
         }
-        state.status = "released".into();
-        state.result = Some(result.clone());
-        save(&state_path, &state, &mut expected)?;
-        let mut result = result;
-        result["resumed"] = json!(resume);
-        result["build_invocations"] = json!(build_invocations);
-        result["prepared_artifacts_reused"] = json!(resume);
-        result["source_fingerprint"] = json!(input);
-        result["continuation"] = json!(state_path);
-        result["recovery_action"] = json!(if recovering {
-            "reprepared"
-        } else if resume {
-            "reused"
-        } else {
-            "prepared"
-        });
-        result["previous_attempt"] = json!(state.previous_attempt);
-        result["identity_recovery"] = json!(state.identity_recovery);
-        Ok(result)
+        pushed = true;
+        stage = "publication";
+        let url = platform::publish(root, runner, &plan, &commit)?;
+        Ok(
+            json!({"schema":1,"operation":"native-release","status":"released","publication_verified":false,
+            "version":plan.version,"tag":plan.tag,"commit":commit,"synchronization_commit":commit,
+            "release_url":url,"source_push_verified":true}),
+        )
     })();
     match result {
-        Ok(value) => CommandOutcome::with_receipt(value),
-        Err(e) => {
-            let mut out = stopped(stage, e);
-            if let Ok(Some(bytes)) = bridgeforge_core::managed_paths::read_metadata(
-                &root.join(".runtime/bridgeforge-codex/native-release/current.json"),
-                4 * 1024 * 1024,
-            ) && let Ok(state) = serde_json::from_slice::<State>(&bytes)
-                && let Some(receipt) = out.receipt.as_mut()
-            {
-                receipt["last_completed_stage"] = json!(state.status);
-                receipt["source_commit"] = json!(state.commit);
-                receipt["version"] = json!(state.plan.version);
-                receipt["tag"] = json!(state.plan.tag);
-                receipt["previous_attempt"] = json!(archived_attempt.or(state.previous_attempt));
+        Ok(receipt) => CommandOutcome::with_receipt(receipt),
+        Err(error) => {
+            let mut out = stopped(stage, error);
+            if let Some(receipt) = &mut out.receipt {
+                receipt["source_commit"] = json!(source_commit);
+                receipt["source_push_verified"] = json!(pushed);
+                receipt["publication_verified"] = json!(false);
             }
             out
         }

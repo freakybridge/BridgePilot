@@ -2,64 +2,12 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-/// Read-only native source adapter identity. File ownership is explicit.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-pub struct SourceIdentity {
-    pub product: String,
-    pub repository: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub gitlab_origin: Option<String>,
-    pub version: String,
-    pub tag_prefix: String,
-    pub paths: Vec<String>,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PublishedVersion {
-    pub version: String,
-    pub commit: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SourceContext {
-    pub schema: u32,
-    pub identity: SourceIdentity,
-    pub baseline: Option<PublishedVersion>,
-    pub message: Option<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SourceEdit {
-    pub path: String,
-    pub before: String,
-    pub after: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SourcePlan {
-    pub schema: u32,
-    pub identity: SourceIdentity,
-    pub edits: Vec<SourceEdit>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reuse_release: Option<PublishedVersion>,
-    /// Original artifact order, owned by the native adapter, including its package manifest.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub release_assets: Vec<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+// Older project drivers also emit size and digest fields.
 pub struct Asset {
     pub name: String,
     /// Repository-relative build output; never a user profile or archive path.
     pub path: String,
-    pub sha256: String,
-    pub size: u64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -78,59 +26,56 @@ pub struct Plan {
 }
 
 impl Plan {
-    pub fn validate(&self, root: &Path) -> Result<(), String> {
-        if self.schema != 1 || self.product.trim().is_empty() || self.title.trim().is_empty() {
-            return Err("invalid native release identity".into());
+    pub fn asset_path(&self, root: &Path, asset: &Asset) -> Result<std::path::PathBuf, String> {
+        if !asset.path.starts_with(".build/") || !identifier(&asset.name) {
+            return Err("invalid release attachment path or name".into());
         }
-        self.version
-            .parse::<crate::SemVer>()
-            .map_err(|e| e.to_string())?;
-        validate_repository(&self.repository, self.gitlab_origin.as_deref())?;
-        if !identifier(&self.tag) { return Err("invalid release tag".into()); }
-        if self.assets.is_empty() {
-            return Err("native release has no declared artifacts".into());
+        let path = crate::managed_paths::safe_join(root, &asset.path, "release attachment")?;
+        if self.gitlab_origin.is_none() && path.file_name().and_then(|n| n.to_str()) != Some(&asset.name) {
+            return Err("attachment filename differs from public name".into());
         }
-        let mut names = std::collections::BTreeSet::new();
-        for asset in &self.assets {
-            if !identifier(&asset.name)
-                || !names.insert(&asset.name)
-                || !asset.path.starts_with(".build/")
-            {
-                return Err("invalid, duplicate or non-build release artifact".into());
-            }
-            let path = crate::managed_paths::safe_join(root, &asset.path, "release artifact")?;
-            let bytes = crate::managed_paths::read_metadata(&path, 512 * 1024 * 1024)?
-                .ok_or_else(|| format!("release artifact missing: {}", asset.path))?;
-            if asset.size != bytes.len() as u64 || asset.sha256 != raw_sha(&bytes) {
-                return Err(format!("release artifact changed: {}", asset.name));
-            }
-        }
-        Ok(())
+        Ok(path)
     }
 }
 
-/// An omitted origin preserves the v1 GitHub wire format and publication markers.
 pub fn validate_repository(repository: &str, gitlab_origin: Option<&str>) -> Result<(), String> {
     let parts: Vec<_> = repository.split('/').collect();
-    if parts.len() < 2 || parts.len() > 32 || parts.iter().any(|p| !identifier(p))
-        || (gitlab_origin.is_none() && parts.len() != 2) {
+    if parts.len() < 2
+        || parts.len() > 32
+        || parts.iter().any(|p| !identifier(p))
+        || (gitlab_origin.is_none() && parts.len() != 2)
+    {
         return Err("invalid native release repository".into());
     }
-    if let Some(origin) = gitlab_origin { validate_gitlab_origin(origin)?; }
+    if let Some(origin) = gitlab_origin {
+        validate_gitlab_origin(origin)?;
+    }
     Ok(())
 }
 
 pub fn validate_gitlab_origin(origin: &str) -> Result<(), String> {
-    let authority = origin.strip_prefix("https://").or_else(|| origin.strip_prefix("http://"))
+    let authority = origin
+        .strip_prefix("https://")
+        .or_else(|| origin.strip_prefix("http://"))
         .ok_or("GitLab origin must explicitly use http or https")?;
     let mut pieces = authority.split(':');
     let host = pieces.next().unwrap_or("");
     let port = pieces.next();
-    if pieces.next().is_some() || host.is_empty() || host.len() > 253
-        || host.split('.').any(|p| p.is_empty() || p.starts_with('-') || p.ends_with('-')
-            || !p.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-'))
-        || port.is_some_and(|p| p.parse::<u16>().map_or(true, |n| n == 0)) {
-        return Err("GitLab origin must be a host and optional port, without credentials, path or query".into());
+    if pieces.next().is_some()
+        || host.is_empty()
+        || host.len() > 253
+        || host.split('.').any(|p| {
+            p.is_empty()
+                || p.starts_with('-')
+                || p.ends_with('-')
+                || !p.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-')
+        })
+        || port.is_some_and(|p| p.parse::<u16>().map_or(true, |n| n == 0))
+    {
+        return Err(
+            "GitLab origin must be a host and optional port, without credentials, path or query"
+                .into(),
+        );
     }
     Ok(())
 }

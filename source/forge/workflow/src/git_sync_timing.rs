@@ -65,16 +65,6 @@ pub(super) struct Observed<'a> {
 }
 
 impl ProcessRunner for Observed<'_> {
-    fn factory_transaction(
-        &self,
-        root: &Path,
-        writes: BTreeMap<PathBuf, Vec<u8>>,
-        inputs: BTreeMap<PathBuf, Option<Vec<u8>>>,
-        executor: &dyn ProcessRunner,
-    ) -> Result<bridgeforge_core::factory_bridge::FactoryTransaction, String> {
-        self.runner
-            .factory_transaction(root, writes, inputs, executor)
-    }
     fn run(&self, request: &ProcessRequest) -> std::io::Result<ProcessOutput> {
         let program = Path::new(&request.program)
             .file_stem()

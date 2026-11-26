@@ -1,5 +1,5 @@
 [workspace]
-members = ["source/forge/core", "source/forge/skeleton", "source/forge/checks", "source/forge/workflow", "source/forge/factory", "source/forge/lifecycle", "source/forge/memory", "source/forge/cli", "source/forge/hook", "source/orchestrator/tasks", "source/orchestrator/storage", "source/orchestrator/execution", "source/orchestrator/transfer", "source/orchestrator/install", "source/orchestrator/cli"]
+members = ["source/forge/core", "source/forge/skeleton", "source/forge/checks", "source/forge/workflow", "source/forge/factory", "source/forge/memory", "source/forge/cli", "source/forge/hook", "source/orchestrator/tasks", "source/orchestrator/storage", "source/orchestrator/execution", "source/orchestrator/transfer", "source/orchestrator/install", "source/orchestrator/cli"]
 exclude = [".codex/hooks"]
 default-members = ["source/forge/cli", "source/forge/hook", "source/forge/factory"]
 resolver = "3"
@@ -10,14 +10,13 @@ rust-version = "1.88"
 publish = false
 
 [workspace.metadata.bridgeforge]
-factory-members = ["source/forge/core", "source/forge/skeleton", "source/forge/checks", "source/forge/workflow", "source/forge/lifecycle", "source/forge/memory", "source/forge/factory", "source/forge/cli", "source/forge/hook"]
-public-members = ["source/forge/core", "source/forge/skeleton", "source/forge/checks", "source/forge/workflow", "source/forge/lifecycle", "source/forge/memory", "source/forge/cli", "source/forge/hook"]
+factory-members = ["source/forge/core", "source/forge/skeleton", "source/forge/checks", "source/forge/workflow", "source/forge/memory", "source/forge/factory", "source/forge/cli", "source/forge/hook"]
+public-members = ["source/forge/core", "source/forge/skeleton", "source/forge/checks", "source/forge/workflow", "source/forge/memory", "source/forge/cli", "source/forge/hook"]
 
 [workspace.metadata.bridgeforge.native-release]
 build = ["cargo", "build", "--locked", "--offline", "--release", "--manifest-path", "Cargo.toml", "--target-dir", ".build/bridgepilot/cargo", "-p", "bridgepilot-orchestrator", "--bin", "bp", "--bin", "bp-launcher"]
 program = ".build/bridgepilot/cargo/release/bp.exe"
 args = ["release-prepare"]
-source-args = ["release-source"]
 
 [workspace.dependencies]
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
@@ -33,14 +32,10 @@ bridgeforge-skeleton = { path = "source/forge/skeleton" }
 bridgeforge-checks = { path = "source/forge/checks" }
 bridgeforge-workflow = { path = "source/forge/workflow" }
 bridgeforge-factory = { path = "source/forge/factory" }
-bridgeforge-lifecycle = { path = "source/forge/lifecycle" }
 bridgeforge-memory = { path = "source/forge/memory" }
 bridgeforge-cli = { path = "source/forge/cli" }
 bridgeforge-hook = { path = "source/forge/hook" }
 toml_edit = "=0.23.7"
-pep440_rs = "=0.7.3"
-pep508_rs = "=0.9.2"
-syn = { version = "=2.0.119", features = ["full", "visit"] }
 
 bridgepilot-tasks = { path = "source/orchestrator/tasks" }
 bridgepilot-storage = { path = "source/orchestrator/storage" }

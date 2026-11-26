@@ -11,7 +11,7 @@
 ## 必要验证
 
 - 按实际影响选择最小充分的原生 Cargo 检查、测试、公共入口验证及独立复核，复用覆盖最终输入的证据。未执行的环境或业务验收明确标为未验证。
-- 受管 Rust workspace 为 Forge 九包及平行 BP 包；`.codex/hooks/` 仅为公共八包投影，不启用工厂测试 cfg。
+- 受管 Rust workspace 为 Forge 八包及平行 BP 包；`.codex/hooks/` 仅为公共七包投影，不启用工厂测试 cfg。
 - 独立测试和固定样本在 `scripts/tests/`，构建输出显式进入 `.build/`，测试日志及临时数据进入 `.runtime/tests/<任务>/`。不为测试放宽路径、回滚、外部修改保护或真实断言。
 - 模板变化先执行工厂 `template-standard`，再生成 manifest／dogfood；`--check` 必须零写。工厂不得使用下游 adopt/apply。
 - 公共工具变更经 `build-assets --factory` 准备，核对源、锁、配方、自检及回执；失败保留场景。已准备工具的 `--check` 不启动 Cargo、自检或创建缓存。

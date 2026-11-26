@@ -223,7 +223,7 @@ fn factory_binary_targets(contract: &mut Value) -> Result<(), String> {
 }
 
 fn factory_payload(id: &str, payload: Vec<u8>) -> Result<Vec<u8>, String> {
-    if matches!(id, "codex.hooks-config" | "codex.precommit") {
+    if id == "codex.hooks-config" {
         bridgeforge_skeleton::template::factory_entrypoint_payload(&payload)
     } else {
         Ok(payload)
@@ -669,7 +669,7 @@ pub fn rebuild(root: &Path, check: bool) -> Result<bool, String> {
         .any(|(path, payload)| before[path].as_deref() != payload.as_deref());
     if changed && !check {
         let switches_runtime = targets.iter().any(|(path, payload)| {
-            ([".codex/hooks.json", ".githooks/pre-commit"]
+            ([".codex/hooks.json"]
                 .iter()
                 .any(|p| path == &root.join(p))
                 || path.starts_with(root.join(".codex/skills"))
@@ -760,24 +760,4 @@ fn install_targets(
         });
     }
     Ok(())
-}
-
-/// Pure candidate materialization, shared by factory development and installation.
-/// The caller owns drift checks, journaling, writes and rollback.
-pub fn development_projection(
-    root: &Path,
-    native: &BTreeMap<String, Vec<u8>>,
-) -> Result<BTreeMap<String, Vec<u8>>, String> {
-    if !crate::source_projection::available(root) {
-        return Ok(BTreeMap::new());
-    }
-    let mut outputs = crate::source_projection::render_with_overlay(root, true, native)?
-        .into_iter()
-        .map(|(p, b)| (format!(".codex/hooks/{p}"), b))
-        .collect::<BTreeMap<_, _>>();
-    outputs.insert(bridgeforge_core::product_manifest::FILE.into(), render_product_manifest(root, native)?);
-    outputs.extend(factory_entrypoints(root)?);
-
-    outputs.retain(|p, b| fs::read(root.join(p)).ok().as_ref() != Some(b));
-    Ok(outputs)
 }

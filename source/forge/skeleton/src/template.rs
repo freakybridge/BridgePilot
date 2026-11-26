@@ -183,7 +183,7 @@ fn assets_for(root: &Path) -> Result<Vec<template_standard::Asset>, String> {
     if !factory(root)? { return Ok(assets); }
     assets.retain(|asset| factory_managed_asset(&asset.rule));
     for asset in &mut assets {
-        if !matches!(asset.rule["id"].as_str(), Some("codex.hooks-config" | "codex.precommit")) { continue; }
+        if asset.rule["id"] != "codex.hooks-config" { continue; }
         asset.payload = factory_entrypoint_payload(&asset.payload)?;
         if asset.rule["merge_policy"] == "codex-hooks" {
             let payload: Value = serde_json::from_slice(&asset.payload).map_err(|e| e.to_string())?;
@@ -191,14 +191,6 @@ fn assets_for(root: &Path) -> Result<Vec<template_standard::Asset>, String> {
                 let handlers = crate::baseline::hook_handlers(&payload)?;
                 required["sha256"] = json!(build_manifest::canonical_sha(&handlers[required["id"].as_str().ok_or("hook id missing")?]["handler"])?);
             }
-        } else {
-            let text = std::str::from_utf8(&asset.payload).map_err(|e| e.to_string())?;
-            let begin = asset.rule["region"]["begin"].as_str().ok_or("region begin missing")?;
-            let end = asset.rule["region"]["end"].as_str().ok_or("region end missing")?;
-            let start = text.find(begin).ok_or("region begin missing")?;
-            let stop = text[start..].find(end).ok_or("region end missing")? + start + end.len();
-            let stop = if text[stop..].starts_with('\n') { stop+1 } else { stop };
-            asset.rule["region"]["current_sha256"] = json!(build_manifest::normalized_hash(text[start..stop].as_bytes()));
         }
     }
     Ok(assets)

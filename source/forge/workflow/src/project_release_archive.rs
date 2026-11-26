@@ -18,9 +18,9 @@ fn field(header: &mut [u8], value: u64) -> Result<(), String> {
 pub(super) fn write(
     root: &Path,
     paths: &[String],
-    expected: &BTreeMap<String, String>,
     output: &Path,
-) -> Result<(), String> {
+) -> Result<BTreeMap<String,String>, String> {
+    let mut hashes = BTreeMap::new();
     let mut out = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -81,14 +81,13 @@ pub(super) fn write(
         if copied != metadata.len() {
             return Err("archive input length changed".into());
         }
-        if expected.get(rel) != Some(&format!("sha256:{:x}", hash.finalize())) {
-            return Err(format!("archive input content changed: {rel}"));
-        }
+        hashes.insert(rel.clone(), format!("sha256:{:x}", hash.finalize()));
         let pad = (512 - (copied % 512)) % 512;
         out.write_all(&vec![0u8; pad as usize])
             .map_err(|e| e.to_string())?;
     }
     out.write_all(&[0u8; 1024])
         .and_then(|_| out.sync_all())
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    Ok(hashes)
 }

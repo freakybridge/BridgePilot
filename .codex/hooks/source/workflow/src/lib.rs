@@ -9,7 +9,6 @@ pub use bridgeforge_core::{
     managed_markdown, managed_paths, persistence, release_metrics, runtime, source_projection,
     user_agents,
 };
-pub use bridgeforge_lifecycle::release;
 pub use bridgeforge_skeleton::{baseline, project_hooks};
 pub mod artifact_cleanup;
 pub mod git_command;

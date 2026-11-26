@@ -1,5 +1,4 @@
 //! Factory-only command adaptation. Public CLI dispatch stays in its own package.
-use crate::runner::FactoryRunner;
 use crate::{
     CommandOutcome, ProcessRunner, ProjectContext, SystemProcessRunner, factory_runtime,
     factory_version, manifest,
@@ -56,7 +55,7 @@ pub fn run(args: &[String]) -> CommandOutcome {
     run_with_runner(args, &SystemProcessRunner)
 }
 
-pub fn run_with_runner(args: &[String], inner: &dyn ProcessRunner) -> CommandOutcome {
+pub fn run_with_runner(args: &[String], runner: &dyn ProcessRunner) -> CommandOutcome {
     if args.first().is_some_and(|c| c == "develop") {
         return blocked("retired-command", "configuration-based development ledger is retired; use native build/test/version tools; no files changed");
     }
@@ -70,7 +69,6 @@ pub fn run_with_runner(args: &[String], inner: &dyn ProcessRunner) -> CommandOut
             Ok(json!({"schema":1,"status":"current","target":path}))
         }) { Ok(r) => CommandOutcome::with_receipt(r), Err(e) => blocked("template-standard", e) };
     }
-    let runner = FactoryRunner::new(inner);
     let Some(command) = args.first().map(String::as_str) else {
         return blocked("factory", "a command is required");
     };
@@ -81,7 +79,7 @@ pub fn run_with_runner(args: &[String], inner: &dyn ProcessRunner) -> CommandOut
                 products.push(format!(".build/bridgeforge/bin/{binary}{}", std::env::consts::EXE_SUFFIX));
                 products.push(format!(".build/bridgeforge/bin/build-receipt-{receipt}.json"));
             }
-            bridgeforge_workflow::artifact_cleanup::command_with_products(args, &runner, &products)
+            bridgeforge_workflow::artifact_cleanup::command_with_products(args, runner, &products)
         },
         "self-test" if has(args, "--json") => self_test(),
         "manifest" => match context(args) {
@@ -129,7 +127,7 @@ pub fn run_with_runner(args: &[String], inner: &dyn ProcessRunner) -> CommandOut
                 Ok(root) => factory_runtime::prepare(
                     &root,
                     has(args, "--check") || has(args, "--dry-run"),
-                    &runner,
+                    runner,
                 ),
                 Err(error) => blocked("build-assets", error),
             }
@@ -137,88 +135,14 @@ pub fn run_with_runner(args: &[String], inner: &dyn ProcessRunner) -> CommandOut
         "git-sync" => match factory_context(args) {
             Ok(_) => bridgeforge_workflow::git_command::run_with_identity(
                 args,
-                &runner,
+                runner,
                 self_test().receipt,
             ),
             Err(error) => blocked("git-sync", error),
         },
-        "develop" => {
-            let task_packages =
-                match crate::release::schema4::development::task_packages_argument(args) {
-                    Ok(packages) => packages,
-                    Err(error) => return blocked("develop", error),
-                };
-            let root = match factory_context(args) {
-                Ok(context) => context,
-                Err(error) => return blocked("develop", error),
-            };
-            if ["--preview", "--apply", "--recover", "--validate"]
-                .iter()
-                .filter(|flag| has(args, flag))
-                .count()
-                != 1
-                || ((has(args, "--apply") || has(args, "--recover") || has(args, "--validate"))
-                    && (has(args, "--check") || has(args, "--dry-run")))
-            {
-                return blocked(
-                    "develop",
-                    "choose exactly one of --preview, --validate, --apply, --recover; preview flags cannot authorize writes",
-                );
-            }
-            let request = crate::release::schema4::Request {
-                analysis_file: value(args, "--analysis-file").map(PathBuf::from),
-            };
-            if has(args, "--validate") {
-                return crate::release::schema4::development::validate_for_packages(
-                    root.root(),
-                    &request,
-                    task_packages.as_deref(),
-                    &runner,
-                    Some(&manifest::development_projection),
-                );
-            }
-            if let Some(packages) = task_packages {
-                return if has(args, "--apply") {
-                    crate::release::schema4::development::apply_for_packages(
-                        root.root(),
-                        &request,
-                        &value(args, "--fingerprint").unwrap_or_default(),
-                        &packages,
-                        &runner,
-                        Some(&manifest::development_projection),
-                    )
-                } else {
-                    crate::release::schema4::development::preview_for_packages(
-                        root.root(),
-                        &request,
-                        &packages,
-                        &runner,
-                        Some(&manifest::development_projection),
-                    )
-                };
-            }
-            if has(args, "--recover") {
-                crate::release::schema4::development::recover(root.root())
-            } else if has(args, "--apply") {
-                crate::release::schema4::development::apply_with_materializer(
-                    root.root(),
-                    &request,
-                    &value(args, "--fingerprint").unwrap_or_default(),
-                    &runner,
-                    Some(&manifest::development_projection),
-                )
-            } else {
-                crate::release::schema4::development::preview_with_materializer(
-                    root.root(),
-                    &request,
-                    &runner,
-                    Some(&manifest::development_projection),
-                )
-            }
-        }
         _ => blocked(
             "factory",
-            "usage: bridgeforge-factory <self-test|manifest|check|build-assets|git-sync|develop|cleanup>",
+            "usage: bridgeforge-factory <self-test|manifest|check|build-assets|git-sync|cleanup>",
         ),
     }
 }

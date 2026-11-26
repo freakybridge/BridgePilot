@@ -8,7 +8,6 @@ pub mod template_standard;
 pub mod build_manifest;
 pub mod build_metrics;
 pub mod build_receipt;
-pub mod factory_bridge;
 pub mod file_lock;
 pub mod generated_assets;
 pub mod high_cost;

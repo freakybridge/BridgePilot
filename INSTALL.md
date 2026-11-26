@@ -48,7 +48,7 @@ Cargo 引导可能产生增量构建及缓存写入，只用于已授权维护�
 `--check`（以及同义 `--dry-run`）不创建锁、缓存或收据，不启动 Cargo 或产物自检进程；
 它只证明当前源码/镜像与产物哈希、收据一致。缺失或旧工厂工具不支持此入口时报告检查不可用，
 不得改用 `cargo run` 声称零写入。直接绕过准备入口运行旧 EXE 仍可能使用旧程序。
-不新增拉取后构建 Hook，pre-commit 保持校验职责。下游继续使用原有受管安装升级流程。
+Forge 22 起退役受管 Git pre-commit；下游升级计划列出退役路径，执行时备份原脚本。
 
 公共 `.gitattributes` 默认文本使用 LF，`.bat`、`.cmd` 使用 CRLF；PowerShell 与 VBScript 不统一强制 CRLF。更新保留项目附加规则，显式冲突阻断而不覆盖。严格只读检查支持可证明的简单规则和路径通配；宏、带引号路径等不支持的语法报告无法证明，不创建临时 Git 仓库兜底。普通基线检查保留完整 Git 属性语义核验，并同时检查公共换行例外。
 
@@ -56,7 +56,7 @@ Cargo 引导可能产生增量构建及缓存写入，只用于已授权维护�
 
 1. 在目标项目确认 Git 根、原生版本和发布入口。通过 `$bridgepilot-update` 固定本批官方源码；独立引导从 `https://github.com/freakybridge/BridgePilot.git` 获取干净 `main`，以已获取的 `origin/main` 提交为准。
 2. 从固定源码阅读 [Forge 项目维护手册](source/forge/templates/maintenance/bridgeforge-codex/MAINTENANCE.md)。按手册调用 `prepare-project.ps1` 准备一次公共 CLI 和 Hook，然后用该收据生成目标项目的零写入计划。
-3. 按计划和指纹应用。项目 Skill 安装在 `.codex/skills/`，内部维护手册在 `.codex/maintenance/bridgeforge-codex/`，公共 Hook 注册在 `.codex/hooks.json`，公共工具及构建收据在 `.deps/bridgeforge/bin/`。应用保护项目自有 Skill、Hook、AGENTS 项目区和 pre-commit 私有扩展。用新 Codex 会话核对实际 Skill 路径。
+3. 按计划和指纹应用。项目 Skill 安装在 `.codex/skills/`，内部维护手册在 `.codex/maintenance/bridgeforge-codex/`，公共 Hook 注册在 `.codex/hooks.json`，公共工具及构建收据在 `.deps/bridgeforge/bin/`。应用保护项目自有 Skill、Hook、AGENTS 项目区，原受管 pre-commit 及其扩展随退役事务完整备份。用新 Codex 会话核对实际 Skill 路径。
 
 项目同步采用统一的 Template-only 规则。旧项目合同、版本配置、账本、目录覆盖及 Hook 旁文件进入精确退役；未知额外 JSON 保留并阻断。Apply 核对指纹、公共工具编译来源和 `.codex` 递归仅 hooks.json，失败恢复自身改动并保留外部变化。详见 [项目同步设计](doc/0_architecture/design/codex-project-sync.md)。
 
@@ -200,13 +200,12 @@ $bpWorkspace = Join-Path $env:USERPROFILE 'Documents/Codex/BridgePilotWorkspace'
 .build/bridgeforge/bin/bridgeforge-factory.exe git-sync release
 ```
 
-CLI 读取根 Cargo.toml 的 `workspace.metadata.bridgeforge.native-release` 执行入口，接入远端后，由原生源码适配器比较最近正式 BP Release 与当前源码的实际代码净差异，再按相关代码提交和本次待提交代码消息判定版本。纯验收文档、TODO、索引及普通 Markdown 说明不触发升版；source／.codex 中运行 Skill、模板及其他行为输入不按文件扩展名排除。有代码变化时，适配器提出 VERSION／CHANGELOG 修改，协调器在可恢复事务中应用；已有合理新版本直接复用，无法分类的改动明确暂停。引导构建与版本确定后的最终构建分开，后者使用锁定 Cargo 构建 BP core／launcher，再调用内部 `release-prepare` 复用本节 bundle 逻辑。适配器声明完整 package.json 与十三项 payload；它不包含私人档案、用户配置、凭据或 Memory。
+CLI 通过 Cargo 原生发布入口读取当前 VERSION 和 CHANGELOG，构建并提交推送源码，再向平台创建标签、Release 和附件。发布前由项目维护版本；成功收据注明源码推送已确认，远端内容未复核。
 
-没有代码变化时保持原生版本：尚未发布的既定版本继续完成正式发布；已经发布的版本只同步当前文档等源码增量，再核验原 Release、原标签提交、发布标记和完整资产摘要，复用原发布，不重新打包或替换远端资产。此时收据的 commit 是原发布提交，synchronization_commit 是本次同步提交，publication_reused 为 true；只有源码同步与远端核验都完成才返回 released。缺少本机旧状态或本地产物不影响从原生资产清单和正式发布标记进行核验；远端缺失或不一致明确失败，不以普通 synced 代替发布成功。
+同名标签等平台写入错误直接返回。旧的发布尝试记录不阻断新调用；远端已经接收的写入由操作者处理。
 
-CLI 在提交推送前核对目标版本占用，再受管提交推送固定源码，并发布 `bp-v<BP版本>` 标签的正式 GitHub Release。标签采用 BP 独立命名空间，既有 v13.x 等历史不改写。上传中的 draft 仅是内部事务状态，不增加人工审批；只有完整资产及 digest/size 核验通过才转正式并返回 released。安装消费者继续按上文读取正式 Release。
 
-有效 Cargo 输出会复用。中断后的固定源码、产物和已完成阶段只记录在 `.runtime/bridgeforge-codex/native-release/`，不是版本登记或开发认证；再次调用同一入口仅补缺失步骤。远端结果不确定先查询，不覆盖已有冲突标签、资产或版本。源码变化与未完成发布冲突时保留现场并报告，不能删除接续记录绕过保护。真实用户环境安装和下游部署不自动随发布执行。
+发布标签使用 `bp-v<BP版本>`。发布中断后按命令返回的阶段检查现场；安装消费方仍按安装流程处理资产。
 
 ### 独立安装、升级与回退
 

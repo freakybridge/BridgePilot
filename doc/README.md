@@ -4,6 +4,14 @@ delivery_layout: flat
 
 # BridgePilot Documents
 
+- 待用户验收：[git-sync 检查退役](1_delivery/git-sync-performance/plan_2026-11-26_check-retirement.md)（Forge 22.0.0，提交前 Hook 整体退役，release 仅保留 R1、R9；两平台 14 个离线场景及三类安装／升级通过）。
+
+- 已撤回实现：[git-sync 原优化计划](1_delivery/git-sync-performance/plan_2026-11-25_pre-commit-scope.md)（2026-11-25，后续逐项选择并直接退役检查）。
+
+- [BP 3.0.1 与四个登记项目的 Forge 21.0.1 升级](1_delivery/bridgepilot-update/batch_2026-11-24_forge-21.0.1.md)（2026-11-24，四仓发布驱动均已就绪，原有业务差异保留）。
+
+- 升级完成：[BP 3.0.0 与四个登记下游 Forge 21.0.0 升级](1_delivery/bridgepilot-update/batch_2026-11-24_forge-21.0.0.md)（2026-11-24，四仓均已安装 `code-cleanup` 并退役旧入口，公共工具核验通过；StratusAgent 三处写集外业务变化已记录）。
+
 - 升级完成：[BP 2.7.3 与四个登记下游 Forge 20.1.3 升级](1_delivery/bridgepilot-update/batch_2026-11-16_forge-20.1.3.md)（2026-11-16；本机 BP 与四个专用 Skills 已核验，固定官方 20b5202；四仓各写 10 项、无退役，公共 baseline clean、发布入口 ready。HEAD、stash、业务版本、项目定制及 Stratus 五篇文档原样保留；Library 私有 vault Hook 仍缺失，两仓原始应用日志缺失及补充核验如实记录。未提交推送发布，业务运行未验证）。
 
 - 升级完成：[BP 2.7.1 与四个登记下游 Forge 20.1.1 升级](1_delivery/bridgepilot-update/batch_2026-11-15_forge-20.1.1.md)（2026-11-15；本机 BP 与专用 Skills 已核验，固定官方 d7215bf；四仓安装 succeeded、baseline clean，分别写入 68/70/68/68 文件，退役 0。HEAD、stash 和项目定制区保留；Stratus 指纹漂移已核对接续，另有两篇写集外业务文档继续变化并记录。本轮未提交、推送或发布，业务运行未验证）。

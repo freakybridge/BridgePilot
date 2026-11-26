@@ -17,16 +17,6 @@ pub struct Observed<'a> {
     pub metrics: RefCell<BuildMetrics>,
 }
 impl ProcessRunner for Observed<'_> {
-    fn factory_transaction(
-        &self,
-        root: &std::path::Path,
-        writes: BTreeMap<std::path::PathBuf, Vec<u8>>,
-        inputs: BTreeMap<std::path::PathBuf, Option<Vec<u8>>>,
-        executor: &dyn ProcessRunner,
-    ) -> Result<crate::factory_bridge::FactoryTransaction, String> {
-        self.runner
-            .factory_transaction(root, writes, inputs, executor)
-    }
     fn artifact_cache_enabled(&self) -> bool {
         self.runner.artifact_cache_enabled()
     }
