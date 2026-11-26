@@ -1,21 +1,17 @@
 //! Project-owned native recipe interpreted by the installed, provenance-bound Rust driver.
 //! Versions stay in native files; this recipe never stores a version ledger.
-use bridgeforge_core::native_release::{Asset, Plan, ProductVersion, raw_sha};
+use bridgeforge_core::native_release::{Plan, ProductVersion, raw_sha};
 use bridgeforge_core::{
     ProcessRequest, ProcessRunner, SemVer, SystemProcessRunner, managed_paths, persistence,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
-    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
     time::Duration,
 };
 use toml_edit::{Array, DocumentMut, Item, Table, value};
-
-#[path = "project_release_archive.rs"]
-mod archive;
 
 pub const PROGRAM: &str = ".build/project-release/bin/bridgeforge.exe";
 pub const RECEIPT: &str = ".build/project-release/bin/receipt.json";
@@ -33,11 +29,12 @@ pub struct Recipe {
     pub version_file: String,
     pub changelog: String,
     pub tag_prefix: String,
-    pub include: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub include: Option<Vec<String>>,
     #[serde(default)]
     pub build: Vec<Vec<String>>,
-    #[serde(default)]
-    pub artifacts: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artifacts: Option<Vec<String>>,
 }
 
 fn array(values: &[String]) -> Item {
@@ -135,9 +132,9 @@ pub fn recipe(root: &Path) -> Result<Option<Recipe>, String> {
         version_file: text(table, "version-file")?,
         changelog: text(table, "changelog")?,
         tag_prefix: text(table, "tag-prefix")?,
-        include: strings(table, "include")?,
+        include: table.get("include").map(|_| strings(table, "include")).transpose()?,
         build,
-        artifacts: strings(table, "artifacts")?,
+        artifacts: table.get("artifacts").map(|_| strings(table, "artifacts")).transpose()?,
     };
     validate(root, &r)?;
     Ok(Some(r))
@@ -146,7 +143,6 @@ pub fn recipe(root: &Path) -> Result<Option<Recipe>, String> {
 pub fn validate(root: &Path, r: &Recipe) -> Result<(), String> {
     if r.schema != 1
         || r.product.trim().is_empty()
-        || r.include.is_empty()
         || !bridgeforge_core::native_release::identifier(&format!("{}1.0.0", r.tag_prefix))
     {
         return Err("invalid project release recipe identity".into());
@@ -159,16 +155,6 @@ pub fn validate(root: &Path, r: &Recipe) -> Result<(), String> {
         if !source_path(root, rel)?.is_file() {
             return Err(format!("native project file missing: {rel}"));
         }
-    }
-    for rel in &r.include {
-        source_path(root, rel)?;
-    }
-    let mut seen = BTreeSet::new();
-    for rel in &r.artifacts {
-        if !rel.starts_with(".build/") || !seen.insert(rel) {
-            return Err("artifact paths must be explicit, unique .build files".into());
-        }
-        managed_paths::safe_join(root, rel, "native artifact")?;
     }
     if r.build.len() > 5 {
         return Err("native release has too many sequential build commands; declare a project-owned aggregate build entry".into());
@@ -276,8 +262,8 @@ pub fn manifest(root: &Path, r: &Recipe) -> Result<Vec<u8>, String> {
     if let Some(origin) = &r.gitlab_origin {
         t["gitlab-origin"] = value(origin.as_str());
     }
-    t["include"] = array(&r.include);
-    t["artifacts"] = array(&r.artifacts);
+    if let Some(paths) = &r.include { t["include"] = array(paths); }
+    if let Some(paths) = &r.artifacts { t["artifacts"] = array(paths); }
     let mut commands = Array::new();
     for argv in &r.build {
         let mut a = Array::new();
@@ -345,128 +331,6 @@ pub(super) fn product_version(root: &Path, self_version: bool, write: bool) -> R
     Ok((relative, next))
 }
 
-fn git(root: &Path, args: &[&str]) -> Result<Vec<u8>, String> {
-    let mut q = ProcessRequest::new("git", root);
-    q.args = args.iter().map(Into::into).collect();
-    q.timeout = Duration::from_secs(60);
-    q.env.insert("GIT_OPTIONAL_LOCKS".into(), "0".into());
-    let out = SystemProcessRunner.run(&q).map_err(|e| e.to_string())?;
-    if out.code != 0 || out.timed_out {
-        return Err(format!(
-            "native source query failed: {}",
-            String::from_utf8_lossy(&out.stderr)
-        ));
-    }
-    Ok(out.stdout)
-}
-
-fn inventory(root: &Path, r: &Recipe) -> Result<Vec<String>, String> {
-    let raw = git(
-        root,
-        &[
-            "ls-files",
-            "--cached",
-            "--others",
-            "--exclude-standard",
-            "-z",
-        ],
-    )?;
-    let mut result = BTreeSet::new();
-    for raw in raw.split(|c| *c == 0).filter(|s| !s.is_empty()) {
-        let path = std::str::from_utf8(raw).map_err(|e| e.to_string())?;
-        if !r
-            .include
-            .iter()
-            .any(|p| path == p || path.starts_with(&format!("{p}/")))
-        {
-            continue;
-        }
-        let file = source_path(root, path)?;
-        if file.is_file() {
-            result.insert(path.to_owned());
-        }
-    }
-    for needed in [&r.version_file, &r.changelog] {
-        if !result.contains(needed) {
-            return Err(format!("native release include list omits {needed}"));
-        }
-    }
-    Ok(result.into_iter().collect())
-}
-
-fn packages(root: &Path, files: &[String]) -> Result<Vec<Value>, String> {
-    let mut result = Vec::new();
-    for rel in files.iter().filter(|p| {
-        p.starts_with("source/") && (p.ends_with("/Cargo.toml") || p.ends_with("/pyproject.toml"))
-    }) {
-        let path = source_path(root, rel)?;
-        let doc = fs::read_to_string(&path)
-            .map_err(|e| e.to_string())?
-            .parse::<DocumentMut>()
-            .map_err(|e| e.to_string())?;
-        let key = if rel.ends_with("/Cargo.toml") {
-            "package"
-        } else {
-            "project"
-        };
-        let Some(package) = doc.get(key) else {
-            continue;
-        };
-        let Some(name) = package.get("name").and_then(Item::as_str) else {
-            continue;
-        };
-        let mut version = package
-            .get("version")
-            .and_then(Item::as_str)
-            .map(str::to_owned);
-        let mut owner = rel.clone();
-        let mut inherited = false;
-        if version.is_none()
-            && package
-                .get("version")
-                .and_then(|v| v.get("workspace"))
-                .and_then(Item::as_bool)
-                == Some(true)
-        {
-            for parent in path
-                .parent()
-                .unwrap()
-                .ancestors()
-                .take_while(|p| p.starts_with(root))
-            {
-                let manifest = parent.join("Cargo.toml");
-                if !manifest.is_file() {
-                    continue;
-                }
-                let workspace = fs::read_to_string(manifest)
-                    .map_err(|e| e.to_string())?
-                    .parse::<DocumentMut>()
-                    .map_err(|e| e.to_string())?;
-                if let Some(v) = workspace
-                    .get("workspace")
-                    .and_then(|v| v.get("package"))
-                    .and_then(|v| v.get("version"))
-                    .and_then(Item::as_str)
-                {
-                    version = Some(v.into());
-                    owner = parent
-                        .join("Cargo.toml")
-                        .strip_prefix(root)
-                        .map_err(|e| e.to_string())?
-                        .to_string_lossy()
-                        .replace('\\', "/");
-                    inherited = true;
-                    break;
-                }
-            }
-        }
-        let version = version
-            .ok_or_else(|| format!("native package version is not static/resolvable: {rel}"))?;
-        result.push(json!({"name":name,"version":version,"manifest":rel,"version_manifest":owner,"workspace_version":inherited}));
-    }
-    Ok(result)
-}
-
 #[cfg(windows)]
 fn windows_powershell_modules(
     request: &mut ProcessRequest,
@@ -500,30 +364,17 @@ fn windows_powershell_modules(
     Ok(())
 }
 
-pub fn prepare(root: &Path, output: &Path) -> Result<Value, String> {
+pub fn prepare(root: &Path) -> Result<Value, String> {
     let r = recipe(root)?.ok_or("project release recipe missing")?;
     installed_bp_version(root, &r)?;
-    let supplied = std::path::absolute(root).map_err(|e| e.to_string())?;
-    let root = root.canonicalize().map_err(|e| e.to_string())?;
-    let relative = output
-        .strip_prefix(&root)
-        .or_else(|_| output.strip_prefix(&supplied))
-        .map_err(|_| "release output is outside project")?
-        .to_str()
-        .ok_or("release output must be UTF-8")?
-        .replace('\\', "/");
-    if !relative.starts_with(".build/") {
-        return Err("release output must be in .build".into());
-    }
-    let output = managed_paths::safe_join(&root, &relative, "release output")?;
-    if output.exists() {
-        return Err("release output already exists; preserve previous artifact".into());
-    }
-    let version = fs::read_to_string(source_path(&root, &r.version_file)?).map_err(|e| e.to_string())?;
+    serde_json::to_value(prepare_recipe(root, r)?).map_err(|e| e.to_string())
+}
+
+fn prepare_recipe(root: &Path, r: Recipe) -> Result<Plan, String> {
+    let version = fs::read_to_string(source_path(root, &r.version_file)?).map_err(|e| e.to_string())?;
     let version = version.trim();
-    let input = inventory(&root, &r)?;
     for argv in &r.build {
-        let mut q = ProcessRequest::new(&argv[0], &root);
+        let mut q = ProcessRequest::new(&argv[0], root);
         q.args = argv[1..].iter().map(Into::into).collect();
         q.timeout = Duration::from_secs(3600);
         #[cfg(windows)]
@@ -538,34 +389,9 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value, String> {
             ));
         }
     }
-    fs::create_dir_all(&output).map_err(|e| e.to_string())?;
-    let mut paths = input.clone();
-    paths.extend(r.artifacts.iter().cloned());
-    paths.sort();
-    paths.dedup();
-    let mut snapshot = archive::write(&root, &paths, &output.join("source.tar"))?;
-    snapshot.retain(|path,_| input.binary_search(path).is_ok());
-    let manifest = json!({"schema":1,"product":r.product,"version":version,"repository":r.repository,"gitlab_origin":r.gitlab_origin,
-        "source_files":snapshot,"packages":packages(&root,&input)?,"usage":"Use the existing project checkout and startup entry; this is not a standalone installer."});
-    persistence::atomic_write(
-        &output.join("versions.json"),
-        &serde_json::to_vec_pretty(&manifest).map_err(|e| e.to_string())?,
-    )
-    .map_err(|e| e.to_string())?;
-    let mut sums = String::new();
-    for name in ["source.tar", "versions.json"] {
-        sums.push_str(&format!(
-            "{}  {name}\n",
-            &raw_sha(&fs::read(output.join(name)).map_err(|e| e.to_string())?)[7..]
-        ));
-    }
-    persistence::atomic_write(&output.join("SHA256SUMS.txt"), sums.as_bytes())
-        .map_err(|e| e.to_string())?;
-    let notes = fs::read_to_string(source_path(&root, &r.changelog)?).map_err(|e| e.to_string())?;
+    let notes = fs::read_to_string(source_path(root, &r.changelog)?).map_err(|e| e.to_string())?;
     let notes = version.parse::<ProductVersion>()?.notes(&notes, "")?;
-    let assets = ["source.tar", "versions.json", "SHA256SUMS.txt"].into_iter()
-        .map(|name| Asset { name:name.into(), path:format!("{relative}/{name}") }).collect();
-    let plan = Plan {
+    Ok(Plan {
         schema: 1,
         product: r.product.clone(),
         version: version.to_owned(),
@@ -574,14 +400,46 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value, String> {
         tag: format!("{}{}", r.tag_prefix, version),
         title: format!("{} {}", r.product, version),
         notes,
-        assets,
-    };
-    serde_json::to_value(plan).map_err(|e| e.to_string())
+        assets: Vec::new(),
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_build_and_release_notes_work_without_archive_inputs() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../.runtime/tests/release-no-attachments")
+            .join(std::process::id().to_string());
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("VERSION"), "1.2.3.6000").unwrap();
+        fs::write(root.join("CHANGELOG.md"), "## [1.2.3.6000]\nRelease notes").unwrap();
+        let spec = json!({"schema":1,"product":"Example","repository":"example/project",
+            "version_file":"VERSION","changelog":"CHANGELOG.md","tag_prefix":"v",
+            "build":[["rustc","--version"]]});
+        let mut r: Recipe = serde_json::from_value(spec).unwrap();
+        for legacy in [false, true] {
+            if legacy {
+                r.include = Some(vec!["source".into()]);
+                r.artifacts = Some(vec![".build/obsolete.zip".into()]);
+            }
+            fs::write(root.join("Cargo.toml"), manifest(&root, &r).unwrap()).unwrap();
+            let installed = recipe(&root).unwrap().unwrap();
+            assert_eq!(installed, r);
+            let plan = prepare_recipe(&root, installed).unwrap();
+            assert_eq!(plan.version, "1.2.3.6000");
+            assert_eq!(plan.tag, "v1.2.3.6000");
+            assert!(plan.notes.contains("Release notes"));
+            assert!(plan.assets.is_empty());
+            assert!(!root.join(".build").exists());
+            fs::remove_file(root.join("Cargo.toml")).unwrap();
+        }
+        r.build = vec![vec!["rustc".into(), "--invalid-build-option".into()]];
+        assert!(prepare_recipe(&root, r).unwrap_err().contains("native project build failed"));
+    }
+
     #[test]
     #[cfg(windows)]
     fn isolate_bundled_pwsh_modules_only_for_windows_powershell_builds() {

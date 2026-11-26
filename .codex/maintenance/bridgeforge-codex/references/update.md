@@ -8,7 +8,7 @@ Forge 项目 Skill 默认安装到 `.codex/skills/`。旧 `.agents/skills/` 中�
 
 安装同时部署并验证项目发布入口。已有 `Cargo.toml` 中的原生发布声明和项目规则必须保留；首次缺入口时，主对话从 INSTALL、原生版本文件、实际 push 目标及已有构建入口整理一次明确的发布规则，作为内部 `--release-spec <本次输入>` 传入计划和 apply。规则只引用原生版本来源，不保存版本值或账本；未知构建／产物范围在安装阶段确认，不等到 release 才补配置。
 
-内部输入使用严格 JSON 对象：`schema=1`、`product`、`repository`、可选 `gitlab_origin`（明确 scheme/host/port）、`version_file`、`changelog`、`tag_prefix`、`include`（精确源码文件或目录）、`build`（项目原生 argv 数组的数组）、`artifacts`（精确 `.build/` 文件）。不包含凭据、自动上传用户资料的通配规则或新版本号。该输入仅服务本次事务，最终规则归入项目 Cargo metadata；不维护第二份在线注册表。
+内部输入使用严格 JSON 对象，包含 `schema=1`、`product`、`repository`、可选 `gitlab_origin`（明确 scheme/host/port）、`version_file`、`changelog`、`tag_prefix` 和 `build`（项目原生 argv 数组的数组）。通用下游驱动按配方构建并发布标签和说明，源码由平台提供，额外附件为零。旧配方中的 `include` 和 `artifacts` 可原样保留，新配方可省略。最终规则归入项目 Cargo metadata。
 
 受管驱动由已准备公共 CLI 字节复用，安装到 `.build/project-release/bin/`，无需每仓重复编译。入口及收据必须出现在计划精确写集并参与指纹；不能只写注册而缺程序。缺规则、未知归属、自定义入口冲突或目标不匹配时保留并报告缺口，不输出整体安装成功。无差异只核验，不重写相同文件或恢复副本。
 

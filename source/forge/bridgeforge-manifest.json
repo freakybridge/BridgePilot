@@ -3528,7 +3528,7 @@
         }
       ]
     },
-    "release_version": "23.0.0",
+    "release_version": "24.0.0",
     "host": "codex",
     "stamp": ".codex/.bridgeforge_codex_version",
     "contract_target": ".codex/managed-skeleton.json",
@@ -3650,12 +3650,13 @@
         "source": "source/forge/templates/maintenance/bridgeforge-codex/references/update.md",
         "target": ".codex/maintenance/bridgeforge-codex/references/update.md",
         "strategy": "whole",
-        "current_sha256": "sha256:acbf8e55d4d6485ad83740107dbeeefeb76f24fcdaa8e3e92905578299cbd726",
+        "current_sha256": "sha256:510398c806e1f7838d4b9b3e2f5bc63d0117b264d24d41cba0d9ea90c0adcf7a",
         "previous_sha256": [
           "sha256:d50516728d61bdfbe768c6256fab49ca95d5bcf8c7e1c14e3220c227aa493087",
           "sha256:6a091d5419974a680c664b6589829d520c3f727d6130cb0c2f137913e8e9759c",
           "sha256:107b5d828a792ab74e2cae00b627386b7f1dccd174ec0cde20b2d84200c048ea",
-          "sha256:b9a4cb47007b9d91caff8fd9f89a6918eeb52d5cfd8b8e7502058359a2d59546"
+          "sha256:b9a4cb47007b9d91caff8fd9f89a6918eeb52d5cfd8b8e7502058359a2d59546",
+          "sha256:acbf8e55d4d6485ad83740107dbeeefeb76f24fcdaa8e3e92905578299cbd726"
         ]
       },
       {
@@ -4076,13 +4077,14 @@
         "source": "source/forge/templates/skills/git-sync/SKILL.md",
         "target": ".codex/skills/git-sync/SKILL.md",
         "strategy": "whole",
-        "current_sha256": "sha256:881812379dcda1800c92d2ce0c24cfd7d28742bf14e75bb070635f27a1859d34",
+        "current_sha256": "sha256:93dc154ddfa0b965e22a8bb15b54203dc6baef08b692e78b0cc65109f7cc91e4",
         "previous_sha256": [
           "sha256:cc88742d4e1e71082815365040c27067eda3b77ef6b4b549f4c3dfc1d977048a",
           "sha256:82c645eece6261c6be3f81b7f968801ea43aa05266428be93fb3ac3d3193aeef",
           "sha256:8910de659f1a604d56fc7cc8d741b5fb52f2a4d53e23886a3e7249ed26c68e35",
           "sha256:2fef31c2eaf2e3adc8ae0d87445ab429f1a469d16da0a1c5612d68b5c336be3a",
-          "sha256:459fd5cb4286d9f0bbd5d308dd2ef4d67c74d2acdbab71663d3c996e7c67bfde"
+          "sha256:459fd5cb4286d9f0bbd5d308dd2ef4d67c74d2acdbab71663d3c996e7c67bfde",
+          "sha256:881812379dcda1800c92d2ce0c24cfd7d28742bf14e75bb070635f27a1859d34"
         ],
         "relocation": {
           "id": "codex.project-workflow.git-sync.skill.md",
@@ -4665,7 +4667,7 @@
         "source": "Cargo.lock",
         "target": ".codex/hooks/Cargo.lock",
         "strategy": "whole",
-        "current_sha256": "sha256:991799b9b4666584afa90bba2496b082e0cbc02cfa8fafa48edcb5f7b01184f8",
+        "current_sha256": "sha256:feb05671ab216ab6c71e4031ba2d1f1807ac842362621029ab473e5d83a9207c",
         "render": "public-runtime-lock"
       },
       {
@@ -4758,14 +4760,14 @@
         "source": "source/forge/cli/Cargo.toml",
         "target": ".codex/hooks/source/cli/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:3432dafb3ce270448c52c000809599d2602c8616a7e750648e49eda373cc0161"
+        "current_sha256": "sha256:9d9f5ead104e5308f33fd3531f8eae09eef56c2a866226aac552050fb910c27f"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-cli-src-main-rs",
         "source": "source/forge/cli/src/lib.rs",
         "target": ".codex/hooks/source/cli/src/lib.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:9367d43fec0a0ab7354f4428d7c8939e45055161edc125af3a10db9869b026a1"
+        "current_sha256": "sha256:08b98f6bb43ed51c8eab41665322c95e75d365887f9df0fad6a4fbc89b53f267"
       },
       {
         "id": "codex.hooks.source-cli-src-main-rs",
@@ -5024,7 +5026,7 @@
         "source": "source/forge/core/src/template_assets.rs",
         "target": ".codex/hooks/source/core/src/template_assets.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:4c8fa12f4dec593b87d45aaa5cc090bf34741b9b0f22f557c8b719ef5613f1eb"
+        "current_sha256": "sha256:cd533d333b9ff577bea02a98afa685c721a82063389799137a704ef4e6a4962d"
       },
       {
         "id": "codex.hooks.source-core-src-template-standard-rs",
@@ -5220,7 +5222,7 @@
         "source": "source/forge/workflow/Cargo.toml",
         "target": ".codex/hooks/source/workflow/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:ea572872d016f37b03f0d99e0e23e23489f0a3c131ef920c57680c3baf07d211"
+        "current_sha256": "sha256:36858b98309efd0a060074eaede530cd03a46c70a262c556b278d87d0295c1ce"
       },
       {
         "id": "codex.hooks.source-workflow-src-artifact-cleanup-rs",
@@ -5304,14 +5306,7 @@
         "source": "source/forge/workflow/src/project_release.rs",
         "target": ".codex/hooks/source/workflow/src/project_release.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:df72df58ed00a7ecaf55a8808e9998a138c613c14070ac3541dcbf9d49e0af1e"
-      },
-      {
-        "id": "codex.hooks.source-workflow-src-project-release-archive-rs",
-        "source": "source/forge/workflow/src/project_release_archive.rs",
-        "target": ".codex/hooks/source/workflow/src/project_release_archive.rs",
-        "strategy": "whole",
-        "current_sha256": "sha256:ddf5d0a3ce3bd0e5156e0a98425ac9c2cbd4bc0cd561eaf9fff24badf17dc38b"
+        "current_sha256": "sha256:d2c9c981706f979d9ecd344b445fba4059aecfc0a1e765e79c16f06e9fadc3e2"
       },
       {
         "id": "codex.hooks.source-workflow-src-project-release-install-rs",
@@ -5393,15 +5388,15 @@
             "status": "ok",
             "build_identity": {
               "protocol": 1,
-              "source_tree_sha256": "sha256:024e0977bff846fbe2664e9bd45c8c9f6506b774525da340dfb1313c409ce8bd",
-              "lockfile_sha256": "sha256:991799b9b4666584afa90bba2496b082e0cbc02cfa8fafa48edcb5f7b01184f8"
+              "source_tree_sha256": "sha256:381675d337696d884616247fec530b64c55f35e6772f2f2d19c196113a8b8391",
+              "lockfile_sha256": "sha256:feb05671ab216ab6c71e4031ba2d1f1807ac842362621029ab473e5d83a9207c"
             }
           }
         },
-        "source_tree_sha256": "sha256:024e0977bff846fbe2664e9bd45c8c9f6506b774525da340dfb1313c409ce8bd",
-        "lockfile_sha256": "sha256:991799b9b4666584afa90bba2496b082e0cbc02cfa8fafa48edcb5f7b01184f8",
+        "source_tree_sha256": "sha256:381675d337696d884616247fec530b64c55f35e6772f2f2d19c196113a8b8391",
+        "lockfile_sha256": "sha256:feb05671ab216ab6c71e4031ba2d1f1807ac842362621029ab473e5d83a9207c",
         "build_recipe_sha256": "sha256:38f32bc9a727a88db971e8bcf9c71d1f9e3dc0cd9a68a6f560bcd48bda07c444",
-        "self_test_sha256": "sha256:5315beff4b950c1b410b332a8ea59d831ba362f1c35c049f86c7313ab312ec05",
+        "self_test_sha256": "sha256:62d2ead5c1cd386606919954f7d332272f3d90bfc39aae20eb079f8abc9926cb",
         "source_projection": "public-runtime-v1"
       },
       {
@@ -5445,15 +5440,15 @@
             "status": "ok",
             "build_identity": {
               "protocol": 1,
-              "source_tree_sha256": "sha256:024e0977bff846fbe2664e9bd45c8c9f6506b774525da340dfb1313c409ce8bd",
-              "lockfile_sha256": "sha256:991799b9b4666584afa90bba2496b082e0cbc02cfa8fafa48edcb5f7b01184f8"
+              "source_tree_sha256": "sha256:381675d337696d884616247fec530b64c55f35e6772f2f2d19c196113a8b8391",
+              "lockfile_sha256": "sha256:feb05671ab216ab6c71e4031ba2d1f1807ac842362621029ab473e5d83a9207c"
             }
           }
         },
-        "source_tree_sha256": "sha256:024e0977bff846fbe2664e9bd45c8c9f6506b774525da340dfb1313c409ce8bd",
-        "lockfile_sha256": "sha256:991799b9b4666584afa90bba2496b082e0cbc02cfa8fafa48edcb5f7b01184f8",
+        "source_tree_sha256": "sha256:381675d337696d884616247fec530b64c55f35e6772f2f2d19c196113a8b8391",
+        "lockfile_sha256": "sha256:feb05671ab216ab6c71e4031ba2d1f1807ac842362621029ab473e5d83a9207c",
         "build_recipe_sha256": "sha256:cf5fb262a1e28cd8e05979b29b633143e52ae3cd1b62eeea56d9f55da70d1e5e",
-        "self_test_sha256": "sha256:9fcfdd03787e171e5c7195d4a23e35d372689007b70152fe6de618e68d8569da",
+        "self_test_sha256": "sha256:b3fad7398d6530bb773ade78f0fde4fd2af80babfb836fcaa0b56e23bc0acaac",
         "source_projection": "public-runtime-v1"
       }
     ],

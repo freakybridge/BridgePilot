@@ -339,7 +339,7 @@ pub fn run(args: &[String]) -> CommandOutcome {
             let root=path_value(args,"--project-root")?;
             match args.get(1).map(String::as_str) {
                 Some("check")=>bridgeforge_workflow::project_release::verify_driver(&root),
-                Some("prepare")=>bridgeforge_workflow::project_release::prepare(&root,&path_value(args,"--output")?),
+                Some("prepare")=>bridgeforge_workflow::project_release::prepare(&root),
                 _=>Err("expected project-release check/prepare".into()),
             }
         })();
