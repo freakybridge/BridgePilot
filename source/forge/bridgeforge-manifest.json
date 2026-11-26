@@ -3528,7 +3528,7 @@
         }
       ]
     },
-    "release_version": "24.0.0",
+    "release_version": "24.0.1",
     "host": "codex",
     "stamp": ".codex/.bridgeforge_codex_version",
     "contract_target": ".codex/managed-skeleton.json",
@@ -3937,9 +3937,10 @@
         "source": "source/forge/templates/skills/develop/references/completion-release.md",
         "target": ".codex/skills/develop/references/completion-release.md",
         "strategy": "whole",
-        "current_sha256": "sha256:c2b995a45d42066c6ad4f90d70dc3d9a210349cdc17ecd35d291af5241e33900",
+        "current_sha256": "sha256:01b7401c6c6ff86af4ba7099f55f314125150aff1c0735b2f87e107009cc9039",
         "previous_sha256": [
-          "sha256:a56d784bb4afa213d06ee2eb97a60137a178fef4bdb268c2914c0a6f2f2cce91"
+          "sha256:a56d784bb4afa213d06ee2eb97a60137a178fef4bdb268c2914c0a6f2f2cce91",
+          "sha256:c2b995a45d42066c6ad4f90d70dc3d9a210349cdc17ecd35d291af5241e33900"
         ],
         "relocation": {
           "id": "codex.project-workflow.develop.references.completion-release.md",
@@ -3960,19 +3961,22 @@
         "source": "source/forge/templates/skills/code-cleanup/SKILL.md",
         "target": ".codex/skills/code-cleanup/SKILL.md",
         "strategy": "whole",
-        "current_sha256": "sha256:e3ff86b085723c3232a598509d645f84aeb8610279ba1c71c2e58e66d0fcce2a",
-        "previous_sha256": []
+        "current_sha256": "sha256:d006b2f8cd14b88f18d6bcb335417ef427431f9060c87aa274a4dd79f45af551",
+        "previous_sha256": [
+          "sha256:e3ff86b085723c3232a598509d645f84aeb8610279ba1c71c2e58e66d0fcce2a"
+        ]
       },
       {
         "id": "codex.project-workflow.develop.skill.md",
         "source": "source/forge/templates/skills/develop/SKILL.md",
         "target": ".codex/skills/develop/SKILL.md",
         "strategy": "whole",
-        "current_sha256": "sha256:983461f18d81d86556eeb89dc31c8bc6065092b011d0310e893b382a8967bb9f",
+        "current_sha256": "sha256:6148d0bae8d0c6b445317a439803a72785a94116930d6d977587550284f55bab",
         "previous_sha256": [
           "sha256:12eed5cc7ede6870a33fd36727eebee279aceda827f9fdd18ce152de7cfd9e67",
           "sha256:fc953f08ba7ae316f14e61376d8e74d084a5eab155d47aa547a1050d4f3787ba",
-          "sha256:f7905320cd62249a5c0c29f2bd45c463513a3b64d39ac1f990c2b3402c2a4557"
+          "sha256:f7905320cd62249a5c0c29f2bd45c463513a3b64d39ac1f990c2b3402c2a4557",
+          "sha256:983461f18d81d86556eeb89dc31c8bc6065092b011d0310e893b382a8967bb9f"
         ],
         "relocation": {
           "id": "codex.project-workflow.develop.skill.md",
@@ -4221,10 +4225,11 @@
         "source": "source/forge/templates/skills/summary/references/acceptance-mode.md",
         "target": ".codex/skills/summary/references/acceptance-mode.md",
         "strategy": "whole",
-        "current_sha256": "sha256:f4ea0b347453781a66aa282e4e46959d13ffe1293f5d03c90623578db81c860a",
+        "current_sha256": "sha256:3844398e5a3816e1922089bd0329914ef440e8efde39ab57d545139e7f51da97",
         "previous_sha256": [
           "sha256:a965228a36022ce61c650eaa6cd2f056de814b9fc4ccfe482f8c1573e5eb0a9a",
-          "sha256:cb83e640fad5d8ce28f2c306cfa5e0aabadaac8360401a8d35b339e9080406cb"
+          "sha256:cb83e640fad5d8ce28f2c306cfa5e0aabadaac8360401a8d35b339e9080406cb",
+          "sha256:f4ea0b347453781a66aa282e4e46959d13ffe1293f5d03c90623578db81c860a"
         ],
         "relocation": {
           "id": "codex.project-workflow.summary.references.acceptance-mode.md",
@@ -4667,7 +4672,7 @@
         "source": "Cargo.lock",
         "target": ".codex/hooks/Cargo.lock",
         "strategy": "whole",
-        "current_sha256": "sha256:feb05671ab216ab6c71e4031ba2d1f1807ac842362621029ab473e5d83a9207c",
+        "current_sha256": "sha256:36e1f91770eda3cd5009e4a30597f90b8bdb5702dc86fea68f1426bfd5a89911",
         "render": "public-runtime-lock"
       },
       {
@@ -4760,7 +4765,7 @@
         "source": "source/forge/cli/Cargo.toml",
         "target": ".codex/hooks/source/cli/Cargo.toml",
         "strategy": "whole",
-        "current_sha256": "sha256:9d9f5ead104e5308f33fd3531f8eae09eef56c2a866226aac552050fb910c27f"
+        "current_sha256": "sha256:3398523c1be427ad4761cbef01e0cb1d4752211964f24667d55e84eb9835acc5"
       },
       {
         "id": "codex.hooks.crates-bridgeforge-cli-src-main-rs",
@@ -5026,7 +5031,7 @@
         "source": "source/forge/core/src/template_assets.rs",
         "target": ".codex/hooks/source/core/src/template_assets.rs",
         "strategy": "whole",
-        "current_sha256": "sha256:cd533d333b9ff577bea02a98afa685c721a82063389799137a704ef4e6a4962d"
+        "current_sha256": "sha256:60d2b3decb25f279e23dc7325714e3be2a6fdb0832254ffdf8c02d1b74f0ba6e"
       },
       {
         "id": "codex.hooks.source-core-src-template-standard-rs",
@@ -5388,15 +5393,15 @@
             "status": "ok",
             "build_identity": {
               "protocol": 1,
-              "source_tree_sha256": "sha256:381675d337696d884616247fec530b64c55f35e6772f2f2d19c196113a8b8391",
-              "lockfile_sha256": "sha256:feb05671ab216ab6c71e4031ba2d1f1807ac842362621029ab473e5d83a9207c"
+              "source_tree_sha256": "sha256:f2b035da1355b795a7bffca852321ab38df49b6b4c06c3042fe1d263a200d665",
+              "lockfile_sha256": "sha256:36e1f91770eda3cd5009e4a30597f90b8bdb5702dc86fea68f1426bfd5a89911"
             }
           }
         },
-        "source_tree_sha256": "sha256:381675d337696d884616247fec530b64c55f35e6772f2f2d19c196113a8b8391",
-        "lockfile_sha256": "sha256:feb05671ab216ab6c71e4031ba2d1f1807ac842362621029ab473e5d83a9207c",
+        "source_tree_sha256": "sha256:f2b035da1355b795a7bffca852321ab38df49b6b4c06c3042fe1d263a200d665",
+        "lockfile_sha256": "sha256:36e1f91770eda3cd5009e4a30597f90b8bdb5702dc86fea68f1426bfd5a89911",
         "build_recipe_sha256": "sha256:38f32bc9a727a88db971e8bcf9c71d1f9e3dc0cd9a68a6f560bcd48bda07c444",
-        "self_test_sha256": "sha256:62d2ead5c1cd386606919954f7d332272f3d90bfc39aae20eb079f8abc9926cb",
+        "self_test_sha256": "sha256:9363170501071bd9d414c470bf43c5f1c8a892312951b4726e6398a7f07bfd6d",
         "source_projection": "public-runtime-v1"
       },
       {
@@ -5440,15 +5445,15 @@
             "status": "ok",
             "build_identity": {
               "protocol": 1,
-              "source_tree_sha256": "sha256:381675d337696d884616247fec530b64c55f35e6772f2f2d19c196113a8b8391",
-              "lockfile_sha256": "sha256:feb05671ab216ab6c71e4031ba2d1f1807ac842362621029ab473e5d83a9207c"
+              "source_tree_sha256": "sha256:f2b035da1355b795a7bffca852321ab38df49b6b4c06c3042fe1d263a200d665",
+              "lockfile_sha256": "sha256:36e1f91770eda3cd5009e4a30597f90b8bdb5702dc86fea68f1426bfd5a89911"
             }
           }
         },
-        "source_tree_sha256": "sha256:381675d337696d884616247fec530b64c55f35e6772f2f2d19c196113a8b8391",
-        "lockfile_sha256": "sha256:feb05671ab216ab6c71e4031ba2d1f1807ac842362621029ab473e5d83a9207c",
+        "source_tree_sha256": "sha256:f2b035da1355b795a7bffca852321ab38df49b6b4c06c3042fe1d263a200d665",
+        "lockfile_sha256": "sha256:36e1f91770eda3cd5009e4a30597f90b8bdb5702dc86fea68f1426bfd5a89911",
         "build_recipe_sha256": "sha256:cf5fb262a1e28cd8e05979b29b633143e52ae3cd1b62eeea56d9f55da70d1e5e",
-        "self_test_sha256": "sha256:b3fad7398d6530bb773ade78f0fde4fd2af80babfb836fcaa0b56e23bc0acaac",
+        "self_test_sha256": "sha256:5e3f1609e1d68e84dfa27ac02b9b04211224b3e5d5f8b40d79957493fbf1d1cc",
         "source_projection": "public-runtime-v1"
       }
     ],

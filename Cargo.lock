@@ -58,7 +58,7 @@ dependencies = [
 
 [[package]]
 name = "bridgeforge-cli"
-version = "24.0.0"
+version = "24.0.1"
 dependencies = [
  "bridgeforge-checks",
  "bridgeforge-core",
