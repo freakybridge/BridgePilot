@@ -22,10 +22,10 @@ Native Memory 与受管项目 Hook 全部由 Rust 承载，不要求 Python 或�
 
 ### 首次使用
 
-先安装并登录 Codex，再新开对话，复制以下提示词；不需要预先安装 BP Skill 或 Rust：
+先安装并登录 Codex，再新开对话，复制以下提示词。首次从源码编译需要 Rust 1.88 或更高版本和 Windows C++ 构建工具，Codex 可先核对本机环境。
 
 ```text
-请读取 https://github.com/freakybridge/BridgePilot 最新正式 Release 的安装说明，下载、校验并安装 BP，再检查并从官方来源安装缺少的 Git、GitHub CLI；没有这些依赖时，先沿说明中的系统 HTTPS 引导安装 BP 程序。
+请从 https://github.com/freakybridge/BridgePilot 的最新正式 Release 下载对应标签的源码，按其中的 INSTALL.md 核对构建环境、编译并安装 BP。
 我是首次使用，请为我初始化独立的个人工作区。首次配置时请向我确认一次私有存档库：可推荐我当前 GitHub 账号下的 BridgePilotData，也允许我指定已有库；确认后保存绑定，以后直接复用。已有资料先核对，不读取或恢复其他人的档案。必要的账号登录由我完成。
 完成后请报告实际安装和初始化结果，并引导我登记第一个需要管理的项目；暂不启动项目开发。
 ```

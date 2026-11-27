@@ -23,7 +23,17 @@ pub fn run_with_identity(
         let mut flags = BTreeSet::new();
         while index < args.len() {
             let arg = args[index].as_str();
-            if ["--root", "--message", "--message-file", "--remote", "-m"].contains(&arg) {
+            if [
+                "--root",
+                "--message",
+                "--message-file",
+                "--remote",
+                "--paths-file",
+                "--review-id",
+                "-m",
+            ]
+            .contains(&arg)
+            {
                 let name = if arg == "-m" { "--message" } else { arg };
                 let value = args
                     .get(index + 1)
@@ -58,6 +68,14 @@ pub fn run_with_identity(
         if flags.contains("--publication-required") && !release {
             return Err("--publication-required requires the release operation".into());
         }
+        if (values.contains_key("--paths-file") || values.contains_key("--review-id"))
+            && (!release || flags.contains("--preflight"))
+        {
+            return Err("scope options require native release execution".into());
+        }
+        if values.contains_key("--paths-file") && !values.contains_key("--review-id") {
+            return Err("--paths-file requires the release preflight --review-id".into());
+        }
         if flags.contains("--preflight") && flags.contains("--sync-remote") {
             return Err("choose one Git mode".into());
         }
@@ -86,6 +104,8 @@ pub fn run_with_identity(
         let options = crate::git_sync::GitSyncOptions {
             message: values.get("--message").cloned(),
             message_file: values.get("--message-file").map(PathBuf::from),
+            release_paths: values.get("--paths-file").map(PathBuf::from),
+            review_id: values.get("--review-id").cloned(),
             remote: values
                 .get("--remote")
                 .cloned()

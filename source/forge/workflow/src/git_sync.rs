@@ -102,6 +102,8 @@ fn check_release_commit_guard(git: &Git<'_>) -> Result<(), String> {
 pub struct GitSyncOptions {
     pub message: Option<String>,
     pub message_file: Option<PathBuf>,
+    pub release_paths: Option<PathBuf>,
+    pub review_id: Option<String>,
     pub remote: String,
     pub skip_fetch: bool,
     pub skip_push: bool,

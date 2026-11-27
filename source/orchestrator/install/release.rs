@@ -1,6 +1,6 @@
-//! BP native package adapter. Forge owns fixed-commit publication and transport.
-use crate::{Result, install, versions};
-use bridgeforge_core::native_release::{Asset, Plan};
+//! BP release notes and tag for GitHub's source archives.
+use crate::{Result, versions};
+use bridgeforge_core::native_release::{Plan, ProductVersion};
 use serde_json::Value;
 use std::{fs, path::Path};
 
@@ -22,71 +22,34 @@ pub fn prepare(root: &Path, output: &Path) -> Result<Value> {
     if !relative.starts_with(".build/") {
         return Err("BP release output must stay inside .build".into());
     }
-    let output = bridgeforge_core::managed_paths::safe_join(&root, &relative, "BP release output")?;
+    bridgeforge_core::managed_paths::safe_join(&root, &relative, "BP release output")?;
     let version = fs::read_to_string(root.join("VERSION")).map_err(|e| e.to_string())?;
     if version.trim() != versions::BP_VERSION.trim() {
         return Err(
             "BP release driver differs from native VERSION; rebuild the current source".into(),
         );
     }
-    let executable = std::env::current_exe().map_err(|e| e.to_string())?;
-    let launcher = executable
-        .parent()
-        .ok_or("BP release executable parent missing")?
-        .join(if cfg!(windows) {
-            "bp-launcher.exe"
-        } else {
-            "bp-launcher"
-        });
-    install::bundle(&output, &executable, &launcher)?;
-    let package: install::Package =
-        serde_json::from_slice(&fs::read(output.join("package.json")).map_err(|e| e.to_string())?)
-            .map_err(|e| e.to_string())?;
-    if package.schema != 2
-        || package.assets.len() != install::assets().len()
-        || package.components.as_ref() != Some(&versions::compiled()?)
-    {
-        return Err("BP release requires the complete product asset registry".into());
-    }
-    let mut files = vec![output.join("package.json")];
-    files.extend(package.assets.iter().map(|a| output.join(&a.source)));
-    let assets: Result<Vec<Asset>> = files
-        .into_iter()
-        .map(|path| {
-            crate::store::ordinary(&path)?;
-            Ok(Asset {
-                name: path
-                    .file_name()
-                    .and_then(|v| v.to_str())
-                    .ok_or("non-UTF8 release artifact")?
-                    .into(),
-                path: path
-                    .strip_prefix(&root)
-                    .map_err(|e| e.to_string())?
-                    .to_string_lossy()
-                    .replace('\\', "/"),
-            })
-        })
-        .collect();
+    let version = version.trim();
     let changelog = fs::read_to_string(root.join("CHANGELOG.md")).map_err(|e| e.to_string())?;
-    let notes = package.version.parse::<bridgeforge_core::native_release::ProductVersion>()?.notes(&changelog, "BP ")?;
+    let notes = version.parse::<ProductVersion>()?.notes(&changelog, "BP ")?;
+    let components = versions::compiled()?;
+    let notes = format!(
+        "{notes}\n\n组件：BF {}（source-reference）、orchestrator {}（embedded）。\n\n从本页的 Source code 下载标签源码，按源码根目录 INSTALL.md 中的“从标签源码构建 BP”编译。",
+        components.forge.version, components.orchestrator.version
+    );
     if notes.len() > 100_000 {
         return Err("BP release notes exceed the publication limit".into());
     }
-    let components = package.components.as_ref().unwrap();
     let plan = Plan {
         schema: 1,
         product: "BridgePilot".into(),
-        version: package.version.clone(),
+        version: version.into(),
         repository: "freakybridge/BridgePilot".into(),
         gitlab_origin: None,
-        tag: format!("bp-v{}", package.version),
-        title: format!("BridgePilot {} (Windows x64)", package.version),
-        notes: format!(
-            "{notes}\n\n组件：BF {}（source-reference）、orchestrator {}（embedded）。\n\n安装入口：对应标签源码中的 INSTALL.md；下载 package.json 和全部 {} 项 payload 文件，按安装说明校验后组装。仅包含产品文件，不包含个人档案、凭据、配置或 Memory。",
-            components.forge.version, components.orchestrator.version, package.assets.len()
-        ),
-        assets: assets?,
+        tag: format!("bp-v{version}"),
+        title: format!("BridgePilot {version}"),
+        notes,
+        assets: Vec::new(),
     };
     serde_json::to_value(plan).map_err(|e| e.to_string())
 }

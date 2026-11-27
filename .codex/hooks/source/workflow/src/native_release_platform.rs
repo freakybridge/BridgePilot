@@ -14,9 +14,9 @@ pub(super) fn publish(
     runner: &dyn ProcessRunner,
     plan: &Plan,
     commit: &str,
-) -> Result<String, Stop> {
+) -> Result<(String, bool), Stop> {
     match plan.gitlab_origin.as_deref() {
-        Some(origin) => gitlab::publish(root, runner, plan, commit, origin),
+        Some(origin) => gitlab::publish(root, runner, plan, commit, origin).map(|url| (url, false)),
         None => github::publish(root, runner, plan, commit),
     }
 }

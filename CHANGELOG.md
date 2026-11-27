@@ -1,5 +1,16 @@
 # Changelog
 
+## [BP 7.0.0]
+
+- GitHub Release 保留版本标签与更新说明，源码由 GitHub 提供。使用旧版预编译附件的用户请下载对应标签源码，按根目录 INSTALL.md 编译；需要便携包时可在本地运行 `bp bundle`。
+- orchestrator 0.21.0 和 bridgepilot-install 0.13.0 的 `release-prepare` 生成零附件发布计划。
+- 组合版本纳入 Forge 24.1.0，支持按确认的范围发布和恢复中断的 GitHub Release。
+
+## [24.1.0] - 随 BP 7.0.0 分发
+
+- `git-sync` 和 `git-sync release` 沿用本次显式调用的授权，向平台申请权限时说明原始指令、仓库、目标分支和可能的写操作。
+- bridgeforge-workflow 0.20.0 新增发布范围指纹和文件选择。发布保留其他任务的暂存内容，可安全快进；推送和 GitHub 写入结果不明时先查远端，同一标签、提交和页面一致时可复用。
+
 ## [BP 6.0.1]
 
 - 组合版本纳入 Forge 24.0.1，更新代码清理和版本判级说明。

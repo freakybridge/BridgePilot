@@ -81,6 +81,8 @@ mod github;
 mod gitlab;
 #[path = "native_release_platform.rs"]
 mod platform;
+#[path = "native_release_scope.rs"]
+mod scope;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Driver {
@@ -215,13 +217,25 @@ pub fn preflight(root: &Path, runner: &dyn ProcessRunner) -> CommandOutcome {
         let native = driver(root)?;
         require_idle_git(root, runner)?;
         let target = anchor(root, runner)?;
-        let (_, version) = crate::project_release::product_version(root, native.self_version, false).map_err(condition)?;
-        Ok((target, version))
+        let (_, version) =
+            crate::project_release::product_version(root, native.self_version, false)
+                .map_err(condition)?;
+        let changes = scope::changes(root, runner)?;
+        let base = git(root, runner, &["rev-parse", "--verify", "@{push}"]).ok();
+        let review = scope::fingerprint(&target, &changes, base.as_deref())?;
+        let range = base
+            .as_ref()
+            .map(|oid| format!("{oid}..HEAD"))
+            .unwrap_or_else(|| "HEAD".into());
+        let outgoing = git(root, runner, &["log", "--oneline", &range])?;
+        Ok((target, version, changes, review, base, outgoing))
     })();
     match result {
-        Ok((target,version)) => CommandOutcome::with_receipt(
+        Ok((target, version, changes, review, base, outgoing)) => CommandOutcome::with_receipt(
             json!({"schema":1,"operation":"native-release","status":"ready",
-            "release_requested":true,"version":version.to_string(),"branch":target.branch,"head":target.head,"push_target":target.push_ref,"publication_verified":false}),
+            "release_requested":true,"version":version.to_string(),"branch":target.branch,"head":target.head,"push_remote":target.remote,"push_target":target.push_ref,
+            "changed_paths":changes.keys().collect::<Vec<_>>(),"review_id":review,"cached_push_head":base,
+            "outgoing_from_cached_push_ref":outgoing,"publication_verified":false}),
         ),
         Err(error) => stopped("preflight", error),
     }
@@ -289,6 +303,9 @@ fn anchor(root: &Path, runner: &dyn ProcessRunner) -> Result<Anchor, Stop> {
         runner,
         &["remote", "get-url", "--push", "--all", fields[1]],
     )?;
+    if url.is_empty() || url.lines().count() != 1 {
+        return Err(decision("Git push remote must have one destination URL"));
+    }
     let destination = if !fields[3].is_empty() {
         fields[3]
     } else if fields[2] == fields[4] {
@@ -379,6 +396,95 @@ fn require_idle_git(root: &Path, runner: &dyn ProcessRunner) -> Result<(), Stop>
     Ok(())
 }
 
+fn transient(message: &str) -> bool {
+    let text = message.to_ascii_lowercase();
+    [
+        "timeout true",
+        "timed out",
+        "connection reset",
+        "could not resolve host",
+        "connection refused",
+        "failed to connect",
+        "unexpected eof",
+        "http 502",
+        "http 503",
+        "http 504",
+    ]
+    .iter()
+    .any(|needle| text.contains(needle))
+}
+
+fn retry_read<T>(mut read: impl FnMut() -> Result<T, Stop>) -> Result<T, Stop> {
+    match read() {
+        Err(e) if transient(&e.message) => read(),
+        result => result,
+    }
+}
+
+fn remote_head(
+    root: &Path,
+    runner: &dyn ProcessRunner,
+    target: &Anchor,
+) -> Result<Option<String>, Stop> {
+    let row = retry_read(|| {
+        git(
+            root,
+            runner,
+            &["ls-remote", "--refs", "--", &target.url, &target.push_ref],
+        )
+    })?;
+    if row.is_empty() {
+        return Ok(None);
+    }
+    let (oid, name) = row
+        .split_once('\t')
+        .ok_or_else(|| conflict("invalid remote branch response"))?;
+    if name != target.push_ref
+        || !matches!(oid.len(), 40 | 64)
+        || !oid.bytes().all(|b| b.is_ascii_hexdigit())
+    {
+        return Err(conflict("unexpected remote branch identity"));
+    }
+    Ok(Some(oid.into()))
+}
+
+fn align_branch(
+    root: &Path,
+    runner: &dyn ProcessRunner,
+    target: &Anchor,
+    remote: Option<&str>,
+) -> Result<Anchor, Stop> {
+    let Some(oid) = remote else {
+        return Ok(target.clone());
+    };
+    if oid == target.head {
+        return Ok(target.clone());
+    }
+    retry_read(|| {
+        git(
+            root,
+            runner,
+            &["fetch", "--no-tags", "--", &target.url, &target.push_ref],
+        )
+    })?;
+    if git(root, runner, &["rev-parse", "FETCH_HEAD"])? != oid || anchor(root, runner)? != *target {
+        return Err(conflict("branch moved during release fetch"));
+    }
+    let base = git(root, runner, &["merge-base", &target.head, oid])?;
+    if base == oid {
+        return Ok(target.clone());
+    }
+    if base != target.head {
+        return Err(conflict("release branch diverged from its push target"));
+    }
+    git(root, runner, &["merge", "--ff-only", oid])?;
+    let now = anchor(root, runner)?;
+    if !target.same_target(&now) || now.head != oid {
+        return Err(conflict("fast-forward target changed"));
+    }
+    Ok(now)
+}
+
 fn stopped(stage: &str, e: Stop) -> CommandOutcome {
     CommandOutcome {
         code: 2,
@@ -421,23 +527,94 @@ fn run_inner(
     let mut source_commit = None;
     let mut pushed = false;
     let result = (|| -> Result<Value, Stop> {
-        let native = driver(root)?;
         require_idle_git(root, runner)?;
         let _lock = bridgeforge_core::file_lock::FileLock::acquire(
             &root.join(".runtime/bridgeforge-codex/native-release/operation.lock"),
         )
         .map_err(conflict)?;
         let target = anchor(root, runner)?;
-        stage = "product-version";
-        let (version_path, version) = crate::project_release::product_version(root, native.self_version, true).map_err(condition)?;
-        let version = version.to_string();
-        stage = "source-commit";
-        git(root, runner, &["add", "."])?;
-        let tree = git(root, runner, &["write-tree"])?;
-        if git(root, runner, &["show", &format!("{tree}:{version_path}")])? != version {
-            return Err(conflict("staged product version changed during release preparation"));
+        let reviewed = scope::changes(root, runner)?;
+        let cached = git(root, runner, &["rev-parse", "--verify", "@{push}"]).ok();
+        if let Some(id) = &options.review_id {
+            if *id != scope::fingerprint(&target, &reviewed, cached.as_deref())? {
+                return Err(conflict("reviewed release scope changed"));
+            }
         }
-        if tree != git(root, runner, &["rev-parse", "HEAD^{tree}"])? {
+        let mut paths = scope::selection(&reviewed, options.release_paths.as_deref())?;
+        let remote = remote_head(root, runner, &target)?;
+        let target = align_branch(root, runner, &target, remote.as_deref())?;
+        if let Some(base) = cached.as_deref() {
+            let endpoint = remote.as_deref().ok_or_else(|| {
+                decision("previously tracked remote branch is absent; review branch destination")
+            })?;
+            if endpoint != target.head
+                && endpoint != base
+                && git(root, runner, &["merge-base", base, endpoint])? != base
+            {
+                return Err(conflict(
+                    "remote history was replaced; refresh and review outgoing commits",
+                ));
+            }
+        }
+        if scope::changes(root, runner)? != reviewed {
+            return Err(conflict("working changes differ after target check"));
+        }
+        let scratch = scope::Scratch::new(root)?;
+        let initial_tree = scratch.tree(root, runner, &target.head, &paths)?;
+        let isolated = if paths.len() < reviewed.len() {
+            Some(scratch.checkout(root, runner, &initial_tree)?)
+        } else {
+            None
+        };
+        let build_root = isolated.as_deref().unwrap_or(root);
+        let native = driver(build_root)?;
+        stage = "product-version";
+        let (version_path, version) =
+            crate::project_release::product_version(build_root, native.self_version, false)
+                .map_err(condition)?;
+        let version = version.to_string();
+        let file = build_root.join(&version_path);
+        let before = fs::read_to_string(&file).map_err(|e| condition(e.to_string()))?;
+        if scope::changes(root, runner)? != reviewed || anchor(root, runner)? != target {
+            return Err(conflict(
+                "reviewed source or push target changed before commit",
+            ));
+        }
+        if before.trim() != version {
+            if reviewed.contains_key(&version_path) && !paths.contains(&version_path) {
+                return Err(conflict(
+                    "version qualification overlaps an excluded change",
+                ));
+            }
+            let path = root.join(&version_path);
+            if fs::read(&path).map_err(|e| condition(e.to_string()))? != before.as_bytes() {
+                return Err(conflict("release version changed concurrently"));
+            }
+            let qualified = before.replacen(before.trim(), &version, 1);
+            bridgeforge_core::persistence::atomic_write(&path, qualified.as_bytes())
+                .map_err(|e| condition(e.to_string()))?;
+            paths.insert(version_path.clone());
+        }
+        stage = "source-commit";
+        let tree = if before.trim() == version {
+            initial_tree
+        } else {
+            scratch.tree(
+                root,
+                runner,
+                &initial_tree,
+                &std::collections::BTreeSet::from([version_path.clone()]),
+            )?
+        };
+        let mut remaining = reviewed;
+        remaining.retain(|path, _| !paths.contains(path));
+        if git(root, runner, &["show", &format!("{tree}:{version_path}")])? != version {
+            return Err(conflict(
+                "staged product version changed during release preparation",
+            ));
+        }
+        let creating = tree != git(root, runner, &["rev-parse", "HEAD^{tree}"])?;
+        if creating {
             let message = match (options.message_file, options.message) {
                 (Some(path), _) => {
                     fs::read_to_string(path).map_err(|e| condition(e.to_string()))?
@@ -445,16 +622,36 @@ fn run_inner(
                 (_, Some(message)) => message,
                 _ => "Publish project version".into(),
             };
-            git(root, runner, &["commit", "-m", &message])?;
+            let current = scope::changes(root, runner)?;
+            scope::commit(root, runner, &current, &paths, &message)?;
+        } else {
+            scope::align_index(root, runner, &paths)?;
         }
         let commit = git(root, runner, &["rev-parse", "HEAD"])?;
+        if (creating && git(root, runner, &["rev-parse", "HEAD^"])? != target.head)
+            || (!creating && commit != target.head)
+        {
+            return Err(conflict("branch moved while committing release content"));
+        }
         if git(root, runner, &["rev-parse", "HEAD^{tree}"])? != tree {
             return Err(conflict("committed content differs from the staged tree"));
         }
         source_commit = Some(commit.clone());
+        if scope::changes(root, runner)? != remaining {
+            return Err(conflict(
+                "release files or excluded work changed during commit",
+            ));
+        }
+        if isolated.is_some() {
+            git(
+                build_root,
+                runner,
+                &["checkout", "--detach", "--force", &commit],
+            )?;
+        }
         stage = "prepare";
-        request(root, runner, &native.build, 1800)?;
-        let output = root.join(".build/native-release").join(format!(
+        request(build_root, runner, &native.build, 1800)?;
+        let output = build_root.join(".build/native-release").join(format!(
             "{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
@@ -462,25 +659,32 @@ fn run_inner(
                 .map_err(|e| condition(e.to_string()))?
                 .as_nanos()
         ));
-        let binary =
-            bridgeforge_core::managed_paths::safe_join(root, &native.program, "release driver")
-                .map_err(condition)?;
+        let binary = bridgeforge_core::managed_paths::safe_join(
+            build_root,
+            &native.program,
+            "release driver",
+        )
+        .map_err(condition)?;
         let mut argv = vec![binary.to_string_lossy().into_owned()];
         argv.extend(native.args);
         argv.extend([
             "--project-root".into(),
-            root.to_string_lossy().into_owned(),
+            build_root.to_string_lossy().into_owned(),
             "--output".into(),
             output.to_string_lossy().into_owned(),
         ]);
         let prepared = request(
-            root,
+            build_root,
             runner,
             &argv,
             native.prepare_timeout_seconds.unwrap_or(300),
         )?;
         let plan: Plan = serde_json::from_str(&prepared).map_err(|e| condition(e.to_string()))?;
-        if plan.version != version { return Err(conflict("package version differs from the committed product version")); }
+        if plan.version != version {
+            return Err(conflict(
+                "package version differs from the committed product version",
+            ));
+        }
         if !bridgeforge_core::native_release::identifier(&plan.tag) {
             return Err(condition("invalid tag in project release output"));
         }
@@ -489,35 +693,64 @@ fn run_inner(
         let now = anchor(root, runner)?;
         if !target.same_target(&now)
             || now.head != commit
-            || !git(root, runner, &["status", "--porcelain"])?.is_empty()
+            || scope::changes(root, runner)? != remaining
+            || (isolated.is_some() && !scope::changes(build_root, runner)?.is_empty())
         {
             return Err(conflict("source or push target changed before push"));
         }
         let dest = &target.push_ref;
-        git(
-            root,
-            runner,
-            &[
-                "push",
-                "--no-follow-tags",
-                "--",
-                &target.remote,
-                &format!("{commit}:{dest}"),
-            ],
-        )?;
-        let remote = git(
-            root,
-            runner,
-            &["ls-remote", "--refs", "--", &target.url, dest],
-        )?;
-        if remote != format!("{commit}\t{dest}") || anchor(root, runner)? != now {
-            return Err(conflict("remote push commit or local branch differs"));
+        let pushed_head = remote_head(root, runner, &target)?;
+        if pushed_head.as_deref() != Some(&commit) {
+            if pushed_head != remote {
+                return Err(conflict("remote branch moved during release preparation"));
+            }
+            if pushed_head.is_some() && plan.gitlab_origin.is_none() {
+                github::check_existing(build_root, runner, &plan, &commit)?;
+            }
+            for attempt in 0..2 {
+                if anchor(root, runner)? != now || scope::changes(root, runner)? != remaining {
+                    return Err(conflict("release range or destination changed before push"));
+                }
+                let write = git(
+                    root,
+                    runner,
+                    &[
+                        "push",
+                        "--no-follow-tags",
+                        "--",
+                        &target.remote,
+                        &format!("{commit}:{dest}"),
+                    ],
+                );
+                let observed = remote_head(root, runner, &target).map_err(|e| {
+                    condition(format!(
+                        "push outcome unknown; remote lookup failed: {}",
+                        e.message
+                    ))
+                })?;
+                if observed.as_deref() == Some(&commit) {
+                    break;
+                }
+                if attempt == 0
+                    && observed == pushed_head
+                    && write.as_ref().is_err_and(|e| transient(&e.message))
+                {
+                    continue;
+                }
+                write?;
+                return Err(conflict(
+                    "remote branch does not contain the release commit at its tip",
+                ));
+            }
         }
         pushed = true;
+        if anchor(root, runner)? != now {
+            return Err(conflict("remote push commit or local branch differs"));
+        }
         stage = "publication";
-        let url = platform::publish(root, runner, &plan, &commit)?;
+        let (url, verified) = platform::publish(build_root, runner, &plan, &commit)?;
         Ok(
-            json!({"schema":1,"operation":"native-release","status":"released","publication_verified":false,
+            json!({"schema":1,"operation":"native-release","status":"released","publication_verified":verified,
             "version":plan.version,"tag":plan.tag,"commit":commit,"synchronization_commit":commit,
             "release_url":url,"source_push_verified":true}),
         )

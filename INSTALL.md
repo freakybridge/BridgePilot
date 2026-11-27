@@ -143,19 +143,22 @@ BP 0.12.0 起，便携包新增 `payload/bridgepilot-cleanup-skill.md`，固定�
 
 下列流程由 Codex 执行。GitHub 登录、平台要求的权限确认仍由本人完成；账号登录不能从旧电脑复制。程序从公开产品仓库取得，个人档案只从用户明确指定的私有库读取。
 
-1. **核对本机和入口。** 当前包面向 Windows x64，Codex 已安装。检测 Git、GitHub CLI（`gh`），但缺失时不以它们作为下载 BP 的前提：可用系统 HTTPS 客户端（例如 PowerShell 的 Invoke-RestMethod／Invoke-WebRequest）读取 GitHub.com 的公开 API 并下载已核验的正式包；这一段仅用于安装引导，不替代 BP 的 Rust 执行内核。先安装 BP 程序，再由固定 home 的 environment-install 准备缺少的 Git／gh。鉴权由本人完成，不在聊天中粘贴令牌。`GH_HOST` 指向其他服务时停止核对，不把其他服务器当 GitHub.com。首次引导不要求已有 BP Skill。
+1. **准备构建环境。** Windows x64 需要 Rust 1.88 或更高版本、Cargo 和 Windows C++ 构建工具。可从官方 GitHub Release 页面下载源码，或使用 GitHub API 返回的源码下载地址。首次下载和编译可以在安装 BP、GitHub CLI 及用户级 Skill 之前进行。
 2. **选择目录并保护已有数据。** 默认 home 为本机 `Documents/Codex/BridgePilot`，私有工作区为同级 `BridgePilotWorkspace`，均使用实际绝对路径。存在安装或档案时先读取已有配置、安装状态与同步记录；不重置、不换空目录掩盖冲突，不覆盖用户修改。不使用或复制旧机机器身份。下载暂存固定放在工作区 `.runtime/download/bridgepilot/<release-id>/`；首次安装的 home 保持为空，不能先把下载文件堆到 home 导致归属检查失败。
-3. **固定发布身份并下载。** 使用 `gh api --hostname github.com repos/freakybridge/BridgePilot/releases/latest`，读取同一非 draft、非 prerelease 的正式 Release，保存真实 id、tag、资产 id／name／size／digest。正式 tag 须可解析至该发布的固定源码提交。找不到完整 BP 包时停止，不能改用 main 源码编译、旧机器文件或未经验证的第三方二进制。通过 `gh release download <实际 tag> --repo freakybridge/BridgePilot --pattern <精确资产名> --dir <下载目录>` 下载，禁止通配或覆盖冲突文件；中断后先核对已有文件再复用。
-4. **执行前校验并组装包。** Release 必须包含 `package.json` 及包格式要求的全部 payload。先按 GitHub 实际资产 digest（`sha256:`）校验 manifest，再核对 `product=BridgePilot`：schema 2 必须为 BP 1.0.0 或更高、精确 components（orchestrator=embedded，forge=source-reference）及 launcher protocol 2；历史包十三项，具备 `bp-git-sync-skill-v1` 的包十五项，须包含 `bridgepilot-git-sync-skill.md` 和 `bridgepilot-git-sync-list-projects.py`，按实际 core 自检核对。旧 schema 1 的 0.x 包按原资产表读取：0.12.0起十三项，0.11.x十二项，0.8.x至0.10.x十一项，0.6.x至0.7.x十项，旧0.5.x六项。旧包不具备新版能力。源路径、资产 ID、目标必须匹配 BP 原生固定资产表；拒绝额外入口、绝对路径、`..`、链接与未知目标。模式引用进入 home 的 `source/orchestrator/skills/bridgepilot/references/`，源码更新脚本进入该 Skill 的 `scripts/`；各私有入口进入同名 Skill 目录，git-sync 名单脚本进入其 `scripts/list_projects.py`。历史升级入口名称与新名称按本页迁移合同识别，不另装 Forge 共享 Skill。逐文件校验大小、GitHub digest 和 manifest SHA256；缺失、漂移或身份不明时停止，不执行候选程序。组装到同一下载任务的 `bundle/`，再执行 core `self-test` 与 launcher `--launcher-self-test`，核对实际版本、能力、组件和协议；摘要及回执保存在本次下载目录。
+3. **固定发布身份。** 从官方仓库 `freakybridge/BridgePilot` 选择非 draft、非 prerelease 的正式 Release，记录发布 id、标签和标签对应的提交。通过系统 HTTPS 客户端或已安装的 `gh` 获取该版本的源码，自动化下载使用固定提交的源码归档地址。解压到独立目录，核对根 `VERSION` 与标签 `bp-v<版本>` 一致。
+4. **从该版本生成安装包。** 按“从标签源码构建 BP”在解压目录编译并核对版本，再按“独立安装、升级与回退”用同一次编译的 core 和 launcher 生成本地便携包。将该包用于后续预览和安装。恢复历史预编译版本时，沿用对应标签 INSTALL.md 的附件校验和组装步骤。
 5. **安装、准备依赖并恢复。** 对新工作区调用 core `init`，先 `install-preview --bundle <已核验包> --home <home> --workspace <工作区>`，通过后执行 `install`；这两步无需 Git／gh，也不接管其他机器。用稳定 launcher `environment-check --context <home>` 检查；需要时经明确授权执行 `environment-install --home <home> --scope user --source <来源>`，安装日志和 Unknown 意图固定在 home，不允许换目录重发。只安装 Git.Git／GitHub.cli，不脚本化登录或提权。用户级不受支持时报告，只有用户明确授权才可 machine scope；成功但 PATH未刷新时先核实再检查，不重复安装。winget缺失时报告系统依赖，不猜第三方下载入口。首次配置只确认一次本人私有库，验证后 `sync-configure`；已有库用 `sync-download`，必须读回私有属性、完整历史与准确远端提交。全新空库按已确认初始化授权 enrol／upload，已有控制权不覆盖。已有工作区沿原配置，pending／分叉／活跃／Unknown先核销。最后核对 install-status、self-test和status；中断用 install-recover，不手改记录。
 6. **安装用户级入口并报告。** 按实际 CODEX_HOME（未设则本人 `~/.codex`）解析 skills 目录，使用 `skill-install-preview --home <home> --skills-root <目录>`，再 `skill-install`，用 `skill-status` 逐项验证。支持 `bp-update-first-v1` 的 core 同一事务安装 `bridgepilot`、`bridgepilot-update`、`bridgepilot-cleanup` 三个入口；已有安装可原位补齐。可直接选择 `/bridgepilot-update` 或输入 `$bridgepilot-update <项目与范围>`。其来源仍在 BP home，每个用户级入口只有受管投影和本机 home 绑定；不进入 Forge 共享分发，未知或用户修改的同名 Skill 拒绝覆盖。中断用 `skill-recover`；已安装独立升级入口时，回退 core 也必须支持该能力。返回 home、core版本、档案id／revision、项目、owner与本机身份、Skill安装结果和缺口。文件安装与客户端发现分别核验；未出现时刷新客户端或重启 Codex 后核对。只恢复档案的请求不接管、不上传、不恢复任务或heartbeat、不创建聊天；首次新库初始化另按用户确认的授权。显式 `$bridgepilot handoff restore` 才包含核验后的接管，成功后任务仍暂停。项目代码和业务环境不在私有档案中，恢复和执行分别按实际授权进行。
 
-公开 Release 的安装引导从本节生成，包资产从同一已验证便携包取得。公开产品资产不能包含个人档案、配置、凭据、日志或原生会话／Memory。恢复成功不等于已经完成物理换机接续；缺少旧机交接时，保留可查看档案的状态并报告。
+归档恢复的结果与程序安装分别核验；缺少旧机交接时，保留可查看档案的状态并报告。
 
-从产品仓库根构建专用 CLI，编译产物只进入 `.build/`：
+### 从标签源码构建 BP
+
+在所选 Release 页面下载 GitHub 提供的 Source code 压缩包并解压。从包含 `Cargo.toml`、`Cargo.lock` 和 `VERSION` 的源码根目录执行以下命令。首次构建时 Cargo 可按锁文件下载依赖。
 
 ```powershell
-cargo build --locked --offline --release --manifest-path Cargo.toml --target-dir .build/bridgepilot/cargo -p bridgepilot-orchestrator --bin bp --bin bp-launcher
+cargo build --locked --release --manifest-path Cargo.toml --target-dir .build/bridgepilot/cargo -p bridgepilot-orchestrator --bin bp --bin bp-launcher
+& .build/bridgepilot/cargo/release/bp.exe versions
 ```
 
 使用产品仓库之外的明确私有目录保存个人档案。下例路径由本机选择，换机时重新选择，不能写成公共分发默认值：
@@ -200,14 +203,14 @@ $bpWorkspace = Join-Path $env:USERPROFILE 'Documents/Codex/BridgePilotWorkspace'
 .build/bridgeforge/bin/bridgeforge-factory.exe git-sync release
 ```
 
-CLI 通过 Cargo 原生发布入口读取当前 VERSION 和 CHANGELOG，构建并提交推送源码，再向平台创建标签、Release 和附件。发布前由项目维护版本；成功收据注明源码推送已确认，远端内容未复核。
+CLI 通过 Cargo 原生发布入口核对 VERSION 和 CHANGELOG，构建并确认源码推送后，在 GitHub 创建标签及带更新说明的 Release。GitHub 根据标签自动提供源码 ZIP 和 tar.gz，BP 发布计划的自定义附件为零。
 
 产品版本采用 `A.B.C.N`，前三段来自项目原生版本文件。下游使用本项目发布驱动安装收据的 `bp_product_version`；BP 自身使用根 VERSION 的前三段。对于 BP `M.m.p`，`N=M×1000+m×100+p`，次版本限 0～9，补丁号限 0～99。例如 BP 4.0.0 和业务版本 0.75.1 生成 0.75.1.4000。release 在源码提交前写回，预检只读，子包继续使用三段版本。旧项目先执行受管升级以补齐收据；旧标签保持原样。更新程序能读取三段历史包，产品版本逐段按数值比较，回退仍使用已有安装记录。
 
-同名标签等平台写入错误直接返回。旧的发布尝试记录不阻断新调用；远端已经接收的写入由操作者处理。
+GitHub 标签与固定提交一致时复用；同一 Release 已存在时核对说明与附件。遇到分叉、标签冲突或无法核实的远端写入，按失败阶段和收据处理。发布范围及混合改动的确认方式见 [git-sync](.codex/skills/git-sync/SKILL.md)。
 
 
-发布标签使用 `bp-v<BP版本>`。发布中断后按命令返回的阶段检查现场；安装消费方仍按安装流程处理资产。
+发布标签使用 `bp-v<BP版本>`。发布中断后按命令返回的阶段检查现场。
 
 ### 独立安装、升级与回退
 
